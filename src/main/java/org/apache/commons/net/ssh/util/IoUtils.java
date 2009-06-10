@@ -16,37 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.util;
 
-import org.apache.commons.net.ssh.cipher.BaseCipher;
+import java.io.Closeable;
+import java.io.IOException;
 
 /**
- * BlowfishCBC Cipher
- * 
+ * TODO Add javadoc
+ *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class BlowfishCBC extends BaseCipher
-{
-    
-    /**
-     * Named factory for BlowfishCBC Cipher
-     */
-    public static class Factory implements NamedFactory<Cipher>
-    {
-        public Cipher create()
-        {
-            return new BlowfishCBC();
-        }
-        
-        public String getName()
-        {
-            return "blowfish-cbc";
+public class IoUtils {
+
+    public static void closeQuietly(Closeable... closeables) {
+        for (Closeable c : closeables) {
+            try {
+                if (c != null) {
+                    c.close();
+                }
+            } catch (IOException e) {
+                // Ignore
+            }
         }
     }
-    
-    public BlowfishCBC()
-    {
-        super(8, 16, "Blowfish", "Blowfish/CBC/NoPadding");
-    }
-    
+
 }

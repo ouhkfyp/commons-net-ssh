@@ -18,7 +18,6 @@
  */
 package org.apache.commons.net.ssh;
 
-import org.apache.commons.net.ssh.session.AbstractSession;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
