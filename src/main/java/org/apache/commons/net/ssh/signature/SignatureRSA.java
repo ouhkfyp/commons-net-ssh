@@ -16,37 +16,45 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.signature;
 
-import org.apache.commons.net.ssh.cipher.BaseCipher;
+import org.apache.commons.net.ssh.KeyPairProvider;
+import org.apache.commons.net.ssh.NamedFactory;
+import org.apache.commons.net.ssh.Signature;
 
 /**
- * BlowfishCBC Cipher
- * 
+ * RSA <code>Signature</code>
+ *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class BlowfishCBC extends BaseCipher
-{
-    
+public class SignatureRSA extends AbstractSignature {
+
     /**
-     * Named factory for BlowfishCBC Cipher
+     * A named factory for RSA <code>Signature</code>
      */
-    public static class Factory implements NamedFactory<Cipher>
-    {
-        public Cipher create()
-        {
-            return new BlowfishCBC();
+    public static class Factory implements NamedFactory<Signature> {
+
+        public String getName() {
+            return KeyPairProvider.SSH_RSA;
         }
-        
-        public String getName()
-        {
-            return "blowfish-cbc";
+
+        public Signature create() {
+            return new SignatureRSA();
         }
+
     }
-    
-    public BlowfishCBC()
-    {
-        super(8, 16, "Blowfish", "Blowfish/CBC/NoPadding");
+
+    public SignatureRSA() {
+        super("SHA1withRSA");
     }
-    
+
+    public byte[] sign() throws Exception {
+        return signature.sign();
+    }
+
+    public boolean verify(byte[] sig) throws Exception {
+        sig = extractSig(sig);
+        return signature.verify(sig);
+    }
+
 }

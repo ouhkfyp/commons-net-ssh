@@ -16,37 +16,33 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.mac;
 
-import org.apache.commons.net.ssh.cipher.BaseCipher;
+import org.apache.commons.net.ssh.MAC;
+import org.apache.commons.net.ssh.NamedFactory;
 
 /**
- * BlowfishCBC Cipher
- * 
+ * HMAC-MD5 <code>Mac</code>.
+ *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class BlowfishCBC extends BaseCipher
-{
-    
+public class HMACMD5 extends BaseMac {
+
     /**
-     * Named factory for BlowfishCBC Cipher
+     * Named factory for the HMACMD5 <code>Mac</code>
      */
-    public static class Factory implements NamedFactory<Cipher>
-    {
-        public Cipher create()
-        {
-            return new BlowfishCBC();
+    public static class Factory implements NamedFactory<MAC> {
+
+        public String getName() {
+            return "hmac-md5";
         }
-        
-        public String getName()
-        {
-            return "blowfish-cbc";
+
+        public MAC create() {
+            return new HMACMD5();
         }
     }
-    
-    public BlowfishCBC()
-    {
-        super(8, 16, "Blowfish", "Blowfish/CBC/NoPadding");
+
+    public HMACMD5() {
+        super("HmacMD5", 16, 16);
     }
-    
 }

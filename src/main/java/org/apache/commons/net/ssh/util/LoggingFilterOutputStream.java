@@ -16,37 +16,42 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.util;
 
-import org.apache.commons.net.ssh.cipher.BaseCipher;
+import java.io.FilterOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+
+import org.slf4j.Logger;
 
 /**
- * BlowfishCBC Cipher
- * 
+ * TODO Add javadoc
+ *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class BlowfishCBC extends BaseCipher
-{
-    
-    /**
-     * Named factory for BlowfishCBC Cipher
-     */
-    public static class Factory implements NamedFactory<Cipher>
-    {
-        public Cipher create()
-        {
-            return new BlowfishCBC();
-        }
-        
-        public String getName()
-        {
-            return "blowfish-cbc";
-        }
+public class LoggingFilterOutputStream extends FilterOutputStream {
+
+    private final String msg;
+    private final Logger log;
+
+    public LoggingFilterOutputStream(OutputStream out, String msg, Logger log) {
+        super(out);
+        this.msg = msg;
+        this.log = log;
     }
-    
-    public BlowfishCBC()
-    {
-        super(8, 16, "Blowfish", "Blowfish/CBC/NoPadding");
+
+    @Override
+    public void write(int b) throws IOException {
+	    byte[] d = new byte[1];
+        d[0] = (byte) b;
+        write(d, 0, 1);
     }
-    
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+        if (log != null && log.isTraceEnabled()) {
+            log.trace("{} {}", msg, BufferUtils.printHex(b, off, len));
+        }
+        out.write(b, off, len);
+    }
 }
