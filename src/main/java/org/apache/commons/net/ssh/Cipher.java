@@ -16,46 +16,46 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.sshd.common;
+package org.apache.commons.net.ssh;
 
 /**
- * Wrapper for a cryptographic cipher, used either for encryption
- * or decryption.
- *
+ * Wrapper for a cryptographic cipher, used either for encryption or decryption.
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
- * @version $Rev: 728642 $, $Date: 2008-12-22 11:48:39 +0100 (Mon, 22 Dec 2008) $
  */
-public interface Cipher  {
-
-    enum Mode {
+public interface Cipher
+{
+    
+    enum Mode
+    {
         Encrypt, Decrypt
     }
-
-    /**
-     * Retrieves the size of the initialization vector
-     *
-     * @return
-     */
-    int getIVSize();
-
+    
     /**
      * Retrieves the block size for this cipher
-     *
+     * 
      * @return
      */
     int getBlockSize();
-
+    
     /**
-     * Initialize the cipher for encryption or decryption with
-     * the given private key and initialization vector
-     *
+     * Retrieves the size of the initialization vector
+     * 
+     * @return
+     */
+    int getIVSize();
+    
+    /**
+     * Initialize the cipher for encryption or decryption with the given private
+     * key and initialization vector
+     * 
      * @param mode
      * @param key
      * @param iv
      * @throws Exception
      */
     void init(Mode mode, byte[] key, byte[] iv) throws Exception;
-
+    
     /**
      * Performs in-place encryption or decryption on the given data.
      * 
@@ -65,5 +65,5 @@ public interface Cipher  {
      * @throws Exception
      */
     void update(byte[] input, int inputOffset, int inputLen) throws Exception;
-
+    
 }
