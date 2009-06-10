@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * TODO Add javadoc
@@ -52,25 +52,9 @@ public abstract class AbstractFactoryManager implements FactoryManager
         loadVersion();
     }
     
-    public List<NamedFactory<KeyExchange>> getKeyExchangeFactories()
-    {
-        return keyExchangeFactories;
-    }
-    
-    public void setKeyExchangeFactories(
-                                        List<NamedFactory<KeyExchange>> keyExchangeFactories)
-    {
-        this.keyExchangeFactories = keyExchangeFactories;
-    }
-    
     public List<NamedFactory<Cipher>> getCipherFactories()
     {
         return cipherFactories;
-    }
-    
-    public void setCipherFactories(List<NamedFactory<Cipher>> cipherFactories)
-    {
-        this.cipherFactories = cipherFactories;
     }
     
     public List<NamedFactory<Compression>> getCompressionFactories()
@@ -78,41 +62,9 @@ public abstract class AbstractFactoryManager implements FactoryManager
         return compressionFactories;
     }
     
-    public void setCompressionFactories(
-                                        List<NamedFactory<Compression>> compressionFactories)
+    public List<NamedFactory<KeyExchange>> getKeyExchangeFactories()
     {
-        this.compressionFactories = compressionFactories;
-    }
-    
-    public List<NamedFactory<MAC>> getMACFactories()
-    {
-        return macFactories;
-    }
-    
-    public void setMacFactories(List<NamedFactory<MAC>> macFactories)
-    {
-        this.macFactories = macFactories;
-    }
-    
-    public List<NamedFactory<Signature>> getSignatureFactories()
-    {
-        return signatureFactories;
-    }
-    
-    public void setSignatureFactories(
-                                      List<NamedFactory<Signature>> signatureFactories)
-    {
-        this.signatureFactories = signatureFactories;
-    }
-    
-    public NamedFactory<Random> getRandomFactory()
-    {
-        return randomFactory;
-    }
-    
-    public void setRandomFactory(NamedFactory<Random> randomFactory)
-    {
-        this.randomFactory = randomFactory;
+        return keyExchangeFactories;
     }
     
     public KeyPairProvider getKeyPairProvider()
@@ -120,9 +72,9 @@ public abstract class AbstractFactoryManager implements FactoryManager
         return keyPairProvider;
     }
     
-    public void setKeyPairProvider(KeyPairProvider keyPairProvider)
+    public List<NamedFactory<MAC>> getMACFactories()
     {
-        this.keyPairProvider = keyPairProvider;
+        return macFactories;
     }
     
     public Map<String, String> getProperties()
@@ -130,9 +82,14 @@ public abstract class AbstractFactoryManager implements FactoryManager
         return properties;
     }
     
-    public void setProperties(Map<String, String> properties)
+    public NamedFactory<Random> getRandomFactory()
     {
-        this.properties = properties;
+        return randomFactory;
+    }
+    
+    public List<NamedFactory<Signature>> getSignatureFactories()
+    {
+        return signatureFactories;
     }
     
     public String getVersion()
@@ -145,14 +102,14 @@ public abstract class AbstractFactoryManager implements FactoryManager
         this.version = "SSHD-UNKNOWN";
         try
         {
-            InputStream input =
+            final InputStream input =
                     getClass()
                               .getClassLoader()
                               .getResourceAsStream(
                                                    "org/apache/sshd/sshd-version.properties");
             try
             {
-                Properties props = new Properties();
+                final Properties props = new Properties();
                 props.load(input);
                 this.version = props.getProperty(
                                                  "version").toUpperCase();
@@ -160,12 +117,55 @@ public abstract class AbstractFactoryManager implements FactoryManager
             {
                 input.close();
             }
-        } catch (Exception e)
+        } catch (final Exception e)
         {
             log
                .warn(
                      "Unable to load version from resources. Missing org/apache/sshd/sshd-version.properties ?",
                      e);
         }
+    }
+    
+    public void setCipherFactories(List<NamedFactory<Cipher>> cipherFactories)
+    {
+        this.cipherFactories = cipherFactories;
+    }
+    
+    public void setCompressionFactories(
+                                        List<NamedFactory<Compression>> compressionFactories)
+    {
+        this.compressionFactories = compressionFactories;
+    }
+    
+    public void setKeyExchangeFactories(
+                                        List<NamedFactory<KeyExchange>> keyExchangeFactories)
+    {
+        this.keyExchangeFactories = keyExchangeFactories;
+    }
+    
+    public void setKeyPairProvider(KeyPairProvider keyPairProvider)
+    {
+        this.keyPairProvider = keyPairProvider;
+    }
+    
+    public void setMacFactories(List<NamedFactory<MAC>> macFactories)
+    {
+        this.macFactories = macFactories;
+    }
+    
+    public void setProperties(Map<String, String> properties)
+    {
+        this.properties = properties;
+    }
+    
+    public void setRandomFactory(NamedFactory<Random> randomFactory)
+    {
+        this.randomFactory = randomFactory;
+    }
+    
+    public void setSignatureFactories(
+                                      List<NamedFactory<Signature>> signatureFactories)
+    {
+        this.signatureFactories = signatureFactories;
     }
 }
