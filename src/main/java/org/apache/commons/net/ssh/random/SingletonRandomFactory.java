@@ -16,37 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.random;
 
-import java.io.IOException;
-
-//import org.apache.sshd.common.future.CloseFuture;
-import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.NamedFactory;
+import org.apache.commons.net.ssh.Random;
 
 /**
- * TODO Add javadoc
- * 
+ * A random factory wrapper that uses a single random instance.
+ * The underlying random instance has to be thread safe.
+ *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface Channel
-{
-    
-    int getID();
-    
-    void handleClose() throws IOException;
-    
-    void handleWindowAdjust(Buffer buffer) throws IOException;
-    
-    void handleRequest(Buffer buffer) throws IOException;
-    
-    void handleData(Buffer buffer) throws IOException;
-    
-    void handleExtendedData(Buffer buffer) throws IOException;
-    
-    void handleEOF() throws IOException;
-    
-    void handleFailure() throws IOException;
-    
-    // CloseFuture close(boolean immediately);
-    
+public class SingletonRandomFactory implements Random, NamedFactory<Random> {
+
+    private final NamedFactory<Random> factory;
+    private final Random random;
+
+    public SingletonRandomFactory(NamedFactory<Random> factory) {
+        this.factory = factory;
+        this.random = factory.create();
+    }
+
+    public void fill(byte[] bytes, int start, int len) {
+        random.fill(bytes, start, len);
+    }
+
+    public String getName() {
+        return factory.getName();
+    }
+
+    public Random create() {
+        return this;
+    }
 }

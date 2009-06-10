@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 public abstract class AbstractFactoryManager implements FactoryManager
 {
     
-    private final Logger log = LoggerFactory.getLogger(getClass());
+//    private final Logger log = LoggerFactory.getLogger(getClass());
     
     private Map<String, String> properties = new HashMap<String, String>();
     private List<NamedFactory<KeyExchange>> keyExchangeFactories;
@@ -49,7 +49,7 @@ public abstract class AbstractFactoryManager implements FactoryManager
     
     protected AbstractFactoryManager()
     {
-        loadVersion();
+//        loadVersion();
     }
     
     public List<NamedFactory<Cipher>> getCipherFactories()
@@ -96,49 +96,18 @@ public abstract class AbstractFactoryManager implements FactoryManager
     {
         return version;
     }
-    
-    protected void loadVersion()
-    {
-        this.version = "SSHD-UNKNOWN";
-        try
-        {
-            final InputStream input =
-                    getClass()
-                              .getClassLoader()
-                              .getResourceAsStream(
-                                                   "org/apache/sshd/sshd-version.properties");
-            try
-            {
-                final Properties props = new Properties();
-                props.load(input);
-                this.version = props.getProperty(
-                                                 "version").toUpperCase();
-            } finally
-            {
-                input.close();
-            }
-        } catch (final Exception e)
-        {
-            log
-               .warn(
-                     "Unable to load version from resources. Missing org/apache/sshd/sshd-version.properties ?",
-                     e);
-        }
-    }
-    
+        
     public void setCipherFactories(List<NamedFactory<Cipher>> cipherFactories)
     {
         this.cipherFactories = cipherFactories;
     }
     
-    public void setCompressionFactories(
-                                        List<NamedFactory<Compression>> compressionFactories)
+    public void setCompressionFactories(List<NamedFactory<Compression>> compressionFactories)
     {
         this.compressionFactories = compressionFactories;
     }
     
-    public void setKeyExchangeFactories(
-                                        List<NamedFactory<KeyExchange>> keyExchangeFactories)
+    public void setKeyExchangeFactories(List<NamedFactory<KeyExchange>> keyExchangeFactories)
     {
         this.keyExchangeFactories = keyExchangeFactories;
     }
@@ -153,18 +122,17 @@ public abstract class AbstractFactoryManager implements FactoryManager
         this.macFactories = macFactories;
     }
     
-    public void setProperties(Map<String, String> properties)
-    {
-        this.properties = properties;
-    }
+//    public void setProperties(Map<String, String> properties)
+//    {
+//        this.properties = properties;
+//    }
     
     public void setRandomFactory(NamedFactory<Random> randomFactory)
     {
         this.randomFactory = randomFactory;
     }
     
-    public void setSignatureFactories(
-                                      List<NamedFactory<Signature>> signatureFactories)
+    public void setSignatureFactories(List<NamedFactory<Signature>> signatureFactories)
     {
         this.signatureFactories = signatureFactories;
     }

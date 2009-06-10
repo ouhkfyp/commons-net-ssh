@@ -16,37 +16,41 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.compression;
 
-import java.io.IOException;
-
-//import org.apache.sshd.common.future.CloseFuture;
-import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.Compression;
+import org.apache.commons.net.ssh.NamedFactory;
 
 /**
- * TODO Add javadoc
- * 
+ * ZLib delayed compression.
+ *
+ * @see Compression#isDelayed()
+ *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface Channel
-{
-    
-    int getID();
-    
-    void handleClose() throws IOException;
-    
-    void handleWindowAdjust(Buffer buffer) throws IOException;
-    
-    void handleRequest(Buffer buffer) throws IOException;
-    
-    void handleData(Buffer buffer) throws IOException;
-    
-    void handleExtendedData(Buffer buffer) throws IOException;
-    
-    void handleEOF() throws IOException;
-    
-    void handleFailure() throws IOException;
-    
-    // CloseFuture close(boolean immediately);
-    
+public class CompressionDelayedZlib extends CompressionZlib {
+
+    /**
+     * Named factory for the ZLib Delayed Compression.
+     */
+    public static class Factory implements NamedFactory<Compression> {
+        public String getName() {
+            return "zlib@openssh.com";
+        }
+
+        public Compression create() {
+            return new CompressionDelayedZlib();
+        }
+    }
+
+    /**
+     * Create a new instance of a delayed ZLib compression
+     */
+    public CompressionDelayedZlib() {
+    }
+
+    public boolean isDelayed() {
+        return true;
+    }
+
 }
