@@ -18,21 +18,35 @@
  */
 package org.apache.commons.net.ssh;
 
+import java.io.IOException;
+
+//import org.apache.sshd.common.future.CloseFuture;
+import org.apache.commons.net.ssh.util.Buffer;
+
 /**
- * Message Authentication Code for use in SSH.
- * It usually wraps a javax.crypto.Mac class.
- *
+ * TODO Add javadoc
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface MAC {
-
-    int getBlockSize();
-
-    void init(byte[] key) throws Exception;
-
-    void update(byte[] foo, int start, int len);
-
-    void update(int foo);
-
-    void doFinal(byte[] buf, int offset) throws Exception;
+public interface Channel
+{
+    
+    int getId();
+    
+    void handleClose() throws IOException;
+    
+    void handleWindowAdjust(Buffer buffer) throws IOException;
+    
+    void handleRequest(Buffer buffer) throws IOException;
+    
+    void handleData(Buffer buffer) throws IOException;
+    
+    void handleExtendedData(Buffer buffer) throws IOException;
+    
+    void handleEof() throws IOException;
+    
+    void handleFailure() throws IOException;
+    
+    // CloseFuture close(boolean immediately);
+    
 }
