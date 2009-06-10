@@ -18,21 +18,39 @@
  */
 package org.apache.commons.net.ssh;
 
+import java.security.KeyPair;
+
 /**
- * Message Authentication Code for use in SSH.
- * It usually wraps a javax.crypto.Mac class.
+ * Provider for key pairs.  This provider is used on the server side to provide
+ * the host key, or on the client side to provide the user key.
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface MAC {
+public interface KeyPairProvider {
 
-    int getBlockSize();
+    /**
+     * SSH identifier for RSA keys
+     */
+    String SSH_RSA = "ssh-rsa";
 
-    void init(byte[] key) throws Exception;
+    /**
+     * SSH identifier for DSA keys
+     */
+    String SSH_DSS = "ssh-dss";
 
-    void update(byte[] foo, int start, int len);
+    /**
+     * Load a key of the specified type which can be "ssh-rsa" or "ssh-dss".
+     * If there is no key of this type, return <code>null</code>
+     *
+     * @param type the type of key to load
+     * @return a valid key pair or <code>null</code>
+     */
+    KeyPair loadKey(String type);
 
-    void update(int foo);
-
-    void doFinal(byte[] buf, int offset) throws Exception;
+    /**
+     * Return a comma separated list of the key types available
+     *
+     * @return the list of key availables
+     */
+    String getKeyTypes();
 }

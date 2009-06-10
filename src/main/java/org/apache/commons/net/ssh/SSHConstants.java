@@ -22,9 +22,8 @@ package org.apache.commons.net.ssh;
  * This interface defines constants for the SSH protocol.
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
- * @version $Rev: 760378 $, $Date: 2009-03-31 11:31:38 +0200 (Tue, 31 Mar 2009) $
  */
-public interface SshConstants {
+public interface SSHConstants {
 
     /**
      * SSH message identifiers

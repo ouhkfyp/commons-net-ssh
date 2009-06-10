@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.sshd.common;
+package org.apache.commons.net.ssh;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -26,7 +26,6 @@ import java.security.PublicKey;
  * Usually wraps a javax.crypto.Signature object
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
- * @version $Rev: 728642 $, $Date: 2008-12-22 11:48:39 +0100 (Mon, 22 Dec 2008) $
  */
 public interface Signature {
 
