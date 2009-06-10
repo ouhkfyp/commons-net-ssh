@@ -16,37 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.digest;
 
-import java.io.IOException;
-
-//import org.apache.sshd.common.future.CloseFuture;
-import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.Digest;
+import org.apache.commons.net.ssh.NamedFactory;
 
 /**
- * TODO Add javadoc
- * 
+ * MD5 Digest.
+ *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface Channel
-{
-    
-    int getID();
-    
-    void handleClose() throws IOException;
-    
-    void handleWindowAdjust(Buffer buffer) throws IOException;
-    
-    void handleRequest(Buffer buffer) throws IOException;
-    
-    void handleData(Buffer buffer) throws IOException;
-    
-    void handleExtendedData(Buffer buffer) throws IOException;
-    
-    void handleEOF() throws IOException;
-    
-    void handleFailure() throws IOException;
-    
-    // CloseFuture close(boolean immediately);
-    
+public class MD5 extends BaseDigest {
+
+    /**
+     * Named factory for MD5 digest
+     */
+    public static class Factory implements NamedFactory<Digest> {
+
+        public String getName() {
+            return "md5";
+        }
+
+        public Digest create() {
+            return new MD5();
+        }
+    }
+
+    /**
+     * Create a new instance of a MD5 digest
+     */
+    public MD5() {
+        super("MD5", 16);
+    }
 }

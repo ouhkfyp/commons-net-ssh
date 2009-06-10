@@ -19,29 +19,35 @@
 package org.apache.commons.net.ssh;
 
 /**
- * Exception used in the SSH client or server.
- *
+ * Exception used in the SSH client.
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class RuntimeSSHException extends RuntimeException {
-
-    public RuntimeSSHException() {
+public class RuntimeSSHException extends RuntimeException
+{
+    
+    public RuntimeSSHException()
+    {
         this(null, null);
     }
-
-    public RuntimeSSHException(String message) {
+    
+    public RuntimeSSHException(String message)
+    {
         this(message, null);
     }
-
-    public RuntimeSSHException(Throwable cause) {
+    
+    public RuntimeSSHException(Throwable cause)
+    {
         this(null, cause);
     }
-
-    public RuntimeSSHException(String message, Throwable cause) {
+    
+    public RuntimeSSHException(String message, Throwable cause)
+    {
         super(message);
-        if (cause != null) {
+        if (cause != null)
+        {
             initCause(cause);
         }
     }
-
+    
 }
