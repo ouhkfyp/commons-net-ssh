@@ -31,11 +31,14 @@ public class ClientSession extends SocketClient implements Runnable
     
     public void run()
     {
-        // take from outPackets and write to server
-        // get from server and handle them:
-        // - will be either packets to be handled here e.g. key reexchange
-        // - channel data - write to that channel's output stream in that case
-        // throw exception on close
+        while (true)
+        {
+            // * take from outPackets and write to server
+            // * for packets from server
+            //   - will be either packets to be handled in this thread's context immediately e.g. key reexchange
+            //   - data for a specific channel: will be written to its inputstream
+            // * on session close -- close events go to the channels' streams (?)
+        }
     }
     
     public synchronized void send(Buffer payload) throws InterruptedIOException
