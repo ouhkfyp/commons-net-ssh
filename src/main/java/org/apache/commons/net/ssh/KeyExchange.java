@@ -37,7 +37,7 @@ public interface KeyExchange {
      * @param I_C the client key init packet
      * @throws Exception if an error occurs
      */
-    void init(AbstractSession session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception;
+    void init(ClientSession session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception;
 
     /**
      * Process the next packet
