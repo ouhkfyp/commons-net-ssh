@@ -29,7 +29,6 @@ import java.security.spec.DSAPublicKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPublicKeySpec;
 
-//import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.commons.net.ssh.KeyPairProvider;
 import org.apache.commons.net.ssh.SSHConstants;
 
@@ -242,13 +241,6 @@ public final class Buffer {
         System.arraycopy(buffer.data, buffer.rpos, data, wpos, r);
         wpos += r;
     }
-
-//    public void putBuffer(IoBuffer buffer) {
-//        int r = buffer.remaining();
-//        ensureCapacity(r);
-//        buffer.get(data, wpos, r);
-//        wpos += r;
-//    }
 
     public void putInt(int i) {
         ensureCapacity(4);

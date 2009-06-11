@@ -16,9 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.cipher;
 
-import org.apache.commons.net.ssh.cipher.BaseCipher;
+import org.apache.commons.net.ssh.Cipher;
+import org.apache.commons.net.ssh.NamedFactory;
 
 /**
  * BlowfishCBC Cipher

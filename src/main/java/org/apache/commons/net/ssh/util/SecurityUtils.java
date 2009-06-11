@@ -72,7 +72,7 @@ public class SecurityUtils {
     private static void register() {
         if (!registrationDone) {
             if (securityProvider == null && (registerBouncyCastle == null || registerBouncyCastle)) {
-                // Use an inner class to avoid a strong dependency from SshServer on BouncyCastle
+                // Use an inner class to avoid a strong dependency on BouncyCastle
                 try {
                     new BouncyCastleRegistration().run();
                 } catch (Throwable t) {
