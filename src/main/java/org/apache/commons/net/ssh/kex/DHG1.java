@@ -16,14 +16,38 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.commons.net.ssh.kex;
 
-package org.apache.commons.net.ssh;
+import org.apache.commons.net.ssh.KeyExchange;
+import org.apache.commons.net.ssh.NamedFactory;
+import org.apache.commons.net.ssh.kex.DH;
+import org.apache.commons.net.ssh.kex.DHGroupData;
 
-public class SSHClient extends Session
-{
-    
-    SSHClient() {
-        super(null);
+/**
+ * TODO Add javadoc
+ *
+ * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ */
+public class DHG1 extends AbstractDHGClient {
+
+    /**
+     * Named factory for DHG1 key exchange
+     */
+    public static class Factory implements NamedFactory<KeyExchange> {
+
+        public String getName() {
+            return "diffie-hellman-group1-sha1";
+        }
+
+        public KeyExchange create() {
+            return new DHG1();
+        }
+
     }
-    
+
+    protected void initDH(DH dh) {
+        dh.setG(DHGroupData.getG());
+        dh.setP(DHGroupData.getP1());
+    }
+
 }

@@ -16,14 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.commons.net.ssh;
 
-public class SSHClient extends Session
-{
-    
-    SSHClient() {
-        super(null);
+import java.io.IOException;
+
+import org.apache.commons.net.ssh.util.Buffer;
+
+/**
+ * TODO Add javadoc
+ *
+ * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ */
+public interface UserAuth {
+
+    enum Result {
+        Success,
+        Failure,
+        Continued
     }
-    
+
+    Result next(Buffer buffer) throws IOException;
+
 }
