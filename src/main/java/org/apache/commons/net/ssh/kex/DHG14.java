@@ -30,7 +30,7 @@ import org.apache.commons.net.ssh.kex.DHGroupData;
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class DHG14 extends AbstractDHGClient {
+public class DHG14 extends AbstractDHG {
 
     /**
      * Named factory for DHG14 key exchange
