@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public abstract class AbstractDHGClient implements KeyExchange {
+public abstract class AbstractDHG implements KeyExchange {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
