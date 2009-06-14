@@ -20,7 +20,6 @@ package org.apache.commons.net.ssh;
 
 import java.io.IOException;
 
-//import org.apache.sshd.common.future.CloseFuture;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -47,6 +46,6 @@ public interface Channel
     
     void handleFailure() throws IOException;
     
-    // CloseFuture close(boolean immediately);
+    void close();
     
 }

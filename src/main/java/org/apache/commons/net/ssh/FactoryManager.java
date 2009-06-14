@@ -19,7 +19,6 @@
 package org.apache.commons.net.ssh;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * This interface allows retrieving all the <code>NamedFactory</code> used in
@@ -27,46 +26,17 @@ import java.util.Map;
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface FactoryManager
-{
-    
-    /**
-     * Key used to retrieve the value of the window size in the configuration
-     * properties map.
-     */
-    public static final String WINDOW_SIZE = "window-size";
-    
-    /**
-     * Key used to retrieve the value of the maximum packet size in the
-     * configuration properties map.
-     */
-    public static final String MAX_PACKET_SIZE = "packet-size";
-    
-    // /**
-    // * Key used to retrieve the value in the configuration properties map
-    // * of the maximum number of failed authentication requests before the
-    // * server closes the connection.
-    // */
-    // public static final String MAX_AUTH_REQUESTS = "max-auth-requests";
-    
-    // /**
-    // * Key used to retrieve the value of the timeout after which
-    // * the server will close the connection if the client has not been
-    // * authenticated.
-    // */
-    // public static final String AUTH_TIMEOUT = "auth-timeout";
-    
-    /**
-     * A map of properties that can be used to configure the SSH client. This
-     * map will never be changed by either the server or client and is not
-     * supposed to be changed at runtime (changes are not bound to have any
-     * effect on a running client or server), though it may affect the creation
-     * of sessions later as these values are usually not cached.
-     * 
-     * @return a valid <code>Map</code> containing configuration values, never
-     *         <code>null</code>
-     */
-    Map<String, String> getProperties();
+public class FactoryManager
+{ 
+
+    private List<NamedFactory<KeyExchange>> keyExchangeFactories;
+    private List<NamedFactory<Cipher>> cipherFactories;
+    private List<NamedFactory<Compression>> compressionFactories;
+    private List<NamedFactory<MAC>> macFactories;
+    private List<NamedFactory<Signature>> signatureFactories;
+    private NamedFactory<Random> randomFactory;
+    private KeyPairProvider keyPairProvider;
+    private String version;
     
     /**
      * An upper case string identifying the version of the software used on
@@ -75,7 +45,9 @@ public interface FactoryManager
      * 
      * @return the version of the software
      */
-    String getVersion();
+    public String getVersion() {
+        return version;
+    }
     
     /**
      * Retrieve the list of named factories for <code>KeyExchange</code>.
@@ -83,7 +55,9 @@ public interface FactoryManager
      * @return a list of named <code>KeyExchange</code> factories, never
      *         <code>null</code>
      */
-    List<NamedFactory<KeyExchange>> getKeyExchangeFactories();
+    public List<NamedFactory<KeyExchange>> getKeyExchangeFactories() {
+        return keyExchangeFactories;
+    }
     
     /**
      * Retrieve the list of named factories for <code>Cipher</code>.
@@ -91,7 +65,9 @@ public interface FactoryManager
      * @return a list of named <code>Cipher</code> factories, never
      *         <code>null</code>
      */
-    List<NamedFactory<Cipher>> getCipherFactories();
+    public List<NamedFactory<Cipher>> getCipherFactories() {
+        return cipherFactories;
+    }
     
     /**
      * Retrieve the list of named factories for <code>Compression</code>.
@@ -99,7 +75,9 @@ public interface FactoryManager
      * @return a list of named <code>Compression</code> factories, never
      *         <code>null</code>
      */
-    List<NamedFactory<Compression>> getCompressionFactories();
+    public List<NamedFactory<Compression>> getCompressionFactories() {
+        return compressionFactories;
+    }
     
     /**
      * Retrieve the list of named factories for <code>MAC</code>.
@@ -107,7 +85,9 @@ public interface FactoryManager
      * @return a list of named <code>Mac</code> factories, never
      *         <code>null</code>
      */
-    List<NamedFactory<MAC>> getMACFactories();
+    public List<NamedFactory<MAC>> getMACFactories() {
+        return macFactories;
+    }
     
     /**
      * Retrieve the list of named factories for <code>Signature</code>.
@@ -115,7 +95,9 @@ public interface FactoryManager
      * @return a list of named <code>Signature</code> factories, never
      *         <code>null</code>
      */
-    List<NamedFactory<Signature>> getSignatureFactories();
+    public List<NamedFactory<Signature>> getSignatureFactories() {
+        return signatureFactories;
+    }
     
     /**
      * Retrieve the <code>KeyPairProvider</code> that will be used to find the
@@ -123,13 +105,53 @@ public interface FactoryManager
      * 
      * @return the <code>KeyPairProvider</code>, never <code>null</code>
      */
-    KeyPairProvider getKeyPairProvider();
+    public KeyPairProvider getKeyPairProvider() {
+        return keyPairProvider;
+    }
     
     /**
      * Retrieve the <code>Random</code> factory to be used.
      * 
      * @return the <code>Random</code> factory, never <code>null</code>
      */
-    NamedFactory<Random> getRandomFactory();
+    public NamedFactory<Random> getRandomFactory() {
+        return randomFactory;
+    }
+    
+    public void setCipherFactories(List<NamedFactory<Cipher>> cipherFactories)
+    {
+        this.cipherFactories = cipherFactories;
+    }
+    
+    public void setCompressionFactories(List<NamedFactory<Compression>> compressionFactories)
+    {
+        this.compressionFactories = compressionFactories;
+    }
+    
+    public void setKeyExchangeFactories(List<NamedFactory<KeyExchange>> keyExchangeFactories)
+    {
+        this.keyExchangeFactories = keyExchangeFactories;
+    }
+    
+    public void setKeyPairProvider(KeyPairProvider keyPairProvider)
+    {
+        this.keyPairProvider = keyPairProvider;
+    }
+    
+    public void setMACFactories(List<NamedFactory<MAC>> macFactories)
+    {
+        this.macFactories = macFactories;
+    }
+    
+    public void setRandomFactory(NamedFactory<Random> randomFactory)
+    {
+        this.randomFactory = randomFactory;
+    }
+    
+    public void setSignatureFactories(List<NamedFactory<Signature>> signatureFactories)
+    {
+        this.signatureFactories = signatureFactories;
+    }
+
     
 }

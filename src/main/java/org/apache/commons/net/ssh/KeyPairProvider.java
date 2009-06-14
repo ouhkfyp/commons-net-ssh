@@ -21,8 +21,7 @@ package org.apache.commons.net.ssh;
 import java.security.KeyPair;
 
 /**
- * Provider for key pairs.  This provider is used on the server side to provide
- * the host key, or on the client side to provide the user key.
+ * Provider for key pairs used to provide the user key.
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
