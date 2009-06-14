@@ -18,12 +18,16 @@ import org.slf4j.LoggerFactory;
  */
 public class Session extends SocketClient
 {
-    /** Session state */ 
+    /** Session state */
     public enum State
     {
-        KEX_PRE, KEX_ONGOING, KEX_DONE,
-//        AUTH_PRE, AUTH_ONGOING, RUNNING,
-//        REKEX_ONGOING, REKEX_DONE 
+        KEX_EXPECT_KEXINIT, // initial state, right after connection
+        KEX_FOLLOWUP,
+        KEX_EXPECT_NEW_KEYS,
+        KEX_DONE,
+        RUNNING, // normal operation
+        ERROR
+        // error occured, exception set
     }
     
     /** Default SSH port */
@@ -45,7 +49,7 @@ public class Session extends SocketClient
     protected final Random random;
     
     /** Lock object for session state */
-    protected final Object lock = new Object();
+    protected final Object stateLock = new Object();
     
     /** Map of channels keyed by the identifier */
     protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
@@ -89,8 +93,10 @@ public class Session extends SocketClient
     protected int decoderLength;
     protected final Object encodeLock = new Object();
     
-    private State state = State.KEX_PRE;
-    //private UserAuth userAuth;
+    private State state = State.KEX_EXPECT_KEXINIT;
+    // private UserAuth userAuth;
+    
+    private Exception ex;
     
     Session(FactoryManager factoryManager)
     {
@@ -113,21 +119,17 @@ public class Session extends SocketClient
         while (!readIdentification(buf))
             buf.putByte((byte) _input_.read());
         
-        /* outgoing packets: encode and send
-         * incoming packets: decode and handle 
-         */
+        // outgoing packets: encode and send;
+        // incoming packets: decode and handle
         startPumping();
-        
-        // TODO -- KEX!
-        
     }
     
-    private void checkHost() throws Exception
+    protected void checkHost() throws Exception
     {
         // TODO: check host fingerprint
     }
     
-    private void close()
+    public void close()
     {
         // TODO
     }
@@ -158,15 +160,13 @@ public class Session extends SocketClient
      */
     protected String[] createProposal(String hostKeyTypes)
     {
-        return new String[] {NamedFactory.Utils.getNames(factoryManager.getKeyExchangeFactories()),
-                             hostKeyTypes,
+        return new String[] { NamedFactory.Utils.getNames(factoryManager.getKeyExchangeFactories()), hostKeyTypes,
                              NamedFactory.Utils.getNames(factoryManager.getCipherFactories()),
                              NamedFactory.Utils.getNames(factoryManager.getCipherFactories()),
                              NamedFactory.Utils.getNames(factoryManager.getMACFactories()),
                              NamedFactory.Utils.getNames(factoryManager.getMACFactories()),
                              NamedFactory.Utils.getNames(factoryManager.getCompressionFactories()),
-                             NamedFactory.Utils.getNames(factoryManager.getCompressionFactories()),
-                             "", ""};
+                             NamedFactory.Utils.getNames(factoryManager.getCompressionFactories()), "", "" };
     }
     
     /**
@@ -285,6 +285,12 @@ public class Session extends SocketClient
         buffer.putString("");
         writePacket(buffer);
         close();
+    }
+    
+    protected void doKex() throws Exception
+    {
+        sendKexInit();
+        waitFor(State.KEX_DONE);
     }
     
     /**
@@ -422,8 +428,128 @@ public class Session extends SocketClient
         return factoryManager;
     }
     
-    protected void handleMessage(Buffer buffer) throws Exception
-    {
+    protected void handleMessage(Buffer buffer) throws Exception {
+        SSHConstants.Message cmd = buffer.getCommand();
+        log.debug("Received packet {}", cmd);
+        switch (cmd) {
+            case SSH_MSG_DISCONNECT: {
+                int code = buffer.getInt();
+                String msg = buffer.getString();
+                log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, msg);
+                close();
+                break;
+            }
+            case SSH_MSG_UNIMPLEMENTED: {
+                int code = buffer.getInt();
+                log.info("Received SSH_MSG_UNIMPLEMENTED #{}", code);
+                break;
+            }
+            case SSH_MSG_DEBUG: {
+                boolean display = buffer.getBoolean();
+                String msg = buffer.getString();
+                log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, msg);
+                break;
+            }
+            case SSH_MSG_IGNORE:
+                log.info("Received SSH_MSG_IGNORE");
+                break;
+            default:
+                switch (state) {
+                    case KEX_EXPECT_KEXINIT:
+                        if (cmd != SSHConstants.Message.SSH_MSG_KEXINIT) {
+                            log.error("Ignoring command " + cmd + " while waiting for " + SSHConstants.Message.SSH_MSG_KEXINIT);
+                            break;
+                        }
+                        log.info("Received SSH_MSG_KEXINIT");
+                        receivedKexInit(buffer);
+                        negotiate();
+                        kex = NamedFactory.Utils.create(factoryManager.getKeyExchangeFactories(), negotiated[SSHConstants.PROPOSAL_KEX_ALGS]);
+                        kex.init(this, serverVersion.getBytes(), clientVersion.getBytes(), I_S, I_C);
+                        setState(State.KEX_FOLLOWUP);
+                        break;
+                    case KEX_FOLLOWUP:
+                        buffer.rpos(buffer.rpos() - 1);
+                        if (kex.next(buffer)) {
+                            checkHost();
+                            sendNewKeys();
+                            setState(State.KEX_EXPECT_NEW_KEYS);
+                        }
+                        break;
+                    case KEX_EXPECT_NEW_KEYS:
+                        if (cmd != SSHConstants.Message.SSH_MSG_NEWKEYS) {
+                            disconnect(SSHConstants.SSH2_DISCONNECT_PROTOCOL_ERROR, "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
+                            return;
+                        }
+                        log.info("Received SSH_MSG_NEWKEYS");
+                        receivedNewKeys();
+                        setState(State.KEX_DONE);
+                        break;
+//                    case AuthRequestSent:
+//                        if (cmd != SSHConstants.Message.SSH_MSG_SERVICE_ACCEPT) {
+//                            disconnect(SSHConstants.SSH2_DISCONNECT_PROTOCOL_ERROR, "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
+//                            return;
+//                        }
+//                        setState(State.WaitForAuth);
+//                        break;
+//                    case WaitForAuth:
+//                        // We're waiting for the client to send an authentication request
+//                        // TODO: handle unexpected incoming packets
+//                        break;
+//                    case UserAuth:
+//                        if (userAuth == null) {
+//                            throw new IllegalStateException("State is userAuth, but no user auth pending!!!");
+//                        }
+//                        buffer.rpos(buffer.rpos() - 1);
+//                        switch (userAuth.next(buffer)) {
+//                             case Success:
+//                                 authFuture.setAuthed(true);
+//                                 authed = true;
+//                                 setState(State.Running);
+//                                 break;
+//                             case Failure:
+//                                 authFuture.setAuthed(false);
+//                                 userAuth = null;
+//                                 setState(State.WaitForAuth);
+//                                 break;
+//                             case Continued:
+//                                 break;
+//                        }
+//                        break;
+//                    case RUNNING:
+//                        switch (cmd) {
+//                            case SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
+//                                channelOpenConfirmation(buffer);
+//                                break;
+//                            case SSH_MSG_CHANNEL_OPEN_FAILURE:
+//                                channelOpenFailure(buffer);
+//                                break;
+//                            case SSH_MSG_CHANNEL_REQUEST:
+//                                channelRequest(buffer);
+//                                break;
+//                            case SSH_MSG_CHANNEL_DATA:
+//                                channelData(buffer);
+//                                break;
+//                            case SSH_MSG_CHANNEL_EXTENDED_DATA:
+//                                channelExtendedData(buffer);
+//                                break;
+//                            case SSH_MSG_CHANNEL_FAILURE:
+//                                channelFailure(buffer);
+//                                break;
+//                            case SSH_MSG_CHANNEL_WINDOW_ADJUST:
+//                                channelWindowAdjust(buffer);
+//                                break;
+//                            case SSH_MSG_CHANNEL_EOF:
+//                                channelEof(buffer);
+//                                break;
+//                            case SSH_MSG_CHANNEL_CLOSE:
+//                                channelClose(buffer);
+//                                break;
+//                            // TODO: handle other requests
+//                        }
+//                        break;
+//                }
+            }
+        }
     }
     
     /**
@@ -455,20 +581,20 @@ public class Session extends SocketClient
         negotiated = guess;
     }
     
-//    /**
-//     * Send an unimplemented packet. This packet should contain the sequence id
-//     * of the unsupported packet: this number is assumed to be the last packet
-//     * received.
-//     * 
-//     * @throws IOException
-//     *             if an error occured sending the packet
-//     */
-//    protected void notImplemented() throws IOException
-//    {
-//        Buffer buffer = createBuffer(SSHConstants.Message.SSH_MSG_UNIMPLEMENTED);
-//        buffer.putInt(seqi - 1);
-//        writePacket(buffer);
-//    }
+    /**
+     * Send an unimplemented packet. This packet should contain the sequence id
+     * of the unsupported packet: this number is assumed to be the last packet
+     * received.
+     * 
+     * @throws IOException
+     *             if an error occured sending the packet
+     */
+    protected void notImplemented() throws IOException
+    {
+        Buffer buffer = createBuffer(SSHConstants.Message.SSH_MSG_UNIMPLEMENTED);
+        buffer.putInt(seqi - 1);
+        writePacket(buffer);
+    }
     
     protected boolean readIdentification(Buffer buffer) throws IOException
     {
@@ -619,6 +745,14 @@ public class Session extends SocketClient
             inCompression.init(Compression.Type.Inflater, -1);
     }
     
+     private void sendAuthRequest() throws IOException
+    {
+        log.info("Send SSH_MSG_SERVICE_REQUEST for ssh-userauth");
+        Buffer buffer = createBuffer(SSHConstants.Message.SSH_MSG_SERVICE_REQUEST);
+        buffer.putString("ssh-userauth");
+        writePacket(buffer);
+    }
+    
     /**
      * Private method used while putting new keys into use that will resize the
      * key used to initialize the cipher to the needed length.
@@ -633,7 +767,7 @@ public class Session extends SocketClient
      *            the key exchange K parameter
      * @param H
      *            the key exchange H parameter
-     * @return the resize key
+     * @return the resized key
      * @throws Exception
      *             if a problem occur while resizing the key
      */
@@ -654,14 +788,6 @@ public class Session extends SocketClient
         }
         return E;
     }
-    
-//    private void sendAuthRequest() throws IOException
-//    {
-//        log.info("Send SSH_MSG_SERVICE_REQUEST for ssh-userauth");
-//        Buffer buffer = createBuffer(SSHConstants.Message.SSH_MSG_SERVICE_REQUEST);
-//        buffer.putString("ssh-userauth");
-//        writePacket(buffer);
-//    }
     
     private void sendKexInit() throws IOException
     {
@@ -706,18 +832,27 @@ public class Session extends SocketClient
         writePacket(buffer);
     }
     
+    public void setError(Exception e)
+    {
+        ex = e;
+        setState(State.ERROR);
+        // notify all open channels
+    }
+    
     public void setState(State newState)
     {
-        synchronized (lock)
+        synchronized (stateLock)
         {
             state = newState;
-            lock.notifyAll();
+            stateLock.notifyAll();
         }
     }
     
     public void startPumping()
     {
+        // deal with outgoing messages
         new Thread() {
+            @Override
             public void run()
             {
                 try
@@ -726,16 +861,17 @@ public class Session extends SocketClient
                         _output_.write(outQ.take());
                 } catch (IOException e)
                 {
-                    // handle
+                    setError(e);
                 } catch (InterruptedException e)
                 {
-                    // handle
+                    setError(e);
                 }
             }
         }.start();
         
+        // deal with incoming messages
         new Thread() {
-            
+            @Override
             public void run()
             {
                 try
@@ -747,16 +883,38 @@ public class Session extends SocketClient
                     }
                 } catch (IOException e)
                 {
-                    // handle
+                    setError(e);
                 } catch (Exception e)
                 {
-                    // handle
+                    setError(e);
                 }
             }
             
         }.start();
     }
- 
+    
+    public void waitFor(State s) throws Exception
+    {
+        waitFor(s, 0);
+    }
+    
+    public void waitFor(State s, long timeout) throws Exception
+    {
+        synchronized (stateLock)
+        {
+            try
+            {
+                while (state != s || state == State.ERROR)
+                    stateLock.wait(timeout);
+            } catch (InterruptedException e)
+            {
+                throw e;
+            }
+        }
+        if (state == State.ERROR)
+            throw ex;
+    }
+    
     public void writePacket(Buffer payload) throws IOException
     {
         // Synchronize all write requests as needed by the encoding algorithm
