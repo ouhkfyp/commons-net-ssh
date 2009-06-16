@@ -96,9 +96,8 @@ public interface SSHConstants {
     }
 
     //
-    // Values for the algorithms negociation 
+    // Values for the algorithms negotiation 
     //
-
     static final int PROPOSAL_KEX_ALGS = 0;
     static final int PROPOSAL_SERVER_HOST_KEY_ALGS = 1;
     static final int PROPOSAL_ENC_ALGS_CTOS = 2;
@@ -115,22 +114,22 @@ public interface SSHConstants {
     //
     // Disconnect error codes
     //
-    static final int SSH2_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT =     1;
-    static final int SSH2_DISCONNECT_PROTOCOL_ERROR =                  2;
-    static final int SSH2_DISCONNECT_KEY_EXCHANGE_FAILED =             3;
-    static final int SSH2_DISCONNECT_HOST_AUTHENTICATION_FAILED =      4;
-    static final int SSH2_DISCONNECT_RESERVED =                        4;
-    static final int SSH2_DISCONNECT_MAC_ERROR =                       5;
-    static final int SSH2_DISCONNECT_COMPRESSION_ERROR =               6;
-    static final int SSH2_DISCONNECT_SERVICE_NOT_AVAILABLE =           7;
-    static final int SSH2_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED =  8;
-    static final int SSH2_DISCONNECT_HOST_KEY_NOT_VERIFIABLE =         9;
-    static final int SSH2_DISCONNECT_CONNECTION_LOST =                10;
-    static final int SSH2_DISCONNECT_BY_APPLICATION =                 11;
-    static final int SSH2_DISCONNECT_TOO_MANY_CONNECTIONS =           12;
-    static final int SSH2_DISCONNECT_AUTH_CANCELLED_BY_USER =         13;
-    static final int SSH2_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE = 14;
-    static final int SSH2_DISCONNECT_ILLEGAL_USER_NAME =              15;
+    static final int SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT =     1;
+    static final int SSH_DISCONNECT_PROTOCOL_ERROR =                  2;
+    static final int SSH_DISCONNECT_KEY_EXCHANGE_FAILED =             3;
+    static final int SSH_DISCONNECT_HOST_AUTHENTICATION_FAILED =      4;
+    static final int SSH_DISCONNECT_RESERVED =                        4;
+    static final int SSH_DISCONNECT_MAC_ERROR =                       5;
+    static final int SSH_DISCONNECT_COMPRESSION_ERROR =               6;
+    static final int SSH_DISCONNECT_SERVICE_NOT_AVAILABLE =           7;
+    static final int SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED =  8;
+    static final int SSH_DISCONNECT_HOST_KEY_NOT_VERIFIABLE =         9;
+    static final int SSH_DISCONNECT_CONNECTION_LOST =                10;
+    static final int SSH_DISCONNECT_BY_APPLICATION =                 11;
+    static final int SSH_DISCONNECT_TOO_MANY_CONNECTIONS =           12;
+    static final int SSH_DISCONNECT_AUTH_CANCELLED_BY_USER =         13;
+    static final int SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE = 14;
+    static final int SSH_DISCONNECT_ILLEGAL_USER_NAME =              15;
 
     //
     // Open error codes

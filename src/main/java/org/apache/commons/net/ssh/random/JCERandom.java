@@ -28,7 +28,7 @@ import org.apache.commons.net.ssh.Random;
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class JceRandom implements Random {
+public class JCERandom implements Random {
 
     /**
      * Named factory for the BouncyCastle <code>Random</code>
@@ -40,7 +40,7 @@ public class JceRandom implements Random {
         }
 
         public Random create() {
-            return new JceRandom();
+            return new JCERandom();
         }
 
     }
@@ -48,7 +48,7 @@ public class JceRandom implements Random {
     private byte[] tmp = new byte[16];
     private SecureRandom random = null;
 
-    public JceRandom() {
+    public JCERandom() {
       random = new SecureRandom();
     }
 

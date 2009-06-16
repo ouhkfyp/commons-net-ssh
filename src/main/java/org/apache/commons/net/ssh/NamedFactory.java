@@ -74,7 +74,7 @@ public interface NamedFactory<T> {
          */
         public static <T> String getNames(List<NamedFactory<T>> factories) {
             StringBuffer sb = new StringBuffer();
-            for (NamedFactory f : factories) {
+            for (NamedFactory<T> f : factories) {
                 if (sb.length() > 0) {
                     sb.append(",");
                 }

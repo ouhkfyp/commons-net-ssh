@@ -70,7 +70,7 @@ public abstract class AbstractDHG implements KeyExchange {
         initDH(dh);
         e = dh.getE();
 
-        log.info("Send SSH_MSG_KEXDH_INIT");
+        log.info("Sending SSH_MSG_KEXDH_INIT");
         Buffer buffer = session.createBuffer(SSHConstants.Message.SSH_MSG_KEXDH_INIT);
         buffer.putMPInt(e);
         session.writePacket(buffer);
@@ -81,7 +81,7 @@ public abstract class AbstractDHG implements KeyExchange {
     public boolean next(Buffer buffer) throws Exception {
         SSHConstants.Message cmd = buffer.getCommand();
         if (cmd != SSHConstants.Message.SSH_MSG_KEXDH_REPLY_KEX_DH_GEX_GROUP) {
-            throw new SSHException(SSHConstants.SSH2_DISCONNECT_KEY_EXCHANGE_FAILED,
+            throw new SSHException(SSHConstants.SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                                    "Protocol error: expected packet " + SSHConstants.Message.SSH_MSG_KEXDH_REPLY_KEX_DH_GEX_GROUP + ", got " + cmd);
         }
 
@@ -113,7 +113,7 @@ public abstract class AbstractDHG implements KeyExchange {
         verif.init(key, null);
         verif.update(H, 0, H.length);
         if (!verif.verify(sig)) {
-            throw new SSHException(SSHConstants.SSH2_DISCONNECT_KEY_EXCHANGE_FAILED,
+            throw new SSHException(SSHConstants.SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                                    "KeyExchange signature verification failed");
         }
         return true;
