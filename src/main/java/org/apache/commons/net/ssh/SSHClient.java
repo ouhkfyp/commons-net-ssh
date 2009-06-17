@@ -123,6 +123,19 @@ public class SSHClient extends SocketClient
     }
     
     @Override
+    public void disconnect() throws IOException
+    {
+        if (session.isRunning())
+            session.disconnect(SSHConstants.SSH_DISCONNECT_BY_APPLICATION, "Session closed by user");
+        super.disconnect();
+    }
+    
+    public boolean isAuthenticated()
+    {
+        return session.isAuthenticated();
+    }
+    
+    @Override
     protected void _connectAction_() throws IOException
     {
         super._connectAction_();
@@ -135,19 +148,6 @@ public class SSHClient extends SocketClient
         {
             throw new IOException(e);
         }
-    }
-    
-    @Override
-    public void disconnect() throws IOException
-    {
-        if (session.isRunning())
-            session.disconnect(SSHConstants.SSH_DISCONNECT_BY_APPLICATION, "Session closed by user");
-        super.disconnect();
-    }
-    
-    public boolean isAuthenticated()
-    {
-        return session.isAuthenticated();
     }
     
 }
