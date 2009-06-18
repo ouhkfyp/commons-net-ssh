@@ -115,11 +115,10 @@ public class SSHClient extends SocketClient
     /** logger */
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
-    private final Session session;
+    private Session session;
     
     SSHClient()
     {
-        session = new Session(SSHClient.makeDefaultFactoryManager());
     }
     
     @Override
@@ -139,8 +138,8 @@ public class SSHClient extends SocketClient
     protected void _connectAction_() throws IOException
     {
         super._connectAction_();
-        session.setInputStream(_input_);
-        session.setOutputStream(_output_);
+        session = new Session(SSHClient.makeDefaultFactoryManager(),
+                              _input_, _output_);
         try
         {
             session.init();
