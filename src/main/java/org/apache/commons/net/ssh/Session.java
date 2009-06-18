@@ -9,6 +9,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.BufferUtils;
@@ -32,9 +33,8 @@ public class Session
         AUTH_ONGOING,
         AUTH_PENDING,
         RUNNING, // normal operation
-        ERROR,
-        STOPPED
-        // error occured, exception set
+        ERROR, // error occured, exception set
+        STOPPED,
     }
     
     /** logger */
@@ -60,6 +60,8 @@ public class Session
     
     /* stop pumping threads? */
     protected volatile boolean stopPumping = false;
+    
+    protected ReentrantLock mutex = new ReentrantLock();
     
     protected boolean authed;
     
@@ -105,7 +107,8 @@ public class Session
     protected OutputStream output;
     
     /**
-     * This thread takes byte[] from outQ and sends it over the output stream for this session.  
+     * This thread takes byte[] from outQ and sends it over the output stream
+     * for this session.
      */
     protected final Thread outPump = new Thread() {
         @Override
@@ -133,7 +136,7 @@ public class Session
         {
             // see return value of decode()
             int need = inCipherSize;
-            while (!stopPumping) {
+            while (!stopPumping)
                 try
                 {
                     decoderBuffer.putByte((byte) input.read());
@@ -146,13 +149,19 @@ public class Session
                     if (!stopPumping)
                         setError(e);
                 }
-            }
         }
     };
     
-    Session(FactoryManager factoryManager)
+    Session(FactoryManager factoryManager, InputStream input, OutputStream output)
     {
+        assert factoryManager != null;
+        assert input != null;
+        assert output != null;
+        
         this.factoryManager = factoryManager;
+        this.input = input;
+        this.output = output;
+        
         random = factoryManager.getRandomFactory().create();
         
         inPump.setName("inPump");
@@ -160,11 +169,6 @@ public class Session
         
         outPump.setName("outPump");
         outPump.setDaemon(true);
-    }
-    
-    protected void checkHost() throws Exception
-    {
-        // TODO: check host fingerprint
     }
     
     /**
@@ -182,126 +186,6 @@ public class Session
         buffer.wpos(5);
         buffer.putByte(cmd.toByte());
         return buffer;
-    }
-    
-    /**
-     * Create our proposal for SSH negotiation
-     * 
-     * @param hostKeyTypes
-     *            the list of supported host key types
-     * @return an array of 10 strings holding this proposal
-     */
-    protected String[] createProposal(String hostKeyTypes)
-    {
-        return new String[] { NamedFactory.Utils.getNames(factoryManager.getKeyExchangeFactories()), hostKeyTypes,
-                             NamedFactory.Utils.getNames(factoryManager.getCipherFactories()),
-                             NamedFactory.Utils.getNames(factoryManager.getCipherFactories()),
-                             NamedFactory.Utils.getNames(factoryManager.getMACFactories()),
-                             NamedFactory.Utils.getNames(factoryManager.getMACFactories()),
-                             NamedFactory.Utils.getNames(factoryManager.getCompressionFactories()),
-                             NamedFactory.Utils.getNames(factoryManager.getCompressionFactories()), "", "" };
-    }
-    
-    /**
-     * Decode the incoming buffer and handle packets as needed.
-     * <p>
-     * Returns advised number of bytes that should be made available in
-     * decoderBuffer before it should be called again.
-     * 
-     * @throws Exception
-     */
-    protected int decode() throws Exception
-    {
-        int need;
-        // Decoding loop
-        for (;;)
-            if (decoderState == 0) // Wait for beginning of packet
-            {
-                // The read position should always be 0 at this point because we
-                // have compacted this buffer
-                assert decoderBuffer.rpos() == 0;
-                // If we have received enough bytes, start processing those
-                need = inCipherSize - decoderBuffer.available();
-                if (need <= 0)
-                {
-                    // Decrypt the first bytes
-                    if (inCipher != null)
-                        inCipher.update(decoderBuffer.array(), 0, inCipherSize);
-                    // Read packet length
-                    decoderLength = decoderBuffer.getInt();
-                    // Check packet length validity
-                    if (decoderLength < 5 || decoderLength > 256 * 1024)
-                    {
-                        log.info("Error decoding packet (invalid length) {}", decoderBuffer.printHex());
-                        throw new SSHException(SSHConstants.SSH_DISCONNECT_PROTOCOL_ERROR, "Invalid packet length: "
-                                                                                           + decoderLength);
-                    }
-                    // Ok, that's good, we can go to the next step
-                    decoderState = 1;
-                } else
-                    break;
-            } else if (decoderState == 1) // We have received the beinning of the packet
-            {
-                // The read position should always be 4 at this point
-                assert decoderBuffer.rpos() == 4;
-                int macSize = inMAC != null ? inMAC.getBlockSize() : 0;
-                // Check if the packet has been fully received
-                need = decoderLength + macSize - decoderBuffer.available();
-                if (need <= 0)
-                {
-                    byte[] data = decoderBuffer.array();
-                    // Decrypt the remaining of the packet
-                    if (inCipher != null)
-                        inCipher.update(data, inCipherSize, decoderLength + 4 - inCipherSize);
-                    // Check the MAC of the packet
-                    if (inMAC != null)
-                    {
-                        // Update MAC with packet id
-                        inMAC.update(seqi);
-                        // Update MAC with packet data
-                        inMAC.update(data, 0, decoderLength + 4);
-                        // Compute MAC result
-                        inMAC.doFinal(inMACResult, 0);
-                        // Check the computed result with the received mac (just
-                        // after the packet data)
-                        if (!BufferUtils.equals(inMACResult, 0, data, decoderLength + 4, macSize))
-                            throw new SSHException(SSHConstants.SSH_DISCONNECT_MAC_ERROR, "MAC Error");
-                    }
-                    // Increment incoming packet sequence number
-                    seqi++;
-                    // Get padding
-                    byte pad = decoderBuffer.getByte();
-                    Buffer buf;
-                    int wpos = decoderBuffer.wpos();
-                    // Decompress if needed
-                    if (inCompression != null && (authed || !inCompression.isDelayed()))
-                    {
-                        if (uncompressBuffer == null)
-                            uncompressBuffer = new Buffer();
-                        else
-                            uncompressBuffer.clear();
-                        decoderBuffer.wpos(decoderBuffer.rpos() + decoderLength - 1 - pad);
-                        inCompression.uncompress(decoderBuffer, uncompressBuffer);
-                        buf = uncompressBuffer;
-                    } else
-                    {
-                        decoderBuffer.wpos(decoderLength + 4 - pad);
-                        buf = decoderBuffer;
-                    }
-                    if (log.isTraceEnabled())
-                        log.trace("Received packet #{}: {}", seqi, buf.printHex());
-                    // Process decoded packet
-                    handleMessage(buf);
-                    // Set ready to handle next packet
-                    decoderBuffer.rpos(decoderLength + 4 + macSize);
-                    decoderBuffer.wpos(wpos);
-                    decoderBuffer.compact();
-                    decoderState = 0;
-                } else
-                    // need more data
-                    break;
-            }
-        return need;
     }
     
     /**
@@ -327,51 +211,82 @@ public class Session
     }
     
     /**
-     * Read the remote identification from this buffer. If more data is needed,
-     * the buffer will be reset to its original state and a <code>null</code>
-     * value will be returned. Else the identification string will be returned
-     * and the data read will be consumed from the buffer.
+     * Retrieve the factory manager
      * 
-     * @param buffer
-     *            the buffer containing the identification string
-     * @return the remote identification or <code>null</code> if more data is
-     *         needed
+     * @return the factory manager for this session
      */
-    protected String doReadIdentification(Buffer buffer)
+    public FactoryManager getFactoryManager()
     {
-        byte[] data = new byte[256];
-        for (;;)
+        return factoryManager;
+    }
+    
+    /**
+     * @throws Exception
+     */
+    public void init() throws Exception
+    {
+        log.info("Client version string: {}", Session.clientVersion);
+        
+        output.write((Session.clientVersion + "\r\n").getBytes());
+        
+        // read server ident string
+        Buffer buf = new Buffer();
+        while (!readIdentification(buf))
+            buf.putByte((byte) input.read());
+        
+        outPump.start(); // outPump must be alive and well before a call to
+                         // writePacket can succeed
+        synchronized (mutex)
         {
-            int rpos = buffer.rpos();
-            int pos = 0;
-            boolean needLf = false;
-            for (;;)
+            sendKexInit(); // initiate kex
+            
+            inPump.start(); // start dealing with input packets
+            
+            waitFor(State.KEX_DONE); // block till done with kex
+            
+            requestAuthService(); // request ssh-userauth service in anticipation
+            waitFor(State.AUTH_PENDING); // block till successful
+        }
+    }
+    
+    public boolean isAuthenticated()
+    {
+        return authed;
+    }
+    
+    public boolean isRunning()
+    {
+        return state != State.STOPPED && state != State.ERROR;
+    }
+    
+    /**
+     * Encode the payload as an SSH packet and send it over the session.
+     * 
+     * @param payload
+     * @throws IOException
+     */
+    public void writePacket(Buffer payload) throws IOException
+    {
+        /*
+         * Synchronize all write requests as needed by the encoding algorithm
+         * and also queue the write request in this synchronized block to ensure
+         * packets are sent in the correct order
+         */
+        synchronized (encodeLock)
+        {
+            encode(payload);
+            byte[] data = payload.getCompactData();
+            try
             {
-                if (buffer.available() == 0)
-                {
-                    // Need more data, so undo reading and return null
-                    buffer.rpos(rpos);
-                    return null;
-                }
-                byte b = buffer.getByte();
-                if (b == '\r')
-                {
-                    needLf = true;
-                    continue;
-                }
-                if (b == '\n')
-                    break;
-                if (needLf)
-                    throw new IllegalStateException("Incorrect identification: bad line ending");
-                if (pos >= data.length)
-                    throw new IllegalStateException("Incorrect identification: line too long");
-                data[pos++] = b;
+                while (!outQ.offer(data, 1L, TimeUnit.SECONDS))
+                    if (!outPump.isAlive())
+                        throw new IOException("Output pumping thread is dead");
+            } catch (InterruptedException e)
+            {
+                InterruptedIOException ioe = new InterruptedIOException();
+                ioe.initCause(e);
+                throw ioe;
             }
-            String str = new String(data, 0, pos);
-            if (str.startsWith("SSH-"))
-                return str;
-            if (buffer.rpos() > 16 * 1024)
-                throw new IllegalStateException("Incorrect identification: too many header lines");
         }
     }
     
@@ -452,13 +367,221 @@ public class Session
     }
     
     /**
-     * Retrieve the factory manager
+     * Private method used while putting new keys into use that will resize the
+     * key used to initialize the cipher to the needed length.
      * 
-     * @return the factory manager for this session
+     * @param E
+     *            the key to resize
+     * @param blockSize
+     *            the cipher block size
+     * @param hash
+     *            the hash algorithm
+     * @param K
+     *            the key exchange K parameter
+     * @param H
+     *            the key exchange H parameter
+     * @return the resized key
+     * @throws Exception
+     *             if a problem occur while resizing the key
      */
-    public FactoryManager getFactoryManager()
+    private byte[] resizeKey(byte[] E, int blockSize, Digest hash, byte[] K, byte[] H) throws Exception
     {
-        return factoryManager;
+        while (blockSize > E.length)
+        {
+            Buffer buffer = new Buffer();
+            buffer.putMPInt(K);
+            buffer.putRawBytes(H);
+            buffer.putRawBytes(E);
+            hash.update(buffer.array(), 0, buffer.available());
+            byte[] foo = hash.digest();
+            byte[] bar = new byte[E.length + foo.length];
+            System.arraycopy(E, 0, bar, 0, E.length);
+            System.arraycopy(foo, 0, bar, E.length, foo.length);
+            E = bar;
+        }
+        return E;
+    }
+    
+    private void stop()
+    {
+        setState(State.STOPPED); // will wakeup any thread that was waiting for
+                                 // state change; see waitFor()
+        stopPumping(); // stop inPump and outPump
+    }
+    
+    protected void checkHost() throws Exception
+    {
+        // TODO: verify host key!! -- PRIORITY
+    }
+    
+    /**
+     * Create our proposal for SSH negotiation
+     * 
+     * @param hostKeyTypes
+     *            the list of supported host key types
+     * @return an array of 10 strings holding this proposal
+     */
+    protected String[] createProposal(String hostKeyTypes)
+    {
+        return new String[] { NamedFactory.Utils.getNames(factoryManager.getKeyExchangeFactories()), hostKeyTypes,
+                             NamedFactory.Utils.getNames(factoryManager.getCipherFactories()),
+                             NamedFactory.Utils.getNames(factoryManager.getCipherFactories()),
+                             NamedFactory.Utils.getNames(factoryManager.getMACFactories()),
+                             NamedFactory.Utils.getNames(factoryManager.getMACFactories()),
+                             NamedFactory.Utils.getNames(factoryManager.getCompressionFactories()),
+                             NamedFactory.Utils.getNames(factoryManager.getCompressionFactories()), "", "" };
+    }
+    
+    /**
+     * Decode the incoming buffer and handle packets as needed.
+     * <p>
+     * Returns advised number of bytes that should be made available in
+     * decoderBuffer before it should be called again.
+     * 
+     * @throws Exception
+     */
+    protected int decode() throws Exception
+    {
+        int need;
+        // Decoding loop
+        for (;;)
+            if (decoderState == 0) // Wait for beginning of packet
+            {
+                // The read position should always be 0 at this point because we
+                // have compacted this buffer
+                assert decoderBuffer.rpos() == 0;
+                // If we have received enough bytes, start processing those
+                need = inCipherSize - decoderBuffer.available();
+                if (need <= 0)
+                {
+                    // Decrypt the first bytes
+                    if (inCipher != null)
+                        inCipher.update(decoderBuffer.array(), 0, inCipherSize);
+                    // Read packet length
+                    decoderLength = decoderBuffer.getInt();
+                    // Check packet length validity
+                    if (decoderLength < 5 || decoderLength > 256 * 1024)
+                    {
+                        log.info("Error decoding packet (invalid length) {}", decoderBuffer.printHex());
+                        throw new SSHException(SSHConstants.SSH_DISCONNECT_PROTOCOL_ERROR, "Invalid packet length: "
+                                                                                           + decoderLength);
+                    }
+                    // Ok, that's good, we can go to the next step
+                    decoderState = 1;
+                } else
+                    break;
+            } else if (decoderState == 1) // We have received the beinning of
+                                          // the packet
+            {
+                // The read position should always be 4 at this point
+                assert decoderBuffer.rpos() == 4;
+                int macSize = inMAC != null ? inMAC.getBlockSize() : 0;
+                // Check if the packet has been fully received
+                need = decoderLength + macSize - decoderBuffer.available();
+                if (need <= 0)
+                {
+                    byte[] data = decoderBuffer.array();
+                    // Decrypt the remaining of the packet
+                    if (inCipher != null)
+                        inCipher.update(data, inCipherSize, decoderLength + 4 - inCipherSize);
+                    // Check the MAC of the packet
+                    if (inMAC != null)
+                    {
+                        // Update MAC with packet id
+                        inMAC.update(seqi);
+                        // Update MAC with packet data
+                        inMAC.update(data, 0, decoderLength + 4);
+                        // Compute MAC result
+                        inMAC.doFinal(inMACResult, 0);
+                        // Check the computed result with the received mac (just
+                        // after the packet data)
+                        if (!BufferUtils.equals(inMACResult, 0, data, decoderLength + 4, macSize))
+                            throw new SSHException(SSHConstants.SSH_DISCONNECT_MAC_ERROR, "MAC Error");
+                    }
+                    // Increment incoming packet sequence number
+                    seqi++;
+                    // Get padding
+                    byte pad = decoderBuffer.getByte();
+                    Buffer buf;
+                    int wpos = decoderBuffer.wpos();
+                    // Decompress if needed
+                    if (inCompression != null && (authed || !inCompression.isDelayed()))
+                    {
+                        if (uncompressBuffer == null)
+                            uncompressBuffer = new Buffer();
+                        else
+                            uncompressBuffer.clear();
+                        decoderBuffer.wpos(decoderBuffer.rpos() + decoderLength - 1 - pad);
+                        inCompression.uncompress(decoderBuffer, uncompressBuffer);
+                        buf = uncompressBuffer;
+                    } else
+                    {
+                        decoderBuffer.wpos(decoderLength + 4 - pad);
+                        buf = decoderBuffer;
+                    }
+                    if (log.isTraceEnabled())
+                        log.trace("Received packet #{}: {}", seqi, buf.printHex());
+                    // Process decoded packet
+                    handleMessage(buf);
+                    // Set ready to handle next packet
+                    decoderBuffer.rpos(decoderLength + 4 + macSize);
+                    decoderBuffer.wpos(wpos);
+                    decoderBuffer.compact();
+                    decoderState = 0;
+                } else
+                    // need more data
+                    break;
+            }
+        return need;
+    }
+    
+    /**
+     * Read the remote identification from this buffer. If more data is needed,
+     * the buffer will be reset to its original state and a <code>null</code>
+     * value will be returned. Else the identification string will be returned
+     * and the data read will be consumed from the buffer.
+     * 
+     * @param buffer
+     *            the buffer containing the identification string
+     * @return the remote identification or <code>null</code> if more data is
+     *         needed
+     */
+    protected String doReadIdentification(Buffer buffer)
+    {
+        byte[] data = new byte[256];
+        for (;;)
+        {
+            int rpos = buffer.rpos();
+            int pos = 0;
+            boolean needLf = false;
+            for (;;)
+            {
+                if (buffer.available() == 0)
+                {
+                    // Need more data, so undo reading and return null
+                    buffer.rpos(rpos);
+                    return null;
+                }
+                byte b = buffer.getByte();
+                if (b == '\r')
+                {
+                    needLf = true;
+                    continue;
+                }
+                if (b == '\n')
+                    break;
+                if (needLf)
+                    throw new IllegalStateException("Incorrect identification: bad line ending");
+                if (pos >= data.length)
+                    throw new IllegalStateException("Incorrect identification: line too long");
+                data[pos++] = b;
+            }
+            String str = new String(data, 0, pos);
+            if (str.startsWith("SSH-"))
+                return str;
+            if (buffer.rpos() > 16 * 1024)
+                throw new IllegalStateException("Incorrect identification: too many header lines");
+        }
     }
     
     protected void extractProposal(Buffer buffer) throws Exception
@@ -494,6 +617,16 @@ public class Session
         buffer.getInt();
         // Return data
         return data;
+    }
+    
+    protected void handleKexInit(Buffer buffer) throws Exception
+    {
+        extractProposal(buffer);
+        negotiate();
+        kex = NamedFactory.Utils.create(factoryManager.getKeyExchangeFactories(),
+                                        negotiated[SSHConstants.PROPOSAL_KEX_ALGS]);
+        kex.init(this, serverVersion.getBytes(), Session.clientVersion.getBytes(), I_S, I_C);
+        setState(State.KEX_FOLLOWUP);
     }
     
     protected void handleMessage(Buffer buffer) throws Exception
@@ -537,12 +670,7 @@ public class Session
                             break;
                         }
                         log.info("Received SSH_MSG_KEXINIT");
-                        extractProposal(buffer);
-                        negotiate();
-                        kex = NamedFactory.Utils.create(factoryManager.getKeyExchangeFactories(),
-                                                        negotiated[SSHConstants.PROPOSAL_KEX_ALGS]);
-                        kex.init(this, serverVersion.getBytes(), Session.clientVersion.getBytes(), I_S, I_C);
-                        setState(State.KEX_FOLLOWUP);
+                        handleKexInit(buffer);
                         break;
                     case KEX_FOLLOWUP:
                         log.info("Received KEX followup data");
@@ -564,6 +692,8 @@ public class Session
                         log.info("Received SSH_MSG_NEWKEYS");
                         receivedNewKeys();
                         setState(State.KEX_DONE);
+                        if (mutex.isHeldByCurrentThread())
+                            mutex.unlock();
                         break;
                     case AUTH_REQUESTED:
                         if (cmd != SSHConstants.Message.SSH_MSG_SERVICE_ACCEPT)
@@ -581,9 +711,8 @@ public class Session
                         break;
                     case AUTH_ONGOING:
                         if (userAuth == null)
-                        {
-                            throw new IllegalStateException("State is AUTH_ONGOING, received packet, but no user auth pending!!");
-                        }
+                            throw new IllegalStateException(
+                                                            "State is AUTH_ONGOING, received packet, but no user auth pending!!");
                         buffer.rpos(buffer.rpos() - 1);
                         switch (userAuth.next(buffer))
                         {
@@ -602,71 +731,49 @@ public class Session
                         }
                         break;
                     case RUNNING:
-                        switch (cmd) {
+                        switch (cmd)
+                        {
                             case SSH_MSG_KEXINIT:
-                                setState(State.KEX_FOLLOWUP);
-//                            case SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
-//                                channelOpenConfirmation(buffer);
-//                                break;
-//                            case SSH_MSG_CHANNEL_OPEN_FAILURE:
-//                                channelOpenFailure(buffer);
-//                                break;
-//                            case SSH_MSG_CHANNEL_REQUEST:
-//                                channelRequest(buffer);
-//                                break;
-//                            case SSH_MSG_CHANNEL_DATA:
-//                                channelData(buffer);
-//                                break;
-//                            case SSH_MSG_CHANNEL_EXTENDED_DATA:
-//                                channelExtendedData(buffer);
-//                                break;
-//                            case SSH_MSG_CHANNEL_FAILURE:
-//                                channelFailure(buffer);
-//                                break;
-//                            case SSH_MSG_CHANNEL_WINDOW_ADJUST:
-//                                channelWindowAdjust(buffer);
-//                                break;
-//                            case SSH_MSG_CHANNEL_EOF:
-//                                channelEof(buffer);
-//                                break;
-//                            case SSH_MSG_CHANNEL_CLOSE:
-//                                channelClose(buffer);
-//                                break;
-//                                // TODO: handle other requests
+                                /*
+                                 * Per RFC 4253 after 1 hour or 1gb of data
+                                 * transfer, key reexchange should take place
+                                 */
+                                mutex.lock();
+                                log.info("Received SSH_MSG_KEXINIT");
+                                sendKexInit();
+                                handleKexInit(buffer);
+                                // case SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
+                                // channelOpenConfirmation(buffer);
+                                // break;
+                                // case SSH_MSG_CHANNEL_OPEN_FAILURE:
+                                // channelOpenFailure(buffer);
+                                // break;
+                                // case SSH_MSG_CHANNEL_REQUEST:
+                                // channelRequest(buffer);
+                                // break;
+                                // case SSH_MSG_CHANNEL_DATA:
+                                // channelData(buffer);
+                                // break;
+                                // case SSH_MSG_CHANNEL_EXTENDED_DATA:
+                                // channelExtendedData(buffer);
+                                // break;
+                                // case SSH_MSG_CHANNEL_FAILURE:
+                                // channelFailure(buffer);
+                                // break;
+                                // case SSH_MSG_CHANNEL_WINDOW_ADJUST:
+                                // channelWindowAdjust(buffer);
+                                // break;
+                                // case SSH_MSG_CHANNEL_EOF:
+                                // channelEof(buffer);
+                                // break;
+                                // case SSH_MSG_CHANNEL_CLOSE:
+                                // channelClose(buffer);
+                                // break;
+                                // // TODO: handle other requests
                         }
                         break;
                 }
-                }
         }
-    
-    protected void init() throws Exception
-    {
-        log.info("Client version string: {}", Session.clientVersion);
-        output.write((Session.clientVersion + "\r\n").getBytes());
-        
-        // read server ident string
-        Buffer buf = new Buffer();
-        while (!readIdentification(buf))
-            buf.putByte((byte) input.read());
-        
-        outPump.start();
-        sendKexInit();
-        inPump.start();
-        
-        waitFor(State.KEX_DONE);
-        
-        sendAuthRequest();
-        waitFor(State.AUTH_PENDING);
-    }
-    
-    public boolean isAuthenticated()
-    {
-        return authed;
-    }
-    
-    public boolean isRunning()
-    {
-        return state != State.STOPPED && state != State.ERROR;
     }
     
     /**
@@ -674,7 +781,7 @@ public class Session
      * proposal. The negocatiated proposal will be stored in the
      * {@link #negotiated} property.
      */
-    protected void negotiate()
+    protected void negotiate() throws SSHException
     {
         String[] guess = new String[SSHConstants.PROPOSAL_MAX];
         for (int i = 0; i < SSHConstants.PROPOSAL_MAX; i++)
@@ -693,23 +800,22 @@ public class Session
                     break;
             }
             if (guess[i] == null && i != SSHConstants.PROPOSAL_LANG_CTOS && i != SSHConstants.PROPOSAL_LANG_STOC)
-                throw new IllegalStateException("Unable to negotiate");
+                throw new SSHException("Unable to negotiate");
         }
         negotiated = guess;
     }
     
     /**
      * Send an unimplemented packet. This packet should contain the sequence id
-     * of the unsupported packet: this number is assumed to be the last packet
-     * received.
+     * of the unsupported packet.
      * 
      * @throws IOException
      *             if an error occured sending the packet
      */
-    protected void notImplemented() throws IOException
+    protected void notImplemented(int num) throws IOException
     {
         Buffer buffer = createBuffer(SSHConstants.Message.SSH_MSG_UNIMPLEMENTED);
-        buffer.putInt(seqi - 1);
+        buffer.putInt(num);
         writePacket(buffer);
     }
     
@@ -827,43 +933,7 @@ public class Session
             inCompression.init(Compression.Type.Inflater, -1);
     }
     
-    /**
-     * Private method used while putting new keys into use that will resize the
-     * key used to initialize the cipher to the needed length.
-     * 
-     * @param E
-     *            the key to resize
-     * @param blockSize
-     *            the cipher block size
-     * @param hash
-     *            the hash algorithm
-     * @param K
-     *            the key exchange K parameter
-     * @param H
-     *            the key exchange H parameter
-     * @return the resized key
-     * @throws Exception
-     *             if a problem occur while resizing the key
-     */
-    private byte[] resizeKey(byte[] E, int blockSize, Digest hash, byte[] K, byte[] H) throws Exception
-    {
-        while (blockSize > E.length)
-        {
-            Buffer buffer = new Buffer();
-            buffer.putMPInt(K);
-            buffer.putRawBytes(H);
-            buffer.putRawBytes(E);
-            hash.update(buffer.array(), 0, buffer.available());
-            byte[] foo = hash.digest();
-            byte[] bar = new byte[E.length + foo.length];
-            System.arraycopy(E, 0, bar, 0, E.length);
-            System.arraycopy(foo, 0, bar, E.length, foo.length);
-            E = bar;
-        }
-        return E;
-    }
-    
-    protected void sendAuthRequest() throws IOException
+    protected void requestAuthService() throws IOException
     {
         log.info("Sending SSH_MSG_SERVICE_REQUEST for ssh-userauth");
         Buffer buffer = createBuffer(SSHConstants.Message.SSH_MSG_SERVICE_REQUEST);
@@ -929,7 +999,7 @@ public class Session
         log.error("A pumping thread reported {}", e.toString());
         
         // TODO: notify open channels
-
+        
         /*
          * will result in ex being thrown in any thread that was waiting for
          * state change; see waitFor()
@@ -939,30 +1009,14 @@ public class Session
         stopPumping(); // stop inPump and outPump
     }
     
-    public void setInputStream(InputStream input)
-    {
-        this.input = input;
-    }
-    
-    public void setOutputStream(OutputStream output)
-    {
-        this.output = output;
-    }
-    
     protected void setState(State newState)
     {
-        log.debug("Changing state from {} -> {}", state, newState);
+        log.debug("Changing state  [ {} -> {} ]", state, newState);
         synchronized (stateLock)
         {
             state = newState;
             stateLock.notifyAll();
         }
-    }
-    
-    private void stop()
-    {
-        setState(State.STOPPED); // will wakeup any thread that was waiting for state change; see waitFor()
-        stopPumping(); // stop inPump and outPump
     }
     
     protected void stopPumping()
@@ -994,37 +1048,6 @@ public class Session
         log.debug("Woke up to {}", state.toString());
         if (state == State.ERROR)
             throw ex;
-    }
-    
-    /**
-     * Encode the payload as an SSH packet and send it over the session.
-     * 
-     * @param payload
-     * @throws IOException
-     */
-    public void writePacket(Buffer payload) throws IOException
-    {
-        /*
-         * Synchronize all write requests as needed by the encoding algorithm
-         * and also queue the write request in this synchronized block to ensure
-         * packets are sent in the correct order
-         */
-        synchronized (encodeLock)
-        {
-            encode(payload);
-            byte[] data = payload.getCompactData();
-            try
-            {
-                while (!outQ.offer(data, 1L, TimeUnit.SECONDS))
-                    if (!outPump.isAlive())
-                        throw new IOException("Output pumping thread is dead");
-            } catch (InterruptedException e)
-            {
-                InterruptedIOException ioe = new InterruptedIOException();
-                ioe.initCause(e);
-                throw ioe;
-            }
-        }
     }
     
 }
