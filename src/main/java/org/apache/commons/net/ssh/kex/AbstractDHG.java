@@ -57,6 +57,7 @@ public abstract class AbstractDHG implements KeyExchange {
     private byte[] f;
     private byte[] K;
     private byte[] H;
+    private PublicKey hostKey;
 
     public void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception {
         this.session = session;
@@ -94,8 +95,8 @@ public abstract class AbstractDHG implements KeyExchange {
         K = dh.getK();
 
         buffer = new Buffer(K_S);
-        PublicKey key = buffer.getPublicKey();
-        String keyAlg = (key instanceof RSAPublicKey) ? KeyPairProvider.SSH_RSA : KeyPairProvider.SSH_DSS;
+        PublicKey hostKey = buffer.getPublicKey();
+        String keyAlg = (hostKey instanceof RSAPublicKey) ? KeyPairProvider.SSH_RSA : KeyPairProvider.SSH_DSS;
 
         buffer = new Buffer();
         buffer.putString(V_C);
@@ -110,7 +111,7 @@ public abstract class AbstractDHG implements KeyExchange {
         H = sha.digest();
 
         Signature verif = NamedFactory.Utils.create(session.getFactoryManager().getSignatureFactories(), keyAlg);
-        verif.init(key, null);
+        verif.init(hostKey, null);
         verif.update(H, 0, H.length);
         if (!verif.verify(sig)) {
             throw new SSHException(SSHConstants.SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
@@ -130,5 +131,10 @@ public abstract class AbstractDHG implements KeyExchange {
     public byte[] getK() {
         return K;
     }
+    
+    public PublicKey getHostKey() {
+        return hostKey;
+    }
+    
 
 }
