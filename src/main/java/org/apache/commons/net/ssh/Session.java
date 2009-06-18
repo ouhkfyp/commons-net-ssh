@@ -778,7 +778,7 @@ public class Session
     
     /**
      * Compute the negotiated proposals by merging the client and server
-     * proposal. The negocatiated proposal will be stored in the
+     * proposal. The negotiated proposal will be stored in the
      * {@link #negotiated} property.
      */
     protected void negotiate() throws SSHException
@@ -1036,7 +1036,7 @@ public class Session
     {
         synchronized (stateLock)
         {
-            while (state != s && state != State.ERROR)
+            while (state != s && state != State.ERROR && state != State.STOPPED)
                 try
                 {
                     stateLock.wait(0);
@@ -1046,8 +1046,12 @@ public class Session
                 }
         }
         log.debug("Woke up to {}", state.toString());
-        if (state == State.ERROR)
-            throw ex;
+        if (state != s) {
+            if (state == State.ERROR)
+                throw ex;
+            else if (state == State.STOPPED)
+                throw new SSHException("Stopped");
+        }
     }
     
 }

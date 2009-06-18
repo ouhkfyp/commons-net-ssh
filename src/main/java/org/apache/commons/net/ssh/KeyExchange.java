@@ -18,6 +18,8 @@
  */
 package org.apache.commons.net.ssh;
 
+import java.security.PublicKey;
+
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -68,5 +70,7 @@ public interface KeyExchange {
      * @return
      */
     byte[] getK();
+    
+    PublicKey getHostKey();
 
 }
