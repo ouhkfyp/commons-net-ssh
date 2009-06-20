@@ -51,11 +51,14 @@ import org.apache.log4j.BasicConfigurator;
 public class SSHClient extends SocketClient
 {
     
+    /** Default SSH port */
+    public static final int DEFAULT_PORT = 22;    
+    
     public static void main(String[] args) throws Exception
     {
         BasicConfigurator.configure(); // logging
         SSHClient s = new SSHClient();
-        s.connect("localhost", 22);
+        s.connect("localhost");
         s.disconnect();
     }
     
@@ -115,6 +118,7 @@ public class SSHClient extends SocketClient
     public SSHClient()
     {
         this(SSHClient.getDefaultFactoryManager());
+        this.setDefaultPort(DEFAULT_PORT);
     }
     
     public SSHClient(FactoryManager fm)

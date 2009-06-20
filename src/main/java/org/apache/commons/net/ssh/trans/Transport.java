@@ -12,8 +12,8 @@ import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.Random;
 import org.apache.commons.net.ssh.SSHConstants;
 import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,9 +42,6 @@ public class Transport implements Session
         ERROR, // indicates an error event in one of the threads
         STOPPED, //indicates this session has been stopped
     }
-    
-    /** Default SSH port */
-    public static final int DEFAULT_PORT = 22;
     
     private State state;
     
@@ -234,10 +231,10 @@ public class Transport implements Session
         
         kex.init();
         
-        try {
+        try
+        {
             waitFor(State.KEX_DONE);
-        }
-        catch (Exception e)
+        } catch (Exception e)
         {
             throw new IOException(e);
         }
