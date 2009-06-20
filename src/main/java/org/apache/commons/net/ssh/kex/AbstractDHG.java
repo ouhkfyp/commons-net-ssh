@@ -21,7 +21,6 @@ package org.apache.commons.net.ssh.kex;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
 
-import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.Digest;
 import org.apache.commons.net.ssh.KeyExchange;
 import org.apache.commons.net.ssh.KeyPairProvider;
@@ -29,6 +28,7 @@ import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.Signature;
 import org.apache.commons.net.ssh.SSHConstants;
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.digest.SHA1;
 import org.apache.commons.net.ssh.kex.DH;
 import org.apache.commons.net.ssh.util.Buffer;
@@ -95,7 +95,7 @@ public abstract class AbstractDHG implements KeyExchange {
         K = dh.getK();
 
         buffer = new Buffer(K_S);
-        PublicKey hostKey = buffer.getPublicKey();
+        hostKey = buffer.getPublicKey();
         String keyAlg = (hostKey instanceof RSAPublicKey) ? KeyPairProvider.SSH_RSA : KeyPairProvider.SSH_DSS;
 
         buffer = new Buffer();

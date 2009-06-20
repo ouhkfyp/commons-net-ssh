@@ -19,14 +19,12 @@
 
 package org.apache.commons.net.ssh;
 
-import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.commons.net.SocketClient;
 import org.apache.commons.net.ssh.cipher.AES128CBC;
 import org.apache.commons.net.ssh.cipher.AES192CBC;
 import org.apache.commons.net.ssh.cipher.AES256CBC;
@@ -44,27 +42,25 @@ import org.apache.commons.net.ssh.random.JCERandom;
 import org.apache.commons.net.ssh.random.SingletonRandomFactory;
 import org.apache.commons.net.ssh.signature.SignatureDSA;
 import org.apache.commons.net.ssh.signature.SignatureRSA;
+//import org.apache.commons.net.ssh.trans.Transport;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.apache.log4j.BasicConfigurator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public class SSHClient extends SocketClient
+public class SSHClient
 {
-    /** Default SSH port */
-    public static final int DEFAULT_PORT = 22;
     
     public static void main(String[] args) throws Exception
     {
         BasicConfigurator.configure(); // logging
-        SSHClient s = new SSHClient();
+        Session s = new Session(getDefaultFactoryManager());
         s.connect("localhost", 22);
         s.disconnect();
     }
     
-    protected static FactoryManager makeDefaultFactoryManager()
+    @SuppressWarnings("unchecked")
+    protected static FactoryManager getDefaultFactoryManager()
     {
-        FactoryManager fm = new FactoryManager();
+        FactoryManager fm = new FactoryManager("NET_2_0");
         // DHG14 uses 2048 bits key which are not supported by the default JCE
         // provider
         if (SecurityUtils.isBouncyCastleRegistered())
@@ -111,42 +107,5 @@ public class SSHClient extends SocketClient
         
         return fm;
     }
-    
-    /** logger */
-    protected final Logger log = LoggerFactory.getLogger(getClass());
-    
-    private Session session;
-    
-    SSHClient()
-    {
-    }
-    
-    @Override
-    public void disconnect() throws IOException
-    {
-        if (session.isRunning())
-            session.disconnect(SSHConstants.SSH_DISCONNECT_BY_APPLICATION, "Session closed by user");
-        super.disconnect();
-    }
-    
-    public boolean isAuthenticated()
-    {
-        return session.isAuthenticated();
-    }
-    
-    @Override
-    protected void _connectAction_() throws IOException
-    {
-        super._connectAction_();
-        session = new Session(SSHClient.makeDefaultFactoryManager(),
-                              _input_, _output_);
-        try
-        {
-            session.init();
-        } catch (Exception e)
-        {
-            throw new IOException(e);
-        }
-    }
-    
+        
 }

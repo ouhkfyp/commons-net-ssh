@@ -37,4 +37,5 @@ public interface UserAuth {
 
     Result next(Buffer buffer) throws IOException;
 
+    
 }

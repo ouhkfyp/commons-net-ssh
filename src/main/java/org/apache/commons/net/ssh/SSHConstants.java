@@ -140,4 +140,10 @@ public interface SSHConstants {
     static final int SSH_OPEN_UNKNOWN_CHANNEL_TYPE=            3;
     static final int SSH_OPEN_RESOURCE_SHORTAGE=               4;
 
+    //
+    // Services
+    //
+    static final String SERVICE_USERAUTH = "ssh-userauth";
+    static final String SERVICE_CONN = "ssh-conn";
+    
 }

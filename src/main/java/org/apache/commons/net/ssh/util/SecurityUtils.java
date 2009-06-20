@@ -23,6 +23,7 @@ import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.PublicKey;
 import java.security.Signature;
 
 import javax.crypto.Cipher;
@@ -164,6 +165,12 @@ public class SecurityUtils {
         } else {
             return Signature.getInstance(algorithm, getSecurityProvider());
         }
+    }
+    
+    public static String getFingerprint(PublicKey key)
+    {
+        // TODO
+        return null;
     }
 
 }
