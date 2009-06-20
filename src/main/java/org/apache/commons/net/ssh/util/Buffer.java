@@ -329,6 +329,7 @@ public final class Buffer {
         }
     }
 
+    @SuppressWarnings("serial")
     public static class BufferException extends RuntimeException {
         public BufferException(String message) {
             super(message);
