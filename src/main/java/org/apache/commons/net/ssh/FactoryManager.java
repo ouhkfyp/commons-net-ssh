@@ -36,7 +36,7 @@ public class FactoryManager
     private List<NamedFactory<Signature>> signatureFactories;
     private NamedFactory<Random> randomFactory;
     private KeyPairProvider keyPairProvider;
-    private String version;
+    private final String version;
     
     /**
      * An upper case string identifying the version of the software used on
@@ -153,5 +153,9 @@ public class FactoryManager
         this.signatureFactories = signatureFactories;
     }
 
+    FactoryManager(String version)
+    {
+        this.version = version;
+    }
     
 }
