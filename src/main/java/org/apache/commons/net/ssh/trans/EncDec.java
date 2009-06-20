@@ -1,10 +1,14 @@
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.trans;
 
 import java.io.IOException;
 
+import org.apache.commons.net.ssh.Cipher;
+import org.apache.commons.net.ssh.Compression;
+import org.apache.commons.net.ssh.MAC;
+import org.apache.commons.net.ssh.SSHConstants;
+import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.BufferUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,13 +22,13 @@ class EncDec
 {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final Session session;
+    private final Transport session;
     
     //
     // SSH packets encoding / decoding support
     //
     private Cipher outCipher;
-    private Cipher inCipher; 
+    private Cipher inCipher;
     private int outCipherSize = 8;
     private int inCipherSize = 8;
     private MAC outMAC;
@@ -33,45 +37,24 @@ class EncDec
     private Compression outCompression;
     private Compression inCompression;
     private int seqi;
-    private int seqo; 
+    private int seqo;
     private final Buffer decoderBuffer = new Buffer();
     private Buffer uncompressBuffer;
-    private int decoderState; 
+    private int decoderState;
     private int decoderLength;
     
     private int decoderBytesNeeded = inCipherSize;
     
-    EncDec(Session session)
+    EncDec(Transport session)
     {
         this.session = session;
-    }
-
-    void setClientToServer(Cipher cipher, MAC mac, Compression comp)
-    {
-        this.outCipher = cipher;
-        this.outMAC = mac;
-        this.outCompression = comp;
-        outCipherSize = cipher.getIVSize();
-        if (comp != null)
-            this.outCompression.init(Compression.Type.Deflater, -1);
-    }
-    
-    void setServerToClient(Cipher cipher, MAC mac, Compression comp)
-    {
-        this.inCipher = cipher;
-        this.inMAC = mac;
-        this.inCompression = comp;
-        inCipherSize = cipher.getIVSize();
-        inMACResult = new byte[mac.getBlockSize()];
-        if (comp != null)
-            this.inCompression.init(Compression.Type.Inflater, -1);                
     }
     
     /**
      * Decode the incoming buffer and handle packets as needed.
      * <p>
-     * Returns advised number of bytes that should be made available in
-     * decoderBuffer before the method should be called again.
+     * Returns advised number of bytes that should be made available in decoderBuffer before the method should be called
+     * again.
      * 
      * @throws Exception
      */
@@ -169,7 +152,7 @@ class EncDec
                     break;
             }
     }
-
+    
     void decode(byte b) throws Exception
     {
         decoderBuffer.putByte(b);
@@ -253,5 +236,26 @@ class EncDec
             throw new SSHException(e);
         }
     }
-
+    
+    void setClientToServer(Cipher cipher, MAC mac, Compression comp)
+    {
+        outCipher = cipher;
+        outMAC = mac;
+        outCompression = comp;
+        outCipherSize = cipher.getIVSize();
+        if (comp != null)
+            outCompression.init(Compression.Type.Deflater, -1);
+    }
+    
+    void setServerToClient(Cipher cipher, MAC mac, Compression comp)
+    {
+        inCipher = cipher;
+        inMAC = mac;
+        inCompression = comp;
+        inCipherSize = cipher.getIVSize();
+        inMACResult = new byte[mac.getBlockSize()];
+        if (comp != null)
+            inCompression.init(Compression.Type.Inflater, -1);
+    }
+    
 }

@@ -20,6 +20,7 @@ package org.apache.commons.net.ssh;
 
 import java.security.PublicKey;
 
+import org.apache.commons.net.ssh.trans.Transport;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -39,7 +40,7 @@ public interface KeyExchange {
      * @param I_C the client key init packet
      * @throws Exception if an error occurs
      */
-    void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception;
+    void init(Transport session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception;
 
     /**
      * Process the next packet

@@ -28,9 +28,9 @@ import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.Signature;
 import org.apache.commons.net.ssh.SSHConstants;
 import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.digest.SHA1;
 import org.apache.commons.net.ssh.kex.DH;
+import org.apache.commons.net.ssh.trans.Transport;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +46,7 @@ public abstract class AbstractDHG implements KeyExchange {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
-    private Session session;
+    private Transport session;
     private byte[] V_S;
     private byte[] V_C;
     private byte[] I_S;
@@ -59,7 +59,7 @@ public abstract class AbstractDHG implements KeyExchange {
     private byte[] H;
     private PublicKey hostKey;
 
-    public void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception {
+    public void init(Transport session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception {
         this.session = session;
         this.V_S = V_S;
         this.V_C = V_C;

@@ -19,12 +19,14 @@
 
 package org.apache.commons.net.ssh;
 
+import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.commons.net.SocketClient;
 import org.apache.commons.net.ssh.cipher.AES128CBC;
 import org.apache.commons.net.ssh.cipher.AES192CBC;
 import org.apache.commons.net.ssh.cipher.AES256CBC;
@@ -42,17 +44,17 @@ import org.apache.commons.net.ssh.random.JCERandom;
 import org.apache.commons.net.ssh.random.SingletonRandomFactory;
 import org.apache.commons.net.ssh.signature.SignatureDSA;
 import org.apache.commons.net.ssh.signature.SignatureRSA;
-//import org.apache.commons.net.ssh.trans.Transport;
+import org.apache.commons.net.ssh.trans.Transport;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.apache.log4j.BasicConfigurator;
 
-public class SSHClient
+public class SSHClient extends SocketClient
 {
     
     public static void main(String[] args) throws Exception
     {
         BasicConfigurator.configure(); // logging
-        Session s = new Session(getDefaultFactoryManager());
+        SSHClient s = new SSHClient();
         s.connect("localhost", 22);
         s.disconnect();
     }
@@ -107,5 +109,31 @@ public class SSHClient
         
         return fm;
     }
-        
+    
+    private final Session transport;
+    
+    public SSHClient()
+    {
+        this(SSHClient.getDefaultFactoryManager());
+    }
+    
+    public SSHClient(FactoryManager fm)
+    {
+        transport = new Transport(fm);
+    }
+    
+    @Override
+    public void disconnect() throws IOException
+    {
+        transport.disconnect(SSHConstants.SSH_DISCONNECT_BY_APPLICATION, "Session closed by user");
+        super.disconnect();
+    }
+    
+    @Override
+    protected void _connectAction_() throws IOException
+    {
+        super._connectAction_();
+        transport.init(_input_, _output_);
+    }
+    
 }

@@ -1,7 +1,17 @@
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.trans;
 
 import java.io.IOException;
 
+import org.apache.commons.net.ssh.Cipher;
+import org.apache.commons.net.ssh.Compression;
+import org.apache.commons.net.ssh.Digest;
+import org.apache.commons.net.ssh.FactoryManager;
+import org.apache.commons.net.ssh.KeyExchange;
+import org.apache.commons.net.ssh.KeyPairProvider;
+import org.apache.commons.net.ssh.MAC;
+import org.apache.commons.net.ssh.NamedFactory;
+import org.apache.commons.net.ssh.SSHConstants;
+import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +32,7 @@ class KexHandler
     };
     
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final Session session;
+    private final Transport session;
     private final FactoryManager fm;
     
     //
@@ -39,7 +49,7 @@ class KexHandler
     private State state = State.EXPECT_KEXINIT; // our initial state
     private volatile boolean sentKexInit = false;
     
-    KexHandler(Session trans)
+    KexHandler(Transport trans)
     {
         session = trans;
         fm = trans.getFactoryManager();
@@ -171,8 +181,8 @@ class KexHandler
         c2scomp = NamedFactory.Utils.create(fm.getCompressionFactories(),
                                             negotiated[SSHConstants.PROPOSAL_COMP_ALGS_CTOS]);
         
-        session.getEncDec().setClientToServer(c2scipher, c2smac, c2scomp);
-        session.getEncDec().setServerToClient(s2ccipher, s2cmac, s2ccomp);
+        session.bin.setClientToServer(c2scipher, c2smac, c2scomp);
+        session.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
     }
     
     /**
