@@ -1,17 +1,35 @@
-package org.apache.commons.net.ssh.trans;
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.Cipher;
-import org.apache.commons.net.ssh.Compression;
-import org.apache.commons.net.ssh.Digest;
 import org.apache.commons.net.ssh.FactoryManager;
-import org.apache.commons.net.ssh.KeyExchange;
-import org.apache.commons.net.ssh.KeyPairProvider;
-import org.apache.commons.net.ssh.MAC;
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.SSHConstants;
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.cipher.Cipher;
+import org.apache.commons.net.ssh.compression.Compression;
+import org.apache.commons.net.ssh.digest.Digest;
+import org.apache.commons.net.ssh.kex.KeyExchange;
+import org.apache.commons.net.ssh.keyprovider.KeyPairProvider;
+import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +50,7 @@ class KexHandler
     };
     
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final Transport session;
+    private final Transport transport;
     private final FactoryManager fm;
     
     //
@@ -49,10 +67,10 @@ class KexHandler
     private State state = State.EXPECT_KEXINIT; // our initial state
     private volatile boolean sentKexInit = false;
     
-    KexHandler(Transport trans)
+    KexHandler(Transport transport)
     {
-        session = trans;
-        fm = trans.getFactoryManager();
+        this.transport = transport;
+        fm = transport.getFactoryManager();
     }
     
     /**
@@ -96,7 +114,7 @@ class KexHandler
         extractProposal(buffer);
         negotiate();
         kex = NamedFactory.Utils.create(fm.getKeyExchangeFactories(), negotiated[SSHConstants.PROPOSAL_KEX_ALGS]);
-        kex.init(session, session.getServerVersion().getBytes(), session.getClientVersion().getBytes(), I_S, I_C);
+        kex.init(transport, transport.getServerVersion().getBytes(), transport.getClientVersion().getBytes(), I_S, I_C);
     }
     
     /**
@@ -181,8 +199,8 @@ class KexHandler
         c2scomp = NamedFactory.Utils.create(fm.getCompressionFactories(),
                                             negotiated[SSHConstants.PROPOSAL_COMP_ALGS_CTOS]);
         
-        session.bin.setClientToServer(c2scipher, c2smac, c2scomp);
-        session.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
+        transport.bin.setClientToServer(c2scipher, c2smac, c2scomp);
+        transport.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
     }
     
     /**
@@ -211,6 +229,14 @@ class KexHandler
                 throw new SSHException("Unable to negotiate");
         }
         negotiated = guess;
+        
+        log.info("Negotiated (Cipher, MAC, Compression) --- client -> server: ("
+                 + negotiated[SSHConstants.PROPOSAL_ENC_ALGS_CTOS] + ", "
+                 + negotiated[SSHConstants.PROPOSAL_MAC_ALGS_CTOS] + ", "
+                 + negotiated[SSHConstants.PROPOSAL_COMP_ALGS_CTOS] + ") --- server -> client: ("
+                 + negotiated[SSHConstants.PROPOSAL_ENC_ALGS_STOC] + ", "
+                 + negotiated[SSHConstants.PROPOSAL_MAC_ALGS_STOC] + ", "
+                 + negotiated[SSHConstants.PROPOSAL_COMP_ALGS_STOC] + ")");
     }
     
     /**
@@ -255,24 +281,24 @@ class KexHandler
     private void sendKexInit() throws IOException
     {
         clientProposal = createProposal(KeyPairProvider.SSH_RSA + "," + KeyPairProvider.SSH_DSS);
-        Buffer buffer = session.createBuffer(SSHConstants.Message.SSH_MSG_KEXINIT);
+        Buffer buffer = transport.createBuffer(SSHConstants.Message.SSH_MSG_KEXINIT);
         int p = buffer.wpos();
         buffer.wpos(p + 16);
-        session.getPRNG().fill(buffer.array(), p, 16);
+        transport.prng.fill(buffer.array(), p, 16);
         for (String s : clientProposal)
             buffer.putString(s);
         buffer.putByte((byte) 0);
         buffer.putInt(0);
         byte[] data = buffer.getCompactData();
         log.info("Sending SSH_MSG_KEXINIT");
-        session.writePacket(buffer);
+        transport.writePacket(buffer);
         I_C = data;
     }
     
     private void sendNewKeys() throws IOException
     {
         log.info("Sending SSH_MSG_NEWKEYS");
-        session.writePacket(session.createBuffer(SSHConstants.Message.SSH_MSG_NEWKEYS));
+        transport.writePacket(transport.createBuffer(SSHConstants.Message.SSH_MSG_NEWKEYS));
     }
     
     boolean handle(SSHConstants.Message cmd, Buffer buffer) throws Exception
@@ -297,7 +323,7 @@ class KexHandler
                 buffer.rpos(buffer.rpos() - 1);
                 if (kex.next(buffer))
                 {
-                    if (!session.verifyHost(kex.getHostKey()))
+                    if (!transport.verifyHost(kex.getHostKey()))
                         throw new SSHException("Could not verify host key");
                     sendNewKeys();
                     state = State.EXPECT_NEWKEYS;
@@ -306,8 +332,8 @@ class KexHandler
             case EXPECT_NEWKEYS:
                 if (cmd != SSHConstants.Message.SSH_MSG_NEWKEYS)
                 {
-                    session.disconnect(SSHConstants.SSH_DISCONNECT_PROTOCOL_ERROR,
-                                       "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
+                    transport.disconnect(SSHConstants.SSH_DISCONNECT_PROTOCOL_ERROR,
+                                         "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
                     break;
                 }
                 log.info("Received SSH_MSG_NEWKEYS");

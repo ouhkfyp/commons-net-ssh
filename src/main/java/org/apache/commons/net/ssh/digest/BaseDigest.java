@@ -20,7 +20,6 @@ package org.apache.commons.net.ssh.digest;
 
 import java.security.MessageDigest;
 
-import org.apache.commons.net.ssh.Digest;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**

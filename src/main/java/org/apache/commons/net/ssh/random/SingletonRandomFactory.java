@@ -19,7 +19,6 @@
 package org.apache.commons.net.ssh.random;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.Random;
 
 /**
  * A random factory wrapper that uses a single random instance.

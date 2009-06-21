@@ -22,7 +22,6 @@ import java.io.IOException;
 
 import com.jcraft.jzlib.JZlib;
 import com.jcraft.jzlib.ZStream;
-import org.apache.commons.net.ssh.Compression;
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.SSHConstants;
 import org.apache.commons.net.ssh.SSHException;

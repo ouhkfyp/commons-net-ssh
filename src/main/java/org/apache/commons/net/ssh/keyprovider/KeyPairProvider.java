@@ -16,39 +16,41 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh.kex;
+package org.apache.commons.net.ssh.keyprovider;
 
-import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.kex.DH;
-import org.apache.commons.net.ssh.kex.DHGroupData;
+import java.security.KeyPair;
 
 /**
- * DHG14 does not work with the default JCE implementation provided by Sun
- * because it does not support 2048 bits encryption.
- * It requires BouncyCastle to be used.
+ * Provider for key pairs used to provide the user key.
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class DHG14 extends AbstractDHG {
+public interface KeyPairProvider {
 
     /**
-     * Named factory for DHG14 key exchange
+     * SSH identifier for RSA keys
      */
-    public static class Factory implements NamedFactory<KeyExchange> {
+    String SSH_RSA = "ssh-rsa";
 
-        public String getName() {
-            return "diffie-hellman-group14-sha1";
-        }
+    /**
+     * SSH identifier for DSA keys
+     */
+    String SSH_DSS = "ssh-dss";
 
-        public KeyExchange create() {
-            return new DHG14();
-        }
+    /**
+     * Load a key of the specified type which can be "ssh-rsa" or "ssh-dss".
+     * If there is no key of this type, return <code>null</code>
+     *
+     * @param type the type of key to load
+     * @return a valid key pair or <code>null</code>
+     */
+    KeyPair loadKey(String type);
 
-    }
-
-    protected void initDH(DH dh) {
-        dh.setG(DHGroupData.getG());
-        dh.setP(DHGroupData.getP14());
-    }
+    /**
+     * Return a comma separated list of the key types available
+     *
+     * @return the list of key availables
+     */
+    String getKeyTypes();
 
 }

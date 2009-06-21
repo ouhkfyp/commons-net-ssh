@@ -18,7 +18,6 @@
  */
 package org.apache.commons.net.ssh.digest;
 
-import org.apache.commons.net.ssh.Digest;
 import org.apache.commons.net.ssh.NamedFactory;
 
 /**

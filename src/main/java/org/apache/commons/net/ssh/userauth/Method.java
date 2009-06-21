@@ -16,22 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.userauth;
+
+import java.io.IOException;
+
+import org.apache.commons.net.ssh.util.Buffer;
 
 /**
- * A pseudo random number generator.
+ * TODO Add javadoc
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface Random {
+public interface Method {
 
+    enum Result {
+        Success,
+        Failure,
+        Continued
+    }
+
+    Result next(Buffer buffer) throws IOException;
+    
     /**
-     * Fill part of bytes with random values.
-     *
-     * @param bytes byte array to be filled.
-     * @param start index to start filling at.
-     * @param len length of segment to fill.
+     * Authentication methods that may be allowed to continue.
+     * @return
      */
-    void fill(byte[] bytes, int start, int len);
-
+    String[] getAllowedMethods();
+    
 }

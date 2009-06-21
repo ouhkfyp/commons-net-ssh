@@ -18,7 +18,6 @@
  */
 package org.apache.commons.net.ssh.compression;
 
-import org.apache.commons.net.ssh.Compression;
 import org.apache.commons.net.ssh.NamedFactory;
 
 /**

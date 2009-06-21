@@ -16,40 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
-
-import java.security.KeyPair;
+package org.apache.commons.net.ssh.digest;
 
 /**
- * Provider for key pairs used to provide the user key.
+ * Interface used to compute digests, based on algorithms such as MD5 or SHA1.
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface KeyPairProvider {
+public interface Digest {
 
-    /**
-     * SSH identifier for RSA keys
-     */
-    String SSH_RSA = "ssh-rsa";
+    void init() throws Exception;
 
-    /**
-     * SSH identifier for DSA keys
-     */
-    String SSH_DSS = "ssh-dss";
+    int getBlockSize();
 
-    /**
-     * Load a key of the specified type which can be "ssh-rsa" or "ssh-dss".
-     * If there is no key of this type, return <code>null</code>
-     *
-     * @param type the type of key to load
-     * @return a valid key pair or <code>null</code>
-     */
-    KeyPair loadKey(String type);
+    void update(byte[] foo, int start, int len) throws Exception;
 
-    /**
-     * Return a comma separated list of the key types available
-     *
-     * @return the list of key availables
-     */
-    String getKeyTypes();
+    byte[] digest() throws Exception;
+
 }

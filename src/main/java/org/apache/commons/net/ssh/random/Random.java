@@ -16,21 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.random;
 
 /**
- * Interface used to compute digests, based on algorithms such as MD5 or SHA1.
+ * A pseudo random number generator.
  *
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface Digest {
+public interface Random {
 
-    void init() throws Exception;
-
-    int getBlockSize();
-
-    void update(byte[] foo, int start, int len) throws Exception;
-
-    byte[] digest() throws Exception;
+    /**
+     * Fill part of bytes with random values.
+     *
+     * @param bytes byte array to be filled.
+     * @param start index to start filling at.
+     * @param len length of segment to fill.
+     */
+    void fill(byte[] bytes, int start, int len);
 
 }

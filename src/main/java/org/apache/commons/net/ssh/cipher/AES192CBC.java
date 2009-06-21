@@ -18,7 +18,6 @@
  */
 package org.apache.commons.net.ssh.cipher;
 
-import org.apache.commons.net.ssh.Cipher;
 import org.apache.commons.net.ssh.NamedFactory;
 
 /**

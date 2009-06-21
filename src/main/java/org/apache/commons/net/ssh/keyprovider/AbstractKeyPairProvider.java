@@ -24,7 +24,6 @@ import java.security.interfaces.RSAKey;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.net.ssh.KeyPairProvider;
 
 /**
  * TODO Add javadoc

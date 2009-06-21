@@ -18,7 +18,6 @@
  */
 package org.apache.commons.net.ssh.kex;
 
-import org.apache.commons.net.ssh.KeyExchange;
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.kex.DH;
 import org.apache.commons.net.ssh.kex.DHGroupData;
