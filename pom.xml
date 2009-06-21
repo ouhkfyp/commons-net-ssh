@@ -27,7 +27,7 @@ limitations under the License.
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>commons-net</groupId>
 	<artifactId>commons-net</artifactId>
-	<version>2.1-SNAPSHOT</version>
+	<version>3.0-SNAPSHOT</version>
 	<name>Commons Net</name>
 	<description>
 		A collection of network utilities and protocol implementations.
@@ -51,7 +51,6 @@ limitations under the License.
 			<url>scp://people.apache.org/~rwinston/release/net/</url>
 		</site>
 	</distributionManagement>
-
 
 	<developers>
 		<developer>
@@ -86,6 +85,12 @@ limitations under the License.
 			<email>rwinston@apache.org</email>
 			<organization></organization>
 		</developer>
+		<developer>
+			<name>Shikhar Bhushan</name>
+			<id>shikhar</id>
+			<email>shikhar@schmizz.net</email>
+			<organization></organization>
+		</developer>
 	</developers>
 
 	<contributors>
@@ -116,9 +121,56 @@ limitations under the License.
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<version>3.8.2</version>
+			<version>4.6</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>1.5.8</version>
+		</dependency> 
+		<dependency>
+			<groupId>com.jcraft</groupId>
+			<artifactId>jzlib</artifactId>
+			<version>1.0.7</version>
+		</dependency> 
+		<dependency>
+			<groupId>bouncycastle</groupId>
+			<artifactId>bcprov-jdk16</artifactId>
+			<version>140</version>
+		</dependency> 
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-log4j12</artifactId>
+			<version>1.5.8</version>
+		</dependency> 
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>1.2.15</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.sun.jdmk</groupId>
+					<artifactId>jmxtools</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.sun.jmx</groupId>
+					<artifactId>jmxri</artifactId>
+				</exclusion>		
+				<exclusion>
+					<groupId>javax.jms</groupId>
+					<artifactId>jms</artifactId>
+				</exclusion>
+				<exclusion>	
+					<groupId>javax.mail</groupId>
+					<artifactId>mail</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>oro</groupId>
+					<artifactId>oro</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency> 
 	</dependencies>
 
 	<properties>
@@ -204,7 +256,6 @@ limitations under the License.
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>
-                <version>1.2</version>
                 <executions>
                     <execution>
                         <id>attach-artifacts</id>
@@ -224,8 +275,6 @@ limitations under the License.
                     </execution>
                 </executions>
             </plugin>
-
-
 		</plugins>
 
 		<testResources>
@@ -236,8 +285,6 @@ limitations under the License.
 				</includes>
 			</testResource>
 		</testResources>
-
-
 	</build>
 
 	<reporting>
@@ -245,7 +292,6 @@ limitations under the License.
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-changes-plugin</artifactId>
-				<version>2.0</version>
 				<configuration>
 					<xmlPath>${basedir}/src/site/xdoc/changes.xml</xmlPath>
 					<issueLinkTemplate>%URL%/%ISSUE%</issueLinkTemplate>
@@ -264,7 +310,7 @@ limitations under the License.
 				<artifactId>clirr-maven-plugin</artifactId>
 				<version>2.2.2</version>
 				<configuration>
-					<comparisonVersion>1.4.1</comparisonVersion>
+					<comparisonVersion>2.0</comparisonVersion>
 					<minSeverity>info</minSeverity>
 				</configuration>
 			</plugin>
