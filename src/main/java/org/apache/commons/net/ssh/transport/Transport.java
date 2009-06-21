@@ -104,7 +104,7 @@ public class Transport implements Session
             while (!stopPumping)
                 try
                 {
-                    bin.decode((byte) input.read());
+                    bin.gotByte((byte) input.read());
                 } catch (Exception e)
                 {
                     if (!stopPumping)
