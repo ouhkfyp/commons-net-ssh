@@ -54,14 +54,17 @@ class EncDec
     private byte[] inMACResult;
     private Compression outCompression;
     private Compression inCompression;
-    private int seqi;
-    private int seqo;
-    private final Buffer decoderBuffer = new Buffer();
+    private int seqi; // server -> client seq. no.
+    private int seqo; // client -> server seq. no.
+    private final Buffer decoderBuffer = new Buffer(); // buffer where as-yet undecoded data lives
     private Buffer uncompressBuffer;
     private int decoderState;
     private int decoderLength;
     
-    private int decoderBytesNeeded = inCipherSize;
+    
+    // how many bytes do we need, before a call to decode() can succeed at decoding packet length / the whole packet?
+    // see decode()
+    private int needed = inCipherSize; 
     
     EncDec(Transport session)
     {
@@ -76,8 +79,9 @@ class EncDec
      * 
      * @throws Exception
      */
-    private void decode() throws Exception
+    private int decode() throws Exception
     {
+        int need;
         // Decoding loop
         for (;;)
             if (decoderState == 0) // Wait for beginning of packet
@@ -85,8 +89,8 @@ class EncDec
                 // The read position should always be 0 at this point because we have compacted this buffer
                 assert decoderBuffer.rpos() == 0;
                 // If we have received enough bytes, start processing those
-                decoderBytesNeeded = inCipherSize - decoderBuffer.available();
-                if (decoderBytesNeeded <= 0)
+                need = inCipherSize - decoderBuffer.available();
+                if (need <= 0)
                 {
                     // Decrypt the first bytes
                     if (inCipher != null)
@@ -110,8 +114,8 @@ class EncDec
                 assert decoderBuffer.rpos() == 4;
                 int macSize = inMAC != null ? inMAC.getBlockSize() : 0;
                 // Check if the packet has been fully received
-                decoderBytesNeeded = decoderLength + macSize - decoderBuffer.available();
-                if (decoderBytesNeeded <= 0) 
+                need = decoderLength + macSize - decoderBuffer.available();
+                if (need <= 0) 
                 {
                     byte[] data = decoderBuffer.array();
                     // Decrypt the remaining of the packet
@@ -155,9 +159,9 @@ class EncDec
                     if (log.isTraceEnabled())
                         log.trace("Received packet #{}: {}", seqi, buf.printHex());
                     
-                    // 
-                    session.handle(buf); // process decoded packet
-                    // 
+                    // ----------------------------------------------------- //
+                    session.handle(buf); /* process the decoded packet */
+                    // ----------------------------------------------------- //
                     
                     // Set ready to handle next packet
                     decoderBuffer.rpos(decoderLength + 4 + macSize);
@@ -168,15 +172,16 @@ class EncDec
                     // need more datas
                     break;
             }
+        return need;
     }
     
-    void decode(byte b) throws Exception
+    void gotByte(byte b) throws Exception
     {
         decoderBuffer.putByte(b);
-        if (decoderBytesNeeded == 1)
-            decode();
+        if (needed == 1)
+            needed = decode();
         else
-            decoderBytesNeeded--;
+            needed--;
     }
     
     /**
