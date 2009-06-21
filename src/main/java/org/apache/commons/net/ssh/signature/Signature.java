@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.signature;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;

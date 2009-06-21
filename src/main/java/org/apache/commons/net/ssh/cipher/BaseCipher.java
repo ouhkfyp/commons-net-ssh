@@ -21,7 +21,6 @@ package org.apache.commons.net.ssh.cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import org.apache.commons.net.ssh.Cipher;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**

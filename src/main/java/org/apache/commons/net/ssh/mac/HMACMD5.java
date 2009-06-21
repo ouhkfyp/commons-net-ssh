@@ -18,7 +18,6 @@
  */
 package org.apache.commons.net.ssh.mac;
 
-import org.apache.commons.net.ssh.MAC;
 import org.apache.commons.net.ssh.NamedFactory;
 
 /**

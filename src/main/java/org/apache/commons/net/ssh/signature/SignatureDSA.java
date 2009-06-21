@@ -18,9 +18,8 @@
  */
 package org.apache.commons.net.ssh.signature;
 
-import org.apache.commons.net.ssh.KeyPairProvider;
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.Signature;
+import org.apache.commons.net.ssh.keyprovider.KeyPairProvider;
 
 /**
  * DSA <code>Signature</code>

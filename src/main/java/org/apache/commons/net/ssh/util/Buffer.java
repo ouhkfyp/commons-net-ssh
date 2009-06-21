@@ -29,8 +29,8 @@ import java.security.spec.DSAPublicKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPublicKeySpec;
 
-import org.apache.commons.net.ssh.KeyPairProvider;
 import org.apache.commons.net.ssh.SSHConstants;
+import org.apache.commons.net.ssh.keyprovider.KeyPairProvider;
 
 /**
  * TODO Add javadoc
@@ -329,7 +329,6 @@ public final class Buffer {
         }
     }
 
-    @SuppressWarnings("serial")
     public static class BufferException extends RuntimeException {
         public BufferException(String message) {
             super(message);

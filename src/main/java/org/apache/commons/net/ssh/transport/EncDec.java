@@ -1,12 +1,30 @@
-package org.apache.commons.net.ssh.trans;
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.Cipher;
-import org.apache.commons.net.ssh.Compression;
-import org.apache.commons.net.ssh.MAC;
 import org.apache.commons.net.ssh.SSHConstants;
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.cipher.Cipher;
+import org.apache.commons.net.ssh.compression.Compression;
+import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.BufferUtils;
 import org.slf4j.Logger;
@@ -61,7 +79,6 @@ class EncDec
     private void decode() throws Exception
     {
         // Decoding loop
-        log.debug("decode with decodeBuffer.available()={}", decoderBuffer.available());
         for (;;)
             if (decoderState == 0) // Wait for beginning of packet
             {
@@ -94,7 +111,7 @@ class EncDec
                 int macSize = inMAC != null ? inMAC.getBlockSize() : 0;
                 // Check if the packet has been fully received
                 decoderBytesNeeded = decoderLength + macSize - decoderBuffer.available();
-                if (decoderBytesNeeded <= 0)
+                if (decoderBytesNeeded <= 0) 
                 {
                     byte[] data = decoderBuffer.array();
                     // Decrypt the remaining of the packet
@@ -169,9 +186,11 @@ class EncDec
      *            the buffer to encode
      * @throws IOException
      *             if an exception occurs during the encoding process
+     * @return the sequence no. of encoded packet
      */
-    void encode(Buffer buffer) throws IOException
+    int encode(Buffer buffer) throws IOException
     {
+        int seq = seqo;
         try
         {
             // Check that the packet has some free space for the header
@@ -235,6 +254,7 @@ class EncDec
         {
             throw new SSHException(e);
         }
+        return seq;
     }
     
     void setClientToServer(Cipher cipher, MAC mac, Compression comp)

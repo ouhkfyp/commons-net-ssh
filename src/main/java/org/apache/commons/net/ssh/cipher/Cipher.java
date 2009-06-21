@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.cipher;
 
 /**
  * Wrapper for a cryptographic cipher, used either for encryption or decryption.

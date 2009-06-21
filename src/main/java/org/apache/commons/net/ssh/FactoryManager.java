@@ -20,9 +20,16 @@ package org.apache.commons.net.ssh;
 
 import java.util.List;
 
+import org.apache.commons.net.ssh.cipher.Cipher;
+import org.apache.commons.net.ssh.compression.Compression;
+import org.apache.commons.net.ssh.kex.KeyExchange;
+import org.apache.commons.net.ssh.keyprovider.KeyPairProvider;
+import org.apache.commons.net.ssh.mac.MAC;
+import org.apache.commons.net.ssh.random.Random;
+import org.apache.commons.net.ssh.signature.Signature;
+
 /**
- * This interface allows retrieving all the <code>NamedFactory</code> used in
- * the SSH protocol.
+ * Allows retrieving all the <code>NamedFactory</code> for Cipher, MAC, etc.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */

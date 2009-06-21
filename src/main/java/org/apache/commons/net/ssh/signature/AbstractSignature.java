@@ -21,7 +21,6 @@ package org.apache.commons.net.ssh.signature;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 
-import org.apache.commons.net.ssh.Signature;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**

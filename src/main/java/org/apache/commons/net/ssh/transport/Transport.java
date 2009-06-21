@@ -1,4 +1,22 @@
-package org.apache.commons.net.ssh.trans;
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,11 +27,11 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.net.ssh.FactoryManager;
-import org.apache.commons.net.ssh.Random;
 import org.apache.commons.net.ssh.SSHConstants;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Session;
+import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,8 +55,7 @@ public class Transport implements Session
         KEX_DONE, // indicates kex done
         SERVICE_REQ, // a service has been requested
         SERVICE_OK, // indicates service request was successful
-        SERVICE,
-        RUNNING,
+        SERVICE, // delegate message handling to the active service 
         ERROR, // indicates an error event in one of the threads
         STOPPED, //indicates this session has been stopped
     }
@@ -90,7 +107,6 @@ public class Transport implements Session
                     bin.decode((byte) input.read());
                 } catch (Exception e)
                 {
-                    log.error("Encountered error: {}", e.toString());
                     if (!stopPumping)
                         setError(e);
                 }
@@ -109,7 +125,6 @@ public class Transport implements Session
                 try
                 {
                     output.write(outQ.take());
-                    log.debug("Sent packet");
                 } catch (Exception e)
                 {
                     log.error("Encountered error: {}", e.toString());
@@ -123,7 +138,7 @@ public class Transport implements Session
     /* true value tells inPump and outPump to stop */
     private volatile boolean stopPumping = false;
     
-    private Service service; // active service e.g. ssh-userauth, ssh-connection
+    private Service service; // currently active service i.e. ssh-userauth, ssh-connection
     
     boolean authed = false;
     
@@ -148,13 +163,6 @@ public class Transport implements Session
         outPump.setDaemon(true);
     }
     
-    /**
-     * Create a new buffer for the specified SSH packet and reserve the needed space (5 bytes) for the packet header.
-     * 
-     * @param cmd
-     *            the SSH command
-     * @return a new buffer ready for write
-     */
     public Buffer createBuffer(SSHConstants.Message cmd)
     {
         Buffer buffer = new Buffer();
@@ -164,16 +172,6 @@ public class Transport implements Session
         return buffer;
     }
     
-    /**
-     * Send a disconnect packet with the given reason and message, and close the session.
-     * 
-     * @param reason
-     *            the reason code for this disconnect
-     * @param msg
-     *            the text message
-     * @throws IOException
-     *             if an error occured sending the packet
-     */
     public void disconnect(int reason, String msg) throws IOException
     {
         log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
@@ -190,27 +188,17 @@ public class Transport implements Session
         return clientVersion;
     }
     
-    /**
-     * Retrieve the factory manager
-     * 
-     * @return the factory manager for this session
-     */
     public FactoryManager getFactoryManager()
     {
         return fm;
     }
-    
-    public Random getPRNG()
-    {
-        return prng;
-    }
-    
+        
     public String getServerVersion()
     {
         return serverVersion;
     }
     
-    public void init(InputStream input, OutputStream output) throws IOException
+    public void init(InputStream input, OutputStream output) throws Exception
     {
         this.input = input;
         this.output = output;
@@ -231,66 +219,40 @@ public class Transport implements Session
         
         kex.init();
         
-        try
-        {
-            waitFor(State.KEX_DONE);
-        } catch (Exception e)
-        {
-            throw new IOException(e);
-        }
+        waitFor(State.KEX_DONE);
+        
     }
-    
-    //    public void requestService(ServiceHandler serviceHandler) throws Exception
-    //    {
-    //        this.serviceHandler = serviceHandler;
-    //        setState(State.SERVICE_REQ);
-    //        sendServiceRequest(serviceHandler.getServiceName());
-    //        waitFor(State.SERVICE_OK);
-    //        setState(State.SERVICE);
-    //    }
-    
-    public boolean isAuthenticated()
-    {
-        // TODO Auto-generated method stub
-        return false;
-    }
-    
+
     public boolean isRunning()
     {
-        // super.isConnected() tells us about the socket, the state stuff tells us about SSH-specificities
         return !(state == State.ERROR || state == State.STOPPED);
     }
     
-    public void setService(Service service) throws Exception
+    public void startService(Service service) throws Exception
     {
         log.info("Setting active service to {}", service.getName());
         this.service = service;
-        sendServiceRequest(service.getName());
         setState(State.SERVICE_REQ);
+        sendServiceRequest(service.getName());
         waitFor(State.SERVICE_OK);
     }
     
-    public boolean verifyHost(PublicKey key)
+    boolean verifyHost(PublicKey key)
     {
         // TODO: verify host key!! -- PRIORITY
         return true;
     }
     
-    /**
-     * Encode the payload as an SSH packet and send it over the session.
-     * 
-     * @param payload
-     * @throws IOException
-     */
-    public void writePacket(Buffer payload) throws IOException
+    public int writePacket(Buffer payload) throws IOException
     {
+        int seq = 0;
         /*
          * Synchronize all write requests as needed by the encoding algorithm and also queue the write request in this
          * synchronized block to ensure packets are sent in the correct order.
          */
         synchronized (encodeLock)
         {
-            bin.encode(payload);
+            seq = bin.encode(payload);
             byte[] data = payload.getCompactData();
             try
             {
@@ -304,6 +266,7 @@ public class Transport implements Session
                 throw ioe;
             }
         }
+        return seq;
     }
     
     private String readIdentification(Buffer buffer) throws IOException
@@ -368,9 +331,9 @@ public class Transport implements Session
     private void setError(Exception e)
     {
         exception = e;
-        log.debug("A pumping thread reported {}", e.toString());
+        log.error("Encountered error: {}", e);
         
-        // Future TODO: notify open channels
+        // Future TODO: notify active service
         
         /*
          * will result in exception being thrown in any thread that was waiting for state change; see waitFor()
@@ -478,6 +441,7 @@ public class Transport implements Session
                     }
                     case KEX_DONE:
                     case SERVICE_OK:
+                        // in-between states: what happens here??
                         break;
                     default:
                         assert false;
@@ -499,7 +463,10 @@ public class Transport implements Session
         writePacket(buffer);
     }
     
-    void setAuthenticated(boolean authed)
+    /* (non-Javadoc)
+     * @see org.apache.commons.net.ssh.transport.Service#setAuthenticated(boolean)
+     */
+    public void setAuthenticated(boolean authed)
     {
         this.authed = authed;
     }
@@ -520,6 +487,7 @@ public class Transport implements Session
         stopPumping = true;
         while (inPump.isAlive() || outPump.isAlive())
             ;
+        
         // will wakeup any thread that was waiting for phase change, see waitFor()
         setState(State.STOPPED);
         

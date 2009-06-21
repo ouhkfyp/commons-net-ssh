@@ -21,7 +21,6 @@ package org.apache.commons.net.ssh.random;
 import java.security.SecureRandom;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.Random;
 
 /**
  * A <code>Random</code> implementation using the built-in {@link SecureRandom} PRNG. 
