@@ -16,13 +16,11 @@ public class Connection implements Service
         this.session = session;
     }
     
-    @Override
     public String getName()
     {
         return SERVICE_NAME;
     }
 
-    @Override
     public void handle(SSHConstants.Message cmd, Buffer packet)
     {
         // TODO for July

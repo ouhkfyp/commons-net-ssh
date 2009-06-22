@@ -44,6 +44,7 @@ public class DHG1 extends AbstractDHG {
 
     }
 
+    @Override
     protected void initDH(DH dh) {
         dh.setG(DHGroupData.getG());
         dh.setP(DHGroupData.getP1());

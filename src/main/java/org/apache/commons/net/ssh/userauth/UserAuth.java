@@ -24,13 +24,11 @@ public class UserAuth implements Service
         this.nextServiceName = nextServiceName;
     }
     
-    @Override
     public String getName()
     {
         return serviceName;
     }
     
-    @Override
     public void handle(SSHConstants.Message cmd, Buffer packet)
     {
         switch (cmd)
