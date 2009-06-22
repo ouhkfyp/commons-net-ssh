@@ -16,14 +16,12 @@ public class Password implements Method
         this.password = password;
     }
     
-    @Override
     public String[] getAllowedMethods()
     {
         // TODO Auto-generated method stub
         return null;
     }
 
-    @Override
     public Result next(Buffer buffer) throws IOException
     {
         // TODO Auto-generated method stub
