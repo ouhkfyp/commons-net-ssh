@@ -34,15 +34,13 @@ import org.apache.commons.net.ssh.Constants;
 public abstract class AbstractKeyPairProvider implements KeyPairProvider
 {
     
-    public KeyPair loadKey(String type)
+    protected String getKeyType(KeyPair kp)
     {
-        assert type != null;
-        KeyPair[] keys = loadKeys();
-        for (KeyPair key : keys) {
-            if (type.equals(getKeyType(key))) {
-                return key;
-            }
-        }
+        Object key = kp.getPrivate() != null ? kp.getPrivate() : kp.getPublic();
+        if (key instanceof DSAKey)
+            return Constants.SSH_DSS;
+        else if (key instanceof RSAKey)
+            return Constants.SSH_RSA;
         return null;
     }
     
@@ -52,28 +50,25 @@ public abstract class AbstractKeyPairProvider implements KeyPairProvider
         KeyPair[] keys = loadKeys();
         for (KeyPair key : keys) {
             String type = getKeyType(key);
-            if (type != null && !types.contains(type)) {
+            if (type != null && !types.contains(type))
                 types.add(type);
-            }
         }
         StringBuilder sb = new StringBuilder();
         for (String type : types) {
-            if (sb.length() > 0) {
+            if (sb.length() > 0)
                 sb.append(",");
-            }
             sb.append(type);
         }
         return sb.toString();
     }
     
-    protected String getKeyType(KeyPair kp)
+    public KeyPair loadKey(String type)
     {
-        Object key = kp.getPrivate() != null ? kp.getPrivate() : kp.getPublic();
-        if (key instanceof DSAKey) {
-            return Constants.SSH_DSS;
-        } else if (key instanceof RSAKey) {
-            return Constants.SSH_RSA;
-        }
+        assert type != null;
+        KeyPair[] keys = loadKeys();
+        for (KeyPair key : keys)
+            if (type.equals(getKeyType(key)))
+                return key;
         return null;
     }
     

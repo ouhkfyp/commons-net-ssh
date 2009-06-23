@@ -24,42 +24,49 @@ import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
  * Base class for Digest algorithms based on the JCE provider.
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class BaseDigest implements Digest {
-
+public class BaseDigest implements Digest
+{
+    
     private final String algorithm;
     private int bsize;
     private MessageDigest md;
-
+    
     /**
-     * Create a new digest using the given algorithm and block size.
-     * The initialization and creation of the underlying {@link MessageDigest}
-     * object will be done in the {@link #init()} method.
-     *
-     * @param algorithm the JCE algorithm to use for this digest
-     * @param bsize the block size of this digest
+     * Create a new digest using the given algorithm and block size. The initialization and creation
+     * of the underlying {@link MessageDigest} object will be done in the {@link #init()} method.
+     * 
+     * @param algorithm
+     *            the JCE algorithm to use for this digest
+     * @param bsize
+     *            the block size of this digest
      */
-    public BaseDigest(String algorithm, int bsize) {
+    public BaseDigest(String algorithm, int bsize)
+    {
         this.algorithm = algorithm;
         this.bsize = bsize;
     }
-
-    public int getBlockSize() {
-        return bsize;
-    }
-
-    public void init() throws Exception {
-        this.md = SecurityUtils.getMessageDigest(algorithm);
-    }
-
-    public void update(byte[] foo, int start, int len) throws Exception {
-        md.update(foo, start, len);
-    }
-
-    public byte[] digest() throws Exception {
+    
+    public byte[] digest() throws Exception
+    {
         return md.digest();
     }
-
+    
+    public int getBlockSize()
+    {
+        return bsize;
+    }
+    
+    public void init() throws Exception
+    {
+        md = SecurityUtils.getMessageDigest(algorithm);
+    }
+    
+    public void update(byte[] foo, int start, int len) throws Exception
+    {
+        md.update(foo, start, len);
+    }
+    
 }

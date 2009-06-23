@@ -205,6 +205,64 @@ class KexHandler
         transport.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
     }
     
+    boolean handle(Constants.Message cmd, Buffer buffer) throws Exception
+    {
+        switch (state)
+        {
+        case EXPECT_KEXINIT:
+            if (cmd != Constants.Message.SSH_MSG_KEXINIT) {
+                log.error("Ignoring command " + cmd + " while waiting for "
+                        + Constants.Message.SSH_MSG_KEXINIT);
+                break;
+            }
+            log.info("Received SSH_MSG_KEXINIT");
+            // make sure init() has been called; its a pre-requisite for negotiating
+            while (!sentKexInit)
+                ;
+            gotKexInit(buffer);
+            state = State.EXPECT_FOLLOWUP;
+            break;
+        case EXPECT_FOLLOWUP:
+            log.info("Received kex followup data");
+            buffer.rpos(buffer.rpos() - 1);
+            if (kex.next(buffer)) {
+                if (!transport.verifyHost(kex.getHostKey()))
+                    throw new SSHException("Could not verify host key");
+                sendNewKeys();
+                state = State.EXPECT_NEWKEYS;
+            }
+            break;
+        case EXPECT_NEWKEYS:
+            if (cmd != Constants.Message.SSH_MSG_NEWKEYS) {
+                transport.disconnect(Constants.SSH_DISCONNECT_PROTOCOL_ERROR,
+                        "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
+                break;
+            }
+            log.info("Received SSH_MSG_NEWKEYS");
+            gotNewKeys();
+            state = State.KEX_DONE;
+            break;
+        case KEX_DONE:
+            if (cmd != Constants.Message.SSH_MSG_KEXINIT)
+                throw new IllegalStateException("Asked to handle " + cmd
+                        + ", was expecting SSH_MSG_KEXINIT for key re-exchange");
+            log.info("Received SSH_MSG_KEXINIT, initiating re-exchange");
+            sendKexInit();
+            gotKexInit(buffer);
+            state = State.EXPECT_FOLLOWUP;
+            break;
+        default:
+            assert false;
+        }
+        return state == State.KEX_DONE ? true : false;
+    }
+    
+    void init() throws IOException
+    {
+        sendKexInit();
+        sentKexInit = true;
+    }
+    
     /**
      * Compute the negotiated proposals by merging the client and server proposal. The negotiated
      * proposal will be stored in the {@link #negotiated} property.
@@ -299,64 +357,6 @@ class KexHandler
     {
         log.info("Sending SSH_MSG_NEWKEYS");
         transport.writePacket(transport.createBuffer(Constants.Message.SSH_MSG_NEWKEYS));
-    }
-    
-    boolean handle(Constants.Message cmd, Buffer buffer) throws Exception
-    {
-        switch (state)
-        {
-        case EXPECT_KEXINIT:
-            if (cmd != Constants.Message.SSH_MSG_KEXINIT) {
-                log.error("Ignoring command " + cmd + " while waiting for "
-                        + Constants.Message.SSH_MSG_KEXINIT);
-                break;
-            }
-            log.info("Received SSH_MSG_KEXINIT");
-            // make sure init() has been called; its a pre-requisite for negotiating
-            while (!sentKexInit)
-                ;
-            gotKexInit(buffer);
-            state = State.EXPECT_FOLLOWUP;
-            break;
-        case EXPECT_FOLLOWUP:
-            log.info("Received kex followup data");
-            buffer.rpos(buffer.rpos() - 1);
-            if (kex.next(buffer)) {
-                if (!transport.verifyHost(kex.getHostKey()))
-                    throw new SSHException("Could not verify host key");
-                sendNewKeys();
-                state = State.EXPECT_NEWKEYS;
-            }
-            break;
-        case EXPECT_NEWKEYS:
-            if (cmd != Constants.Message.SSH_MSG_NEWKEYS) {
-                transport.disconnect(Constants.SSH_DISCONNECT_PROTOCOL_ERROR,
-                        "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
-                break;
-            }
-            log.info("Received SSH_MSG_NEWKEYS");
-            gotNewKeys();
-            state = State.KEX_DONE;
-            break;
-        case KEX_DONE:
-            if (cmd != Constants.Message.SSH_MSG_KEXINIT)
-                throw new IllegalStateException("Asked to handle " + cmd
-                        + ", was expecting SSH_MSG_KEXINIT for key re-exchange");
-            log.info("Received SSH_MSG_KEXINIT, initiating re-exchange");
-            sendKexInit();
-            gotKexInit(buffer);
-            state = State.EXPECT_FOLLOWUP;
-            break;
-        default:
-            assert false;
-        }
-        return state == State.KEX_DONE ? true : false;
-    }
-    
-    void init() throws IOException
-    {
-        sendKexInit();
-        sentKexInit = true;
     }
     
 }

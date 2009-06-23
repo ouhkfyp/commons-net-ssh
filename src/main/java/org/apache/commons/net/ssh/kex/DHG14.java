@@ -19,37 +19,39 @@
 package org.apache.commons.net.ssh.kex;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.kex.DH;
-import org.apache.commons.net.ssh.kex.DHGroupData;
 
 /**
- * DHG14 does not work with the default JCE implementation provided by Sun
- * because it does not support 2048 bits encryption.
- * It requires BouncyCastle to be used.
- *
+ * DHG14 does not work with the default JCE implementation provided by Sun because it does not
+ * support 2048 bits encryption. It requires BouncyCastle to be used.
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class DHG14 extends AbstractDHG {
-
+public class DHG14 extends AbstractDHG
+{
+    
     /**
      * Named factory for DHG14 key exchange
      */
-    public static class Factory implements NamedFactory<KeyExchange> {
-
-        public String getName() {
-            return "diffie-hellman-group14-sha1";
-        }
-
-        public KeyExchange create() {
+    public static class Factory implements NamedFactory<KeyExchange>
+    {
+        
+        public KeyExchange create()
+        {
             return new DHG14();
         }
-
+        
+        public String getName()
+        {
+            return "diffie-hellman-group14-sha1";
+        }
+        
     }
-
+    
     @Override
-    protected void initDH(DH dh) {
+    protected void initDH(DH dh)
+    {
         dh.setG(DHGroupData.getG());
         dh.setP(DHGroupData.getP14());
     }
-
+    
 }

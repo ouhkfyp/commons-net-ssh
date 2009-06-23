@@ -22,29 +22,34 @@ import org.apache.commons.net.ssh.NamedFactory;
 
 /**
  * SHA1 Digest.
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class SHA1 extends BaseDigest {
-
+public class SHA1 extends BaseDigest
+{
+    
     /**
      * Named factory for SHA1 digest
      */
-    public static class Factory implements NamedFactory<Digest> {
-
-        public String getName() {
-            return "sha1";
-        }
-
-        public Digest create() {
+    public static class Factory implements NamedFactory<Digest>
+    {
+        
+        public Digest create()
+        {
             return new SHA1();
         }
+        
+        public String getName()
+        {
+            return "sha1";
+        }
     }
-
+    
     /**
      * Create a new instance of a SHA1 digest
      */
-    public SHA1() {
+    public SHA1()
+    {
         super("SHA-1", 20);
     }
 }

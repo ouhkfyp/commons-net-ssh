@@ -21,9 +21,9 @@ package org.apache.commons.net.ssh.cipher;
 import org.apache.commons.net.ssh.NamedFactory;
 
 /**
- * Represents a no-op cipher. This cipher can not really be used during
- * authentication and should only be used after, so that authentication remains
- * secured, but not the remaining of the exchanges.
+ * Represents a no-op cipher. This cipher can not really be used during authentication and should
+ * only be used after, so that authentication remains secured, but not the remaining of the
+ * exchanges.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
@@ -60,8 +60,7 @@ public class CipherNone implements Cipher
     {
     }
     
-    public void update(byte[] input, int inputOffset, int inputLen)
-                                                                   throws Exception
+    public void update(byte[] input, int inputOffset, int inputLen) throws Exception
     {
     }
     
