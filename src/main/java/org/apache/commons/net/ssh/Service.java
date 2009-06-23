@@ -2,6 +2,7 @@ package org.apache.commons.net.ssh;
 
 import org.apache.commons.net.ssh.util.Buffer;
 
+// subject to change - a lot
 public interface Service
 {
     

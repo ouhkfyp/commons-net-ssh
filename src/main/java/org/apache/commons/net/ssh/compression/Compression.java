@@ -23,59 +23,60 @@ import java.io.IOException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
- * Interface used to compress the stream of data between the
- * SSH server and clients.
- *
+ * Interface used to compress the stream of data between the SSH server and clients.
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface Compression {
-
+public interface Compression
+{
+    
     /**
-     * Enum identifying if this object will be used to compress
-     * or uncompress data.
+     * Enum identifying if this object will be used to compress or uncompress data.
      */
-    enum Type {
-        Inflater,
-        Deflater
+    enum Type
+    {
+        Inflater, Deflater
     }
-
+    
     /**
-     * Delayed compression is an Open-SSH specific feature which
-     * informs both the client and server to not compress data before
-     * the session has been authenticated.
-     *
-     * @return if the compression is delayed after authentication or not
+     * Compress the given buffer in place.
+     * 
+     * @param buffer
+     *            the buffer containing the data to compress
+     * @throws IOException
+     *             if an error occurs
      */
-    boolean isDelayed();
-
+    void compress(Buffer buffer) throws IOException;
+    
     /**
-     * Initialize this object to either compress or uncompress data.
-     * This method must be called prior to any calls to either
-     * <code>compress</code> or <code>uncompress</code>.
-     * Once the object has been initialized, only one of
-     * <code>compress</code> or <code>uncompress</code> methods can be
-     * called.
-     *
+     * Initialize this object to either compress or uncompress data. This method must be called
+     * prior to any calls to either <code>compress</code> or <code>uncompress</code>. Once the
+     * object has been initialized, only one of <code>compress</code> or <code>uncompress</code>
+     * methods can be called.
+     * 
      * @param type
      * @param level
      */
     void init(Type type, int level);
-
+    
     /**
-     * Compress the given buffer in place.
-     *
-     * @param buffer the buffer containing the data to compress
-     * @throws IOException if an error occurs
+     * Delayed compression is an Open-SSH specific feature which informs both the client and server
+     * to not compress data before the session has been authenticated.
+     * 
+     * @return if the compression is delayed after authentication or not
      */
-    void compress(Buffer buffer) throws IOException;
-
+    boolean isDelayed();
+    
     /**
      * Uncompress the data in a buffer into another buffer.
-     *
-     * @param from the buffer containing the data to uncompress
-     * @param to the buffer receiving the uncompressed data
-     * @throws IOException if an error occurs
+     * 
+     * @param from
+     *            the buffer containing the data to uncompress
+     * @param to
+     *            the buffer receiving the uncompressed data
+     * @throws IOException
+     *             if an error occurs
      */
     void uncompress(Buffer from, Buffer to) throws IOException;
-
+    
 }

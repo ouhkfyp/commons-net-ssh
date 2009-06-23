@@ -35,14 +35,14 @@ public class SignatureRSA extends AbstractSignature
     public static class Factory implements NamedFactory<Signature>
     {
         
-        public String getName()
-        {
-            return Constants.SSH_RSA;
-        }
-        
         public Signature create()
         {
             return new SignatureRSA();
+        }
+        
+        public String getName()
+        {
+            return Constants.SSH_RSA;
         }
         
     }

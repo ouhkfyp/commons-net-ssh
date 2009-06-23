@@ -20,18 +20,22 @@ package org.apache.commons.net.ssh.random;
 
 /**
  * A pseudo random number generator.
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface Random {
-
+public interface Random
+{
+    
     /**
      * Fill part of bytes with random values.
-     *
-     * @param bytes byte array to be filled.
-     * @param start index to start filling at.
-     * @param len length of segment to fill.
+     * 
+     * @param bytes
+     *            byte array to be filled.
+     * @param start
+     *            index to start filling at.
+     * @param len
+     *            length of segment to fill.
      */
     void fill(byte[] bytes, int start, int len);
-
+    
 }

@@ -25,49 +25,48 @@ import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
  * TODO Add javadoc
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public abstract class AbstractSignature implements Signature {
-
+public abstract class AbstractSignature implements Signature
+{
+    
     protected java.security.Signature signature;
     protected String algorithm;
-
-    protected AbstractSignature(String algorithm) {
+    
+    protected AbstractSignature(String algorithm)
+    {
         this.algorithm = algorithm;
     }
-
-    public void init(PublicKey pubkey, PrivateKey prvkey) throws Exception {
-        signature = SecurityUtils.getSignature(algorithm);
-        if (pubkey != null) {
-            signature.initVerify(pubkey);
-        }
-        if (prvkey != null) {
-            signature.initSign(prvkey);
-        }
-    }
-
-    public void update(byte[] foo, int off, int len) throws Exception {
-        signature.update(foo, off, len);
-    }
-
-    protected byte[] extractSig(byte[] sig) {
+    
+    protected byte[] extractSig(byte[] sig)
+    {
         if (sig[0] == 0 && sig[1] == 0 && sig[2] == 0) {
             int i = 0;
             int j;
-            j = ((sig[i++] << 24) & 0xff000000) |
-                ((sig[i++] << 16) & 0x00ff0000) |
-                ((sig[i++] <<  8) & 0x0000ff00) |
-                ((sig[i++]      ) & 0x000000ff);
+            j = sig[i++] << 24 & 0xff000000 | sig[i++] << 16 & 0x00ff0000 | sig[i++] << 8
+                    & 0x0000ff00 | sig[i++] & 0x000000ff;
             i += j;
-            j = ((sig[i++] << 24) & 0xff000000) |
-                ((sig[i++] << 16) & 0x00ff0000) |
-                ((sig[i++] << 8 ) & 0x0000ff00) |
-                ((sig[i++]      ) & 0x000000ff);
+            j = sig[i++] << 24 & 0xff000000 | sig[i++] << 16 & 0x00ff0000 | sig[i++] << 8
+                    & 0x0000ff00 | sig[i++] & 0x000000ff;
             byte[] tmp = new byte[j];
             System.arraycopy(sig, i, tmp, 0, j);
             sig = tmp;
         }
         return sig;
+    }
+    
+    public void init(PublicKey pubkey, PrivateKey prvkey) throws Exception
+    {
+        signature = SecurityUtils.getSignature(algorithm);
+        if (pubkey != null)
+            signature.initVerify(pubkey);
+        if (prvkey != null)
+            signature.initSign(prvkey);
+    }
+    
+    public void update(byte[] foo, int off, int len) throws Exception
+    {
+        signature.update(foo, off, len);
     }
 }

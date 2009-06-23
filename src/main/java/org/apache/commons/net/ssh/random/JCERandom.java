@@ -23,46 +23,50 @@ import java.security.SecureRandom;
 import org.apache.commons.net.ssh.NamedFactory;
 
 /**
- * A <code>Random</code> implementation using the built-in {@link SecureRandom} PRNG. 
- *
+ * A <code>Random</code> implementation using the built-in {@link SecureRandom} PRNG.
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class JCERandom implements Random {
-
+public class JCERandom implements Random
+{
+    
     /**
      * Named factory for the BouncyCastle <code>Random</code>
      */
-    public static class Factory implements NamedFactory<Random> {
-
-        public String getName() {
-            return "default";
-        }
-
-        public Random create() {
+    public static class Factory implements NamedFactory<Random>
+    {
+        
+        public Random create()
+        {
             return new JCERandom();
         }
-
+        
+        public String getName()
+        {
+            return "default";
+        }
+        
     }
-
+    
     private byte[] tmp = new byte[16];
     private SecureRandom random = null;
-
-    public JCERandom() {
-      random = new SecureRandom();
+    
+    public JCERandom()
+    {
+        random = new SecureRandom();
     }
-
-    public synchronized void fill(byte[] foo, int start, int len) {
-        if (start == 0 && len == foo.length) {
+    
+    public synchronized void fill(byte[] foo, int start, int len)
+    {
+        if (start == 0 && len == foo.length)
             random.nextBytes(foo);
-        } else {
+        else
             synchronized (this) {
-                if (len > tmp.length) {
-                      tmp = new byte[len];
-                }
+                if (len > tmp.length)
+                    tmp = new byte[len];
                 random.nextBytes(tmp);
                 System.arraycopy(tmp, 0, foo, start, len);
             }
-        }
     }
-
+    
 }

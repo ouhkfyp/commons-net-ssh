@@ -27,26 +27,6 @@ package org.apache.commons.net.ssh;
 public interface Constants
 {
     /**
-     * Software version; sent as part of client identification string
-     */
-    public static final String VERSION = "NET_3_0";
-    
-    /**
-     * Default SSH port
-     */
-    public static final int DEFAULT_PORT = 22;
-    
-    /**
-     * SSH identifier for RSA keys
-     */
-    String SSH_RSA = "ssh-rsa";
-    
-    /**
-     * SSH identifier for DSA keys
-     */
-    String SSH_DSS = "ssh-dss";
-    
-    /**
      * SSH message identifiers
      */
     public enum Message
@@ -94,7 +74,21 @@ public interface Constants
         SSH_MSG_CHANNEL_SUCCESS(99),
         SSH_MSG_CHANNEL_FAILURE(100);
         
-        private byte b;
+        private final byte b;
+        
+        static Message[] commands;
+        
+        static {
+            commands = new Message[256];
+            for (Message c : Message.values())
+                if (commands[c.toByte()] == null)
+                    commands[c.toByte()] = c;
+        }
+        
+        public static Message fromByte(byte b)
+        {
+            return commands[b];
+        }
         
         private Message(int b)
         {
@@ -105,22 +99,27 @@ public interface Constants
         {
             return b;
         }
-        
-        static Message[] commands;
-        static {
-            commands = new Message[256];
-            for (Message c : Message.values()) {
-                if (commands[c.toByte()] == null) {
-                    commands[c.toByte()] = c;
-                }
-            }
-        }
-        
-        public static Message fromByte(byte b)
-        {
-            return commands[b];
-        }
     }
+    
+    /**
+     * Software version; sent as part of client identification string
+     */
+    public static final String VERSION = "NET_3_0";
+    
+    /**
+     * Default SSH port
+     */
+    public static final int DEFAULT_PORT = 22;
+    
+    /**
+     * SSH identifier for RSA keys
+     */
+    String SSH_RSA = "ssh-rsa";
+    
+    /**
+     * SSH identifier for DSA keys
+     */
+    String SSH_DSS = "ssh-dss";
     
     //
     // Values for the algorithms negotiation

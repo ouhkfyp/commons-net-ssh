@@ -22,26 +22,31 @@ import org.apache.commons.net.ssh.NamedFactory;
 
 /**
  * HMAC-SHA1-96 <code>Mac</code>
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class HMACSHA196 extends BaseMac {
-
+public class HMACSHA196 extends BaseMAC
+{
+    
     /**
      * Named factory for the HMAC-SHA1-96 <code>Mac</code>
      */
-    public static class Factory implements NamedFactory<MAC> {
-
-        public String getName() {
-            return "hmac-sha1-96";
-        }
-
-        public MAC create() {
+    public static class Factory implements NamedFactory<MAC>
+    {
+        
+        public MAC create()
+        {
             return new HMACSHA196();
         }
+        
+        public String getName()
+        {
+            return "hmac-sha1-96";
+        }
     }
-
-    public HMACSHA196() {
+    
+    public HMACSHA196()
+    {
         super("HmacSHA1", 12, 20);
     }
 }

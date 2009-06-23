@@ -33,11 +33,9 @@ public class BaseCipher implements Cipher
     
     private static final byte[] resize(byte[] data, int size)
     {
-        if (data.length > size)
-        {
+        if (data.length > size) {
             final byte[] tmp = new byte[size];
-            System.arraycopy(
-                             data, 0, tmp, 0, size);
+            System.arraycopy(data, 0, tmp, 0, size);
             data = tmp;
         }
         return data;
@@ -50,8 +48,7 @@ public class BaseCipher implements Cipher
     
     private javax.crypto.Cipher cipher;
     
-    public BaseCipher(int ivsize, int bsize, String algorithm,
-                      String transformation)
+    public BaseCipher(int ivsize, int bsize, String algorithm, String transformation)
     {
         this.ivsize = ivsize;
         this.bsize = bsize;
@@ -71,31 +68,22 @@ public class BaseCipher implements Cipher
     
     public void init(Mode mode, byte[] key, byte[] iv) throws Exception
     {
-        key = BaseCipher.resize(
-                                key, bsize);
-        iv = BaseCipher.resize(
-                               iv, ivsize);
-        try
-        {
+        key = BaseCipher.resize(key, bsize);
+        iv = BaseCipher.resize(iv, ivsize);
+        try {
             cipher = SecurityUtils.getCipher(transformation);
-            cipher
-                  .init(
-                        (mode == Mode.Encrypt ? javax.crypto.Cipher.ENCRYPT_MODE
-                                             : javax.crypto.Cipher.DECRYPT_MODE),
-                        new SecretKeySpec(key, algorithm),
-                        new IvParameterSpec(iv));
-        } catch (final Exception e)
-        {
+            cipher.init((mode == Mode.Encrypt ? javax.crypto.Cipher.ENCRYPT_MODE
+                    : javax.crypto.Cipher.DECRYPT_MODE), new SecretKeySpec(key, algorithm),
+                    new IvParameterSpec(iv));
+        } catch (final Exception e) {
             cipher = null;
             throw e;
         }
     }
     
-    public void update(byte[] input, int inputOffset, int inputLen)
-                                                                   throws Exception
+    public void update(byte[] input, int inputOffset, int inputLen) throws Exception
     {
-        cipher.update(
-                      input, inputOffset, inputLen, input, inputOffset);
+        cipher.update(input, inputOffset, inputLen, input, inputOffset);
     }
     
 }

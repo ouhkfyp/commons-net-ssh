@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.commons.net.ssh;
 
 import java.io.IOException;
@@ -58,6 +57,11 @@ import org.apache.commons.net.ssh.userauth.UserAuth;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.apache.log4j.BasicConfigurator;
 
+/**
+ * TODO javadocs
+ * 
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ */
 public class SSHClient extends SocketClient
 {
     
@@ -192,9 +196,9 @@ public class SSHClient extends SocketClient
         }
     }
     
-    public void authPassword(String username, char[] password)
+    public void authPassword(String username, PasswordFinder passwordFinder) throws IOException
     {
-        auth.authPassword(username, password);
+        auth.authPassword(username, passwordFinder);
     }
     
     @Override

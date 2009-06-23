@@ -20,27 +20,42 @@ package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
 
+import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
  * TODO Add javadoc
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface Method {
-
-    enum Result {
-        Success,
-        Failure,
-        Continued
+public abstract class Method
+{
+    
+    public enum Result
+    {
+        Success, Failure, Continued
     }
-
-    Result next(Buffer buffer) throws IOException;
+    
+    private String[] allowed;
     
     /**
-     * Authentication methods that may be allowed to continue.
-     * @return
+     * Authentication methods that may be allowed to continue. Only set in case the result of
+     * {@link #next(Buffer)} is {@link Result#Failure}, otherwise will be <code>null</code>.
+     * 
+     * @return array of strings e.g. {"publickey", "password", "keyboard-interactive"}
      */
-    String[] getAllowedMethods();
+    String[] getAllowedMethods()
+    {
+        return allowed;
+    }
     
+    /**
+     * 
+     * @param buffer
+     * @return
+     * @throws IOException
+     */
+    abstract Result next(Constants.Message cmd, Buffer buffer) throws IOException;
+    
+    abstract void updateRequest(Buffer buf);
 }

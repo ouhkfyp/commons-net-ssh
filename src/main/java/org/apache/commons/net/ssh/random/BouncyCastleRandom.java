@@ -25,39 +25,44 @@ import org.bouncycastle.crypto.prng.RandomGenerator;
 import org.bouncycastle.crypto.prng.VMPCRandomGenerator;
 
 /**
- * BouncyCastle <code>Random</code>.
- * This pseudo random number generator uses the a very fast PRNG from BouncyCastle.
- * The JRE random will be used when creating a new generator to add some random
+ * BouncyCastle <code>Random</code>. This pseudo random number generator uses the a very fast PRNG
+ * from BouncyCastle. The JRE random will be used when creating a new generator to add some random
  * data to the seed.
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class BouncyCastleRandom implements Random {
-
+public class BouncyCastleRandom implements Random
+{
+    
     /**
      * Named factory for the BouncyCastle <code>Random</code>
      */
-    public static class Factory implements NamedFactory<Random> {
-
-        public String getName() {
-            return "bouncycastle";
-        }
-
-        public Random create() {
+    public static class Factory implements NamedFactory<Random>
+    {
+        
+        public Random create()
+        {
             return new BouncyCastleRandom();
         }
-
+        
+        public String getName()
+        {
+            return "bouncycastle";
+        }
+        
     }
-
+    
     private final RandomGenerator random;
-
-    public BouncyCastleRandom() {
-        this.random = new VMPCRandomGenerator();
+    
+    public BouncyCastleRandom()
+    {
+        random = new VMPCRandomGenerator();
         byte[] seed = new SecureRandom().generateSeed(8);
-        this.random.addSeedMaterial(seed);
+        random.addSeedMaterial(seed);
     }
-
-    public void fill(byte[] bytes, int start, int len) {
-        this.random.nextBytes(bytes, start, len);
+    
+    public void fill(byte[] bytes, int start, int len)
+    {
+        random.nextBytes(bytes, start, len);
     }
 }

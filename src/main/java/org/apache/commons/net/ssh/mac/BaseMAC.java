@@ -24,59 +24,65 @@ import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
  * Base class for <code>Mac</code> implementations based on the JCE provider.
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class BaseMac implements MAC {
-
+public class BaseMAC implements MAC
+{
+    
     private final String algorithm;
     private final int defbsize;
     private final int bsize;
     private final byte[] tmp;
     private javax.crypto.Mac mac;
-
-    public BaseMac(String algorithm, int bsize, int defbsize) {
+    
+    public BaseMAC(String algorithm, int bsize, int defbsize)
+    {
         this.algorithm = algorithm;
         this.bsize = bsize;
         this.defbsize = defbsize;
-        this.tmp = new byte[defbsize];
+        tmp = new byte[defbsize];
     }
-
-    public int getBlockSize() {
+    
+    public void doFinal(byte[] buf, int offset) throws Exception
+    {
+        if (bsize != defbsize) {
+            mac.doFinal(tmp, 0);
+            System.arraycopy(tmp, 0, buf, offset, bsize);
+        } else
+            mac.doFinal(buf, offset);
+    }
+    
+    public int getBlockSize()
+    {
         return bsize;
     }
-
-    public void init(byte[] key) throws Exception {
+    
+    public void init(byte[] key) throws Exception
+    {
         if (key.length > defbsize) {
             byte[] tmp = new byte[defbsize];
             System.arraycopy(key, 0, tmp, 0, defbsize);
             key = tmp;
         }
-
+        
         SecretKeySpec skey = new SecretKeySpec(key, algorithm);
         mac = SecurityUtils.getMac(algorithm);
         mac.init(skey);
     }
-
-    public void update(int i) {
+    
+    public void update(byte foo[], int s, int l)
+    {
+        mac.update(foo, s, l);
+    }
+    
+    public void update(int i)
+    {
         tmp[0] = (byte) (i >>> 24);
         tmp[1] = (byte) (i >>> 16);
         tmp[2] = (byte) (i >>> 8);
         tmp[3] = (byte) i;
         update(tmp, 0, 4);
     }
-
-    public void update(byte foo[], int s, int l) {
-        mac.update(foo, s, l);
-    }
-
-    public void doFinal(byte[] buf, int offset) throws Exception {
-        if (bsize != defbsize) {
-            mac.doFinal(tmp, 0);
-            System.arraycopy(tmp, 0, buf, offset, bsize);
-        } else {
-            mac.doFinal(buf, offset);
-        }
-    }
-
+    
 }

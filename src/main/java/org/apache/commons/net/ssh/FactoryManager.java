@@ -46,16 +46,6 @@ public class FactoryManager
     private KeyPairProvider keyPairProvider;
     
     /**
-     * Retrieve the list of named factories for <code>KeyExchange</code>.
-     * 
-     * @return a list of named <code>KeyExchange</code> factories, never <code>null</code>
-     */
-    public List<NamedFactory<KeyExchange>> getKeyExchangeFactories()
-    {
-        return keyExchangeFactories;
-    }
-    
-    /**
      * Retrieve the list of named factories for <code>Cipher</code>.
      * 
      * @return a list of named <code>Cipher</code> factories, never <code>null</code>
@@ -76,23 +66,13 @@ public class FactoryManager
     }
     
     /**
-     * Retrieve the list of named factories for <code>MAC</code>.
+     * Retrieve the list of named factories for <code>KeyExchange</code>.
      * 
-     * @return a list of named <code>Mac</code> factories, never <code>null</code>
+     * @return a list of named <code>KeyExchange</code> factories, never <code>null</code>
      */
-    public List<NamedFactory<MAC>> getMACFactories()
+    public List<NamedFactory<KeyExchange>> getKeyExchangeFactories()
     {
-        return macFactories;
-    }
-    
-    /**
-     * Retrieve the list of named factories for <code>Signature</code>.
-     * 
-     * @return a list of named <code>Signature</code> factories, never <code>null</code>
-     */
-    public List<NamedFactory<Signature>> getSignatureFactories()
-    {
-        return signatureFactories;
+        return keyExchangeFactories;
     }
     
     /**
@@ -107,6 +87,16 @@ public class FactoryManager
     }
     
     /**
+     * Retrieve the list of named factories for <code>MAC</code>.
+     * 
+     * @return a list of named <code>Mac</code> factories, never <code>null</code>
+     */
+    public List<NamedFactory<MAC>> getMACFactories()
+    {
+        return macFactories;
+    }
+    
+    /**
      * Retrieve the <code>Random</code> factory to be used.
      * 
      * @return the <code>Random</code> factory, never <code>null</code>
@@ -114,6 +104,16 @@ public class FactoryManager
     public NamedFactory<Random> getRandomFactory()
     {
         return randomFactory;
+    }
+    
+    /**
+     * Retrieve the list of named factories for <code>Signature</code>.
+     * 
+     * @return a list of named <code>Signature</code> factories, never <code>null</code>
+     */
+    public List<NamedFactory<Signature>> getSignatureFactories()
+    {
+        return signatureFactories;
     }
     
     public void setCipherFactories(List<NamedFactory<Cipher>> cipherFactories)

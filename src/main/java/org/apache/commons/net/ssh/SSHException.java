@@ -22,50 +22,59 @@ import java.io.IOException;
 
 /**
  * TODO Add javadoc
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class SSHException extends IOException {
-
+public class SSHException extends IOException
+{
+    
     private final int disconnectCode;
-
-    public SSHException() {
+    
+    public SSHException()
+    {
         this(0, null, null);
     }
-
-    public SSHException(String message) {
-        this(0, message, null);
-    }
-
-    public SSHException(String message, Throwable cause) {
-        this(0, message, cause);
-    }
-
-    public SSHException(Throwable cause) {
-        this(0, null, cause);
-    }
-
-    public SSHException(int disconnectCode) {
+    
+    public SSHException(int disconnectCode)
+    {
         this(disconnectCode, null, null);
     }
-
-    public SSHException(int disconnectCode, String message) {
+    
+    public SSHException(int disconnectCode, String message)
+    {
         this(disconnectCode, message, null);
     }
-
-    public SSHException(int disconnectCode, Throwable cause) {
-        this(disconnectCode, null, cause);
-    }
-
-    public SSHException(int disconnectCode, String message, Throwable cause) {
+    
+    public SSHException(int disconnectCode, String message, Throwable cause)
+    {
         super(message);
         this.disconnectCode = disconnectCode;
-        if (cause != null) {
+        if (cause != null)
             initCause(cause);
-        }
     }
-
-    public int getDisconnectCode() {
+    
+    public SSHException(int disconnectCode, Throwable cause)
+    {
+        this(disconnectCode, null, cause);
+    }
+    
+    public SSHException(String message)
+    {
+        this(0, message, null);
+    }
+    
+    public SSHException(String message, Throwable cause)
+    {
+        this(0, message, cause);
+    }
+    
+    public SSHException(Throwable cause)
+    {
+        this(0, null, cause);
+    }
+    
+    public int getDisconnectCode()
+    {
         return disconnectCode;
     }
 }

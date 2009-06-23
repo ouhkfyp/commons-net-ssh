@@ -19,35 +19,38 @@
 package org.apache.commons.net.ssh.kex;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.kex.DH;
-import org.apache.commons.net.ssh.kex.DHGroupData;
 
 /**
  * TODO Add javadoc
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class DHG1 extends AbstractDHG {
-
+public class DHG1 extends AbstractDHG
+{
+    
     /**
      * Named factory for DHG1 key exchange
      */
-    public static class Factory implements NamedFactory<KeyExchange> {
-
-        public String getName() {
-            return "diffie-hellman-group1-sha1";
-        }
-
-        public KeyExchange create() {
+    public static class Factory implements NamedFactory<KeyExchange>
+    {
+        
+        public KeyExchange create()
+        {
             return new DHG1();
         }
-
+        
+        public String getName()
+        {
+            return "diffie-hellman-group1-sha1";
+        }
+        
     }
-
+    
     @Override
-    protected void initDH(DH dh) {
+    protected void initDH(DH dh)
+    {
         dh.setG(DHGroupData.getG());
         dh.setP(DHGroupData.getP1());
     }
-
+    
 }

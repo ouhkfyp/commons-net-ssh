@@ -35,14 +35,14 @@ public class SignatureDSA extends AbstractSignature
     public static class Factory implements NamedFactory<Signature>
     {
         
-        public String getName()
-        {
-            return Constants.SSH_DSS;
-        }
-        
         public Signature create()
         {
             return new SignatureDSA();
+        }
+        
+        public String getName()
+        {
+            return Constants.SSH_DSS;
         }
         
     }
@@ -72,10 +72,10 @@ public class SignatureDSA extends AbstractSignature
         
         // result must be 40 bytes, but length of r and s may not be 20 bytes
         
-        System.arraycopy(r, (r.length > 20) ? 1 : 0, result, (r.length > 20) ? 0 : 20 - r.length,
-                (r.length > 20) ? 20 : r.length);
-        System.arraycopy(s, (s.length > 20) ? 1 : 0, result, (s.length > 20) ? 20 : 40 - s.length,
-                (s.length > 20) ? 20 : s.length);
+        System.arraycopy(r, r.length > 20 ? 1 : 0, result, r.length > 20 ? 0 : 20 - r.length,
+                r.length > 20 ? 20 : r.length);
+        System.arraycopy(s, s.length > 20 ? 1 : 0, result, s.length > 20 ? 20 : 40 - s.length,
+                s.length > 20 ? 20 : s.length);
         
         return result;
     }
@@ -85,8 +85,8 @@ public class SignatureDSA extends AbstractSignature
         sig = extractSig(sig);
         
         // ASN.1
-        int frst = ((sig[0] & 0x80) != 0 ? 1 : 0);
-        int scnd = ((sig[20] & 0x80) != 0 ? 1 : 0);
+        int frst = (sig[0] & 0x80) != 0 ? 1 : 0;
+        int scnd = (sig[20] & 0x80) != 0 ? 1 : 0;
         
         int length = sig.length + 6 + frst + scnd;
         byte[] tmp = new byte[length];
