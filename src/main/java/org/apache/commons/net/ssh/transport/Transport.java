@@ -22,14 +22,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
-import java.net.InetAddress;
 import java.net.Socket;
 import java.security.PublicKey;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.Constants;
+import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.HostKeyVerifier;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
@@ -49,8 +48,8 @@ public class Transport implements Session
 {
     
     /*
-     * This enum describes what 'phase' this SSH session is in, so we that we know which class to delegate message
-     * handling to, can wait for some phase to be reached, etc.
+     * This enum describes what 'phase' this SSH session is in, so we that we know which class to
+     * delegate message handling to, can wait for some phase to be reached, etc.
      */
     private enum State
     {
@@ -58,9 +57,9 @@ public class Transport implements Session
         KEX_DONE, // indicates kex done
         SERVICE_REQ, // a service has been requested
         SERVICE_OK, // indicates service request was successful
-        SERVICE, // delegate message handling to the active service 
+        SERVICE, // delegate message handling to the active service
         ERROR, // indicates an error event in one of the threads
-        STOPPED, //indicates this session has been stopped
+        STOPPED, // indicates this session has been stopped
     }
     
     private State state;
@@ -76,8 +75,8 @@ public class Transport implements Session
     final EncDec bin;
     
     /*
-     * Outgoing data is put here. Since it is a SynchronousQueue, until outPump is interested in taking, putting an item
-     * blocks.
+     * Outgoing data is put here. Since it is a SynchronousQueue, until outPump is interested in
+     * taking, putting an item blocks.
      */
     private final SynchronousQueue<byte[]> outQ = new SynchronousQueue<byte[]>();
     
@@ -98,23 +97,23 @@ public class Transport implements Session
     private OutputStream output;
     
     /*
-     * This thread reads data from the input stream, putting it into decodeBuffer. Packets are decoded and handled.
+     * This thread reads data from the input stream, putting it into decodeBuffer. Packets are
+     * decoded and handled.
      */
-    private final Thread inPump = new Thread() {
+    private final Thread inPump = new Thread()
+    {
         {
-        	setDaemon(true);
-        	setName("inPump");
+            setDaemon(true);
+            setName("inPump");
         }
         
         @Override
         public void run()
         {
             while (!stopPumping)
-                try
-                {
+                try {
                     bin.gotByte((byte) input.read());
-                } catch (Exception e)
-                {
+                } catch (Exception e) {
                     if (!stopPumping)
                         setError(e);
                 }
@@ -125,27 +124,26 @@ public class Transport implements Session
     /*
      * This thread takes byte[] from outQ and sends it over the output stream for this session.
      */
-    private final Thread outPump = new Thread() {
+    private final Thread outPump = new Thread()
+    {
         {
-        	setDaemon(true);
-        	setName("outPump");
+            setDaemon(true);
+            setName("outPump");
         }
-
+        
         @Override
         public void run()
         {
             while (!stopPumping)
-                try
-                {
+                try {
                     output.write(outQ.take());
-                } catch (Exception e)
-                {
+                } catch (Exception e) {
                     log.error("Encountered error: {}", e.toString());
                     if (!stopPumping)
                         setError(e);
                 }
             log.debug("Stopping");
-        }    
+        }
     };
     
     /* true value tells inPump and outPump to stop */
@@ -160,10 +158,10 @@ public class Transport implements Session
     
     /* Server version identification string */
     String serverID;
-
-	private HostKeyVerifier hkv;
-
-	private Socket socket;
+    
+    private HostKeyVerifier hkv;
+    
+    private Socket socket;
     
     public Transport(FactoryManager factoryManager)
     {
@@ -186,7 +184,7 @@ public class Transport implements Session
     
     public void disconnect(int reason) throws IOException
     {
-    	disconnect(reason, "");
+        disconnect(reason, "");
     }
     
     public void disconnect(int reason, String msg) throws IOException
@@ -209,10 +207,10 @@ public class Transport implements Session
     {
         return fm;
     }
-        
+    
     public String getServerVersion()
     {
-        return (serverID == null) ? serverID : serverID.substring(8);
+        return serverID == null ? serverID : serverID.substring(8);
     }
     
     void handle(Buffer packet) throws Exception
@@ -221,90 +219,88 @@ public class Transport implements Session
         log.debug("Received packet {}", cmd);
         switch (cmd)
         {
-            case SSH_MSG_DISCONNECT:
+        case SSH_MSG_DISCONNECT:
+        {
+            int code = packet.getInt();
+            String msg = packet.getString();
+            log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, msg);
+            throw new SSHException(code, msg);
+        }
+        case SSH_MSG_UNIMPLEMENTED:
+        {
+            int code = packet.getInt();
+            log.info("Received SSH_MSG_UNIMPLEMENTED #{}", code);
+            break;
+        }
+        case SSH_MSG_DEBUG:
+        {
+            boolean display = packet.getBoolean();
+            String msg = packet.getString();
+            log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, msg);
+            break;
+        }
+        case SSH_MSG_IGNORE:
+        {
+            log.info("Received SSH_MSG_IGNORE");
+            break;
+        }
+        default:
+        {
+            switch (state)
             {
-                int code = packet.getInt();
-                String msg = packet.getString();
-                log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, msg);
-                throw new SSHException(code, msg);
-            }
-            case SSH_MSG_UNIMPLEMENTED:
+            case KEX:
             {
-                int code = packet.getInt();
-                log.info("Received SSH_MSG_UNIMPLEMENTED #{}", code);
+                if (kex.handle(cmd, packet)) // key-exchange completed
+                    setState(State.KEX_DONE);
                 break;
             }
-            case SSH_MSG_DEBUG:
+            case SERVICE_REQ:
             {
-                boolean display = packet.getBoolean();
-                String msg = packet.getString();
-                log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, msg);
-                break;
-            }
-            case SSH_MSG_IGNORE:
-            {
-                log.info("Received SSH_MSG_IGNORE");
-                break;
-            }
-            default:
-            {
-                switch (state)
-                {
-                    case KEX:
-                    {
-                        if (kex.handle(cmd, packet)) // key-exchange completed
-                            setState(State.KEX_DONE);
-                        break;
-                    }
-                    case SERVICE_REQ:
-                    {
-                        if (cmd != Constants.Message.SSH_MSG_SERVICE_ACCEPT)
-                        {
-                            disconnect(Constants.SSH_DISCONNECT_PROTOCOL_ERROR,
-                                       "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
-                            return;
-                        }
-                        setState(State.SERVICE_OK);
-                        break;
-                    }
-                    case SERVICE:
-                    {
-                        if (cmd != Constants.Message.SSH_MSG_KEXINIT)
-                            service.handle(cmd, packet);
-                        else
-                        {
-                            /*
-                             * Key re-exchange. Per RFC should be after every GB or 1 hour, whichever is sooner. ---
-                             * TODO: ?initiate?
-                             */
-                            setState(State.KEX);
-                            kex.handle(cmd, packet);
-                        }
-                        break;
-                    }
-                    case KEX_DONE:
-                    case SERVICE_OK:
-                        // in-between states: what happens here??
-                        break;
-                    default:
-                        assert false;
+                if (cmd != Constants.Message.SSH_MSG_SERVICE_ACCEPT) {
+                    disconnect(Constants.SSH_DISCONNECT_PROTOCOL_ERROR,
+                            "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
+                    return;
                 }
+                setState(State.SERVICE_OK);
+                break;
             }
+            case SERVICE:
+            {
+                if (cmd != Constants.Message.SSH_MSG_KEXINIT)
+                    service.handle(cmd, packet);
+                else {
+                    /*
+                     * Key re-exchange. Per RFC should be after every GB or 1 hour, whichever is
+                     * sooner. --- TODO: ?initiate?
+                     */
+                    setState(State.KEX);
+                    kex.handle(cmd, packet);
+                }
+                break;
+            }
+            case KEX_DONE:
+            case SERVICE_OK:
+                // in-between states: what happens here??
+                break;
+            default:
+                assert false;
+            }
+        }
         }
     }
     
     public void init(Socket socket) throws Exception
     {
-    	this.socket = socket;
-        this.input = socket.getInputStream();
-        this.output = socket.getOutputStream(); 
+        this.socket = socket;
+        input = socket.getInputStream();
+        output = socket.getOutputStream();
         
         log.info("Client identity string: {}", clientID);
         output.write((clientID + "\r\n").getBytes());
         
         Buffer buf = new Buffer();
         while ((serverID = readIdentification(buf)) == null)
-        	buf.putByte((byte) input.read());
+            buf.putByte((byte) input.read());
         log.info("Server identity string: {}", serverID);
         
         setState(State.KEX);
@@ -327,22 +323,18 @@ public class Transport implements Session
         String ident;
         
         byte[] data = new byte[256];
-        for (;;)
-        {
+        for (;;) {
             int rpos = buffer.rpos();
             int pos = 0;
             boolean needLf = false;
-            for (;;)
-            {
-                if (buffer.available() == 0)
-                {
+            for (;;) {
+                if (buffer.available() == 0) {
                     // need more data, so undo reading and return null
                     buffer.rpos(rpos);
                     return null;
                 }
                 byte b = buffer.getByte();
-                if (b == '\r')
-                {
+                if (b == '\r') {
                     needLf = true;
                     continue;
                 }
@@ -368,7 +360,8 @@ public class Transport implements Session
     }
     
     /**
-     * Send an unimplemented packet. This packet should contain the sequence id of the unsupported packet.
+     * Send an unimplemented packet. This packet should contain the sequence id of the unsupported
+     * packet.
      * 
      * @throws IOException
      *             if an error occured sending the packet
@@ -388,7 +381,9 @@ public class Transport implements Session
         writePacket(buffer);
     }
     
-    /* (non-Javadoc)
+    /*
+     * (non-Javadoc)
+     * 
      * @see org.apache.commons.net.ssh.transport.Service#setAuthenticated(boolean)
      */
     public void setAuthenticated(boolean authed)
@@ -396,14 +391,14 @@ public class Transport implements Session
         this.authed = authed;
     }
     
-    /** 
+    /**
      * Specify how the client identifies itself
      * 
      * @param version
      */
     public void setClientVersion(String clientVersion)
     {
-    	this.clientID = "SSH-2.0-" + clientVersion;
+        clientID = "SSH-2.0-" + clientVersion;
     }
     
     /**
@@ -420,28 +415,29 @@ public class Transport implements Session
         // Future TODO: notify active service
         
         /*
-         * will result in exception being thrown in any thread that was waiting for state change; see waitFor()
+         * will result in exception being thrown in any thread that was waiting for state change;
+         * see waitFor()
          */
         setState(State.ERROR);
         
         stop(); // stop inPump and outPump
     }
     
-    public void setHostKeyVerifier(HostKeyVerifier hkv) {
-		this.hkv = hkv;
-	}
+    public void setHostKeyVerifier(HostKeyVerifier hkv)
+    {
+        this.hkv = hkv;
+    }
     
-	void setState(State newState)
+    void setState(State newState)
     {
         log.debug("Changing state  [ {} -> {} ]", state, newState);
-        synchronized (stateLock)
-        {
+        synchronized (stateLock) {
             state = newState;
             stateLock.notifyAll();
         }
     }
-
-	public void startService(Service service) throws Exception
+    
+    public void startService(Service service) throws Exception
     {
         log.info("Setting active service to {}", service.getName());
         this.service = service;
@@ -449,8 +445,8 @@ public class Transport implements Session
         sendServiceRequest(service.getName());
         waitFor(State.SERVICE_OK);
     }
-
-	void stop()
+    
+    void stop()
     {
         // stop inPump and outPump
         stopPumping = true;
@@ -464,13 +460,13 @@ public class Transport implements Session
         input = null;
         output = null;
     }
-	
-	boolean verifyHost(PublicKey key)
-	{
-		return hkv.verify(socket.getInetAddress(), key);
-	}
-
-	/**
+    
+    boolean verifyHost(PublicKey key)
+    {
+        return hkv.verify(socket.getInetAddress(), key);
+    }
+    
+    /**
      * Block for specified state.
      * 
      * @param s
@@ -480,14 +476,11 @@ public class Transport implements Session
      */
     private void waitFor(State s) throws Exception
     {
-        synchronized (stateLock)
-        {
+        synchronized (stateLock) {
             while (state != s && state != State.ERROR && state != State.STOPPED)
-                try
-                {
+                try {
                     stateLock.wait(0);
-                } catch (InterruptedException e)
-                {
+                } catch (InterruptedException e) {
                     throw e;
                 }
         }
@@ -498,25 +491,22 @@ public class Transport implements Session
             else if (state == State.STOPPED)
                 throw new SSHException("Stopped");
     }
-
-	public int writePacket(Buffer payload) throws IOException
+    
+    public int writePacket(Buffer payload) throws IOException
     {
         int seq = 0;
         /*
-         * Synchronize all write requests as needed by the encoding algorithm and also queue the write request in this
-         * synchronized block to ensure packets are sent in the correct order.
+         * Synchronize all write requests as needed by the encoding algorithm and also queue the
+         * write request in this synchronized block to ensure packets are sent in the correct order.
          */
-        synchronized (encodeLock)
-        {
+        synchronized (encodeLock) {
             seq = bin.encode(payload);
             byte[] data = payload.getCompactData();
-            try
-            {
+            try {
                 while (!outQ.offer(data, 1L, TimeUnit.SECONDS))
                     if (!outPump.isAlive())
                         throw new IOException("Output pumping thread is dead");
-            } catch (InterruptedException e)
-            {
+            } catch (InterruptedException e) {
                 InterruptedIOException ioe = new InterruptedIOException();
                 ioe.initCause(e);
                 throw ioe;
@@ -524,5 +514,5 @@ public class Transport implements Session
         }
         return seq;
     }
-	
+    
 }

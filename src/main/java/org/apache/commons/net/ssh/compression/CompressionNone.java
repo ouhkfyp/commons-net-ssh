@@ -21,25 +21,29 @@ package org.apache.commons.net.ssh.compression;
 import org.apache.commons.net.ssh.NamedFactory;
 
 /**
- * No-op <code>Compression</code>.
- * This is actually an abstract class, because no compression will be
- * identified by a <code>null</code> <code>Compression</code> object.
- *
+ * No-op <code>Compression</code>. This is actually an abstract class, because no compression will
+ * be identified by a <code>null</code> <code>Compression</code> object.
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public abstract class CompressionNone implements Compression {
-
+public abstract class CompressionNone implements Compression
+{
+    
     /**
-     * Named factory for the no-op <code>Compression</code>.
-     * This factory will simply return <code>null</code>. 
+     * Named factory for the no-op <code>Compression</code>. This factory will simply return
+     * <code>null</code>.
      */
-    public static class Factory implements NamedFactory<Compression> {
-        public String getName() {
-            return "none";
-        }
-        public Compression create() {
+    public static class Factory implements NamedFactory<Compression>
+    {
+        public Compression create()
+        {
             return null;
         }
+        
+        public String getName()
+        {
+            return "none";
+        }
     }
-
+    
 }

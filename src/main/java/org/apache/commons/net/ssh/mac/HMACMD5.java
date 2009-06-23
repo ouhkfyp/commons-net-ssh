@@ -22,26 +22,31 @@ import org.apache.commons.net.ssh.NamedFactory;
 
 /**
  * HMAC-MD5 <code>Mac</code>.
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class HMACMD5 extends BaseMac {
-
+public class HMACMD5 extends BaseMAC
+{
+    
     /**
      * Named factory for the HMACMD5 <code>Mac</code>
      */
-    public static class Factory implements NamedFactory<MAC> {
-
-        public String getName() {
-            return "hmac-md5";
-        }
-
-        public MAC create() {
+    public static class Factory implements NamedFactory<MAC>
+    {
+        
+        public MAC create()
+        {
             return new HMACMD5();
         }
+        
+        public String getName()
+        {
+            return "hmac-md5";
+        }
     }
-
-    public HMACMD5() {
+    
+    public HMACMD5()
+    {
         super("HmacMD5", 16, 16);
     }
 }

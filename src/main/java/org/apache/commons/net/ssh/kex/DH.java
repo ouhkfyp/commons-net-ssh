@@ -32,39 +32,43 @@ import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
  * Diffie-Hellman key generator.
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class DH {
-
+public class DH
+{
+    
     private BigInteger p;
     private BigInteger g;
-    private BigInteger e;  // my public key
+    private BigInteger e; // my public key
     private byte[] e_array;
-    private BigInteger f;  // your public key
-    private BigInteger K;  // shared secret key
+    private BigInteger f; // your public key
+    private BigInteger K; // shared secret key
     private byte[] K_array;
-    private KeyPairGenerator myKpairGen;
-    private KeyAgreement myKeyAgree;
-
-    public DH() throws Exception {
+    private final KeyPairGenerator myKpairGen;
+    private final KeyAgreement myKeyAgree;
+    
+    public DH() throws Exception
+    {
         myKpairGen = SecurityUtils.getKeyPairGenerator("DH");
         myKeyAgree = SecurityUtils.getKeyAgreement("DH");
     }
-
-    public byte[] getE() throws Exception {
+    
+    public byte[] getE() throws Exception
+    {
         if (e == null) {
             DHParameterSpec dhSkipParamSpec = new DHParameterSpec(p, g);
             myKpairGen.initialize(dhSkipParamSpec);
             KeyPair myKpair = myKpairGen.generateKeyPair();
             myKeyAgree.init(myKpair.getPrivate());
-            e = ((javax.crypto.interfaces.DHPublicKey) (myKpair.getPublic())).getY();
+            e = ((javax.crypto.interfaces.DHPublicKey) myKpair.getPublic()).getY();
             e_array = e.toByteArray();
         }
         return e_array;
     }
-
-    public byte[] getK() throws Exception {
+    
+    public byte[] getK() throws Exception
+    {
         if (K == null) {
             KeyFactory myKeyFac = SecurityUtils.getKeyFactory("DH");
             DHPublicKeySpec keySpec = new DHPublicKeySpec(f, p, g);
@@ -76,28 +80,34 @@ public class DH {
         }
         return K_array;
     }
-
-    public void setP(byte[] p) {
-        setP(new BigInteger(p));
+    
+    void setF(BigInteger f)
+    {
+        this.f = f;
     }
-
-    public void setG(byte[] g) {
-        setG(new BigInteger(g));
-    }
-
-    public void setF(byte[] f) {
+    
+    public void setF(byte[] f)
+    {
         setF(new BigInteger(f));
     }
-
-    void setP(BigInteger p) {
-        this.p = p;
-    }
-
-    void setG(BigInteger g) {
+    
+    void setG(BigInteger g)
+    {
         this.g = g;
     }
-
-    void setF(BigInteger f) {
-        this.f = f;
+    
+    public void setG(byte[] g)
+    {
+        setG(new BigInteger(g));
+    }
+    
+    void setP(BigInteger p)
+    {
+        this.p = p;
+    }
+    
+    public void setP(byte[] p)
+    {
+        setP(new BigInteger(p));
     }
 }

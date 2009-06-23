@@ -35,6 +35,7 @@ import org.apache.commons.net.ssh.Constants;
  * Facilitates reading and writing SSH packets
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
 public final class Buffer
 {
@@ -76,8 +77,8 @@ public final class Buffer
     public Buffer(byte[] data, boolean read)
     {
         this.data = data;
-        this.rpos = 0;
-        this.wpos = read ? data.length : 0;
+        rpos = 0;
+        wpos = read ? data.length : 0;
     }
     
     public Buffer(int size)
@@ -345,6 +346,14 @@ public final class Buffer
     {
         putInt(str.length);
         putRawBytes(str);
+    }
+    
+    public void putString(char[] str)
+    {
+        byte[] asBytes = new byte[str.length];
+        for (int i = 0; i < str.length; i++)
+            asBytes[i] = (byte) str[i];
+        putString(asBytes);
     }
     
     public void putString(String string)

@@ -46,8 +46,8 @@ public interface Cipher
     int getIVSize();
     
     /**
-     * Initialize the cipher for encryption or decryption with the given private
-     * key and initialization vector
+     * Initialize the cipher for encryption or decryption with the given private key and
+     * initialization vector
      * 
      * @param mode
      * @param key

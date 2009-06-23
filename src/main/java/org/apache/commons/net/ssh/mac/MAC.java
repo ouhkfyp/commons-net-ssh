@@ -19,20 +19,20 @@
 package org.apache.commons.net.ssh.mac;
 
 /**
- * Message Authentication Code for use in SSH.
- * It usually wraps a javax.crypto.Mac class.
- *
+ * Message Authentication Code for use in SSH. It usually wraps a javax.crypto.Mac class.
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface MAC {
-
-    int getBlockSize();
-
-    void init(byte[] key) throws Exception;
-
-    void update(byte[] foo, int start, int len);
-
-    void update(int foo);
-
+public interface MAC
+{
+    
     void doFinal(byte[] buf, int offset) throws Exception;
+    
+    int getBlockSize();
+    
+    void init(byte[] key) throws Exception;
+    
+    void update(byte[] foo, int start, int len);
+    
+    void update(int foo);
 }

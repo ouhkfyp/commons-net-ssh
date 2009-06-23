@@ -61,10 +61,10 @@ class EncDec
     private int decoderState;
     private int decoderLength;
     
-    
-    // how many bytes do we need, before a call to decode() can succeed at decoding packet length / the whole packet?
+    // how many bytes do we need, before a call to decode() can succeed at decoding packet length /
+    // the whole packet?
     // see decode()
-    private int needed = inCipherSize; 
+    private int needed = inCipherSize;
     
     EncDec(Transport session)
     {
@@ -74,8 +74,8 @@ class EncDec
     /**
      * Decode the incoming buffer and handle packets as needed.
      * <p>
-     * Returns advised number of bytes that should be made available in decoderBuffer before the method should be called
-     * again.
+     * Returns advised number of bytes that should be made available in decoderBuffer before the
+     * method should be called again.
      * 
      * @throws Exception
      */
@@ -86,23 +86,23 @@ class EncDec
         for (;;)
             if (decoderState == 0) // Wait for beginning of packet
             {
-                // The read position should always be 0 at this point because we have compacted this buffer
+                // The read position should always be 0 at this point because we have compacted this
+                // buffer
                 assert decoderBuffer.rpos() == 0;
                 // If we have received enough bytes, start processing those
                 need = inCipherSize - decoderBuffer.available();
-                if (need <= 0)
-                {
+                if (need <= 0) {
                     // Decrypt the first bytes
                     if (inCipher != null)
                         inCipher.update(decoderBuffer.array(), 0, inCipherSize);
                     // Read packet length
                     decoderLength = decoderBuffer.getInt();
                     // Check packet length validity
-                    if (decoderLength < 5 || decoderLength > 256 * 1024)
-                    {
-                        log.info("Error decoding packet (invalid length) {}", decoderBuffer.printHex());
-                        throw new SSHException(Constants.SSH_DISCONNECT_PROTOCOL_ERROR, "Invalid packet length: "
-                                                                                           + decoderLength);
+                    if (decoderLength < 5 || decoderLength > 256 * 1024) {
+                        log.info("Error decoding packet (invalid length) {}", decoderBuffer
+                                .printHex());
+                        throw new SSHException(Constants.SSH_DISCONNECT_PROTOCOL_ERROR,
+                                "Invalid packet length: " + decoderLength);
                     }
                     // Ok, that's good, we can go to the next step
                     decoderState = 1;
@@ -115,15 +115,13 @@ class EncDec
                 int macSize = inMAC != null ? inMAC.getBlockSize() : 0;
                 // Check if the packet has been fully received
                 need = decoderLength + macSize - decoderBuffer.available();
-                if (need <= 0) 
-                {
+                if (need <= 0) {
                     byte[] data = decoderBuffer.array();
                     // Decrypt the remaining of the packet
                     if (inCipher != null)
                         inCipher.update(data, inCipherSize, decoderLength + 4 - inCipherSize);
                     // Check the MAC of the packet
-                    if (inMAC != null)
-                    {
+                    if (inMAC != null) {
                         // Update MAC with packet id
                         inMAC.update(seqi);
                         // Update MAC with packet data
@@ -142,8 +140,7 @@ class EncDec
                     Buffer buf;
                     int wpos = decoderBuffer.wpos();
                     // Decompress if needed
-                    if (inCompression != null && (session.authed || !inCompression.isDelayed()))
-                    {
+                    if (inCompression != null && (session.authed || !inCompression.isDelayed())) {
                         if (uncompressBuffer == null)
                             uncompressBuffer = new Buffer();
                         else
@@ -151,8 +148,7 @@ class EncDec
                         decoderBuffer.wpos(decoderBuffer.rpos() + decoderLength - 1 - pad);
                         inCompression.uncompress(decoderBuffer, uncompressBuffer);
                         buf = uncompressBuffer;
-                    } else
-                    {
+                    } else {
                         decoderBuffer.wpos(decoderLength + 4 - pad);
                         buf = decoderBuffer;
                     }
@@ -175,15 +171,6 @@ class EncDec
         return need;
     }
     
-    void gotByte(byte b) throws Exception
-    {
-        decoderBuffer.putByte(b);
-        if (needed == 1)
-            needed = decode();
-        else
-            needed--;
-    }
-    
     /**
      * Encode a buffer into the SSH protocol. Should be called from a synchronized block.
      * 
@@ -196,13 +183,11 @@ class EncDec
     int encode(Buffer buffer) throws IOException
     {
         int seq = seqo;
-        try
-        {
+        try {
             // Check that the packet has some free space for the header
-            if (buffer.rpos() < 5)
-            {
+            if (buffer.rpos() < 5) {
                 log.warn("Performance cost: when sending a packet, ensure that "
-                         + "5 bytes are available in front of the buffer");
+                        + "5 bytes are available in front of the buffer");
                 Buffer nb = new Buffer();
                 nb.wpos(5);
                 nb.putBuffer(buffer);
@@ -215,8 +200,7 @@ class EncDec
             if (log.isDebugEnabled())
                 log.trace("Sending packet #{}: {}", seqo, buffer.printHex());
             // Compress the packet if needed
-            if (outCompression != null && (session.authed || !outCompression.isDelayed()))
-            {
+            if (outCompression != null && (session.authed || !outCompression.isDelayed())) {
                 outCompression.compress(buffer);
                 len = buffer.available();
             }
@@ -236,8 +220,7 @@ class EncDec
             buffer.wpos(off + oldLen + 5 + pad);
             session.prng.fill(buffer.array(), buffer.wpos() - pad, pad);
             // Compute mac
-            if (outMAC != null)
-            {
+            if (outMAC != null) {
                 int macSize = outMAC.getBlockSize();
                 int l = buffer.wpos();
                 buffer.wpos(l + macSize);
@@ -252,14 +235,21 @@ class EncDec
             seqo++;
             // Make buffer ready to be read
             buffer.rpos(off);
-        } catch (SSHException e)
-        {
+        } catch (SSHException e) {
             throw e;
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new SSHException(e);
         }
         return seq;
+    }
+    
+    void gotByte(byte b) throws Exception
+    {
+        decoderBuffer.putByte(b);
+        if (needed == 1)
+            needed = decode();
+        else
+            needed--;
     }
     
     void setClientToServer(Cipher cipher, MAC mac, Compression comp)

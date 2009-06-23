@@ -21,30 +21,35 @@ package org.apache.commons.net.ssh.random;
 import org.apache.commons.net.ssh.NamedFactory;
 
 /**
- * A random factory wrapper that uses a single random instance.
- * The underlying random instance has to be thread safe.
- *
+ * A random factory wrapper that uses a single random instance. The underlying random instance has
+ * to be thread safe.
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class SingletonRandomFactory implements Random, NamedFactory<Random> {
-
+public class SingletonRandomFactory implements Random, NamedFactory<Random>
+{
+    
     private final NamedFactory<Random> factory;
     private final Random random;
-
-    public SingletonRandomFactory(NamedFactory<Random> factory) {
+    
+    public SingletonRandomFactory(NamedFactory<Random> factory)
+    {
         this.factory = factory;
-        this.random = factory.create();
+        random = factory.create();
     }
-
-    public void fill(byte[] bytes, int start, int len) {
+    
+    public Random create()
+    {
+        return this;
+    }
+    
+    public void fill(byte[] bytes, int start, int len)
+    {
         random.fill(bytes, start, len);
     }
-
-    public String getName() {
+    
+    public String getName()
+    {
         return factory.getName();
-    }
-
-    public Random create() {
-        return this;
     }
 }
