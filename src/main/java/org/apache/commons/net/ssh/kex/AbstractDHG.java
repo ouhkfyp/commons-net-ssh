@@ -57,6 +57,26 @@ public abstract class AbstractDHG implements KeyExchange
     private byte[] H;
     private PublicKey hostKey;
     
+    public byte[] getH()
+    {
+        return H;
+    }
+    
+    public Digest getHash()
+    {
+        return sha;
+    }
+    
+    public PublicKey getHostKey()
+    {
+        return hostKey;
+    }
+    
+    public byte[] getK()
+    {
+        return K;
+    }
+    
     public void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C)
             throws Exception
     {
@@ -82,12 +102,11 @@ public abstract class AbstractDHG implements KeyExchange
     public boolean next(Buffer buffer) throws Exception
     {
         Constants.Message cmd = buffer.getCommand();
-        if (cmd != Constants.Message.SSH_MSG_KEXDH_REPLY_KEX_DH_GEX_GROUP) {
+        if (cmd != Constants.Message.SSH_MSG_KEXDH_REPLY_KEX_DH_GEX_GROUP)
             throw new SSHException(Constants.SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                     "Protocol error: expected packet "
                             + Constants.Message.SSH_MSG_KEXDH_REPLY_KEX_DH_GEX_GROUP + ", got "
                             + cmd);
-        }
         
         log.info("Received SSH_MSG_KEXDH_REPLY");
         
@@ -99,7 +118,7 @@ public abstract class AbstractDHG implements KeyExchange
         
         buffer = new Buffer(K_S);
         hostKey = buffer.getPublicKey();
-        String keyAlg = (hostKey instanceof RSAPublicKey) ? Constants.SSH_RSA : Constants.SSH_DSS;
+        String keyAlg = hostKey instanceof RSAPublicKey ? Constants.SSH_RSA : Constants.SSH_DSS;
         
         buffer = new Buffer();
         buffer.putString(V_C);
@@ -117,31 +136,10 @@ public abstract class AbstractDHG implements KeyExchange
                 .getSignatureFactories(), keyAlg);
         verif.init(hostKey, null);
         verif.update(H, 0, H.length);
-        if (!verif.verify(sig)) {
+        if (!verif.verify(sig))
             throw new SSHException(Constants.SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                     "KeyExchange signature verification failed");
-        }
         return true;
-    }
-    
-    public Digest getHash()
-    {
-        return sha;
-    }
-    
-    public byte[] getH()
-    {
-        return H;
-    }
-    
-    public byte[] getK()
-    {
-        return K;
-    }
-    
-    public PublicKey getHostKey()
-    {
-        return hostKey;
     }
     
 }

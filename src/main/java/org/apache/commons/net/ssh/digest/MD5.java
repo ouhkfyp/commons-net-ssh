@@ -22,29 +22,34 @@ import org.apache.commons.net.ssh.NamedFactory;
 
 /**
  * MD5 Digest.
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class MD5 extends BaseDigest {
-
+public class MD5 extends BaseDigest
+{
+    
     /**
      * Named factory for MD5 digest
      */
-    public static class Factory implements NamedFactory<Digest> {
-
-        public String getName() {
-            return "md5";
-        }
-
-        public Digest create() {
+    public static class Factory implements NamedFactory<Digest>
+    {
+        
+        public Digest create()
+        {
             return new MD5();
         }
+        
+        public String getName()
+        {
+            return "md5";
+        }
     }
-
+    
     /**
      * Create a new instance of a MD5 digest
      */
-    public MD5() {
+    public MD5()
+    {
         super("MD5", 16);
     }
 }

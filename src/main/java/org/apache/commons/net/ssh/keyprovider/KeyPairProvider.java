@@ -29,6 +29,13 @@ public interface KeyPairProvider
 {
     
     /**
+     * Return a comma separated list of the key types available
+     * 
+     * @return the list of key availables
+     */
+    String getKeyTypes();
+    
+    /**
      * Load a key of the specified type which can be "ssh-rsa" or "ssh-dss". If there is no key of
      * this type, return <code>null</code>
      * 
@@ -37,12 +44,5 @@ public interface KeyPairProvider
      * @return a valid key pair or <code>null</code>
      */
     KeyPair loadKey(String type);
-    
-    /**
-     * Return a comma separated list of the key types available
-     * 
-     * @return the list of key availables
-     */
-    String getKeyTypes();
     
 }
