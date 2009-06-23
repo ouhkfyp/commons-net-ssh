@@ -7,6 +7,6 @@ public interface Service
     
     String getName();
     
-    void handle(SSHConstants.Message cmd, Buffer packet);
+    void handle(Constants.Message cmd, Buffer packet);
     
 }

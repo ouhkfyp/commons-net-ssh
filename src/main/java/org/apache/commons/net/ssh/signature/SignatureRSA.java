@@ -18,42 +18,49 @@
  */
 package org.apache.commons.net.ssh.signature;
 
+import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.keyprovider.KeyPairProvider;
 
 /**
  * RSA <code>Signature</code>
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class SignatureRSA extends AbstractSignature {
-
+public class SignatureRSA extends AbstractSignature
+{
+    
     /**
      * A named factory for RSA <code>Signature</code>
      */
-    public static class Factory implements NamedFactory<Signature> {
-
-        public String getName() {
-            return KeyPairProvider.SSH_RSA;
+    public static class Factory implements NamedFactory<Signature>
+    {
+        
+        public String getName()
+        {
+            return Constants.SSH_RSA;
         }
-
-        public Signature create() {
+        
+        public Signature create()
+        {
             return new SignatureRSA();
         }
-
+        
     }
-
-    public SignatureRSA() {
+    
+    public SignatureRSA()
+    {
         super("SHA1withRSA");
     }
-
-    public byte[] sign() throws Exception {
+    
+    public byte[] sign() throws Exception
+    {
         return signature.sign();
     }
-
-    public boolean verify(byte[] sig) throws Exception {
+    
+    public boolean verify(byte[] sig) throws Exception
+    {
         sig = extractSig(sig);
         return signature.verify(sig);
     }
-
+    
 }

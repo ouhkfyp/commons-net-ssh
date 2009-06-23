@@ -20,15 +20,14 @@ package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
 
+import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.SSHConstants;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
 import org.apache.commons.net.ssh.digest.Digest;
 import org.apache.commons.net.ssh.kex.KeyExchange;
-import org.apache.commons.net.ssh.keyprovider.KeyPairProvider;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
@@ -43,10 +42,7 @@ class KexHandler
     
     private enum State
     {
-        EXPECT_KEXINIT,
-        EXPECT_FOLLOWUP,
-        EXPECT_NEWKEYS,
-        KEX_DONE,
+        EXPECT_KEXINIT, EXPECT_FOLLOWUP, EXPECT_NEWKEYS, KEX_DONE
     };
     
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -82,22 +78,22 @@ class KexHandler
      */
     private String[] createProposal(String hostKeyTypes)
     {
-        return new String[] { NamedFactory.Utils.getNames(fm.getKeyExchangeFactories()), hostKeyTypes,
-                             NamedFactory.Utils.getNames(fm.getCipherFactories()),
-                             NamedFactory.Utils.getNames(fm.getCipherFactories()),
-                             NamedFactory.Utils.getNames(fm.getMACFactories()),
-                             NamedFactory.Utils.getNames(fm.getMACFactories()),
-                             NamedFactory.Utils.getNames(fm.getCompressionFactories()),
-                             NamedFactory.Utils.getNames(fm.getCompressionFactories()), "", "" };
+        return new String[] { NamedFactory.Utils.getNames(fm.getKeyExchangeFactories()),
+                hostKeyTypes, NamedFactory.Utils.getNames(fm.getCipherFactories()),
+                NamedFactory.Utils.getNames(fm.getCipherFactories()),
+                NamedFactory.Utils.getNames(fm.getMACFactories()),
+                NamedFactory.Utils.getNames(fm.getMACFactories()),
+                NamedFactory.Utils.getNames(fm.getCompressionFactories()),
+                NamedFactory.Utils.getNames(fm.getCompressionFactories()), "", "" };
     }
     
     private void extractProposal(Buffer buffer) throws Exception
     {
-        serverProposal = new String[SSHConstants.PROPOSAL_MAX];
+        serverProposal = new String[Constants.PROPOSAL_MAX];
         // recreate the packet payload which will be needed at a later time
         byte[] d = buffer.array();
         I_S = new byte[buffer.available() + 1];
-        I_S[0] = SSHConstants.Message.SSH_MSG_KEXINIT.toByte();
+        I_S[0] = Constants.Message.SSH_MSG_KEXINIT.toByte();
         System.arraycopy(d, buffer.rpos(), I_S, 1, I_S.length - 1);
         // skip 16 bytes of random data
         buffer.rpos(buffer.rpos() + 16);
@@ -113,13 +109,16 @@ class KexHandler
     {
         extractProposal(buffer);
         negotiate();
-        kex = NamedFactory.Utils.create(fm.getKeyExchangeFactories(), negotiated[SSHConstants.PROPOSAL_KEX_ALGS]);
-        kex.init(transport, transport.getServerVersion().getBytes(), transport.getClientVersion().getBytes(), I_S, I_C);
+        kex = NamedFactory.Utils.create(fm.getKeyExchangeFactories(),
+                negotiated[Constants.PROPOSAL_KEX_ALGS]);
+        log.debug(transport.clientID);
+        log.debug(transport.serverID);
+        kex.init(transport, transport.serverID.getBytes(), transport.clientID.getBytes(), I_S, I_C);
     }
     
     /**
-     * Put new keys into use. This method will intialize the ciphers, digests, MACs and compression according to the
-     * negotiated server and client proposals.
+     * Put new keys into use. This method will intialize the ciphers, digests, MACs and compression
+     * according to the negotiated server and client proposals.
      * 
      * @throws Exception
      *             if an error occurs
@@ -142,8 +141,7 @@ class KexHandler
         Compression s2ccomp;
         Compression c2scomp;
         
-        if (sessionID == null)
-        {
+        if (sessionID == null) {
             sessionID = new byte[H.length];
             System.arraycopy(H, 0, sessionID, 0, H.length);
         }
@@ -180,68 +178,70 @@ class KexHandler
         hash.update(buf, 0, pos);
         MACs2c = hash.digest();
         
-        s2ccipher = NamedFactory.Utils.create(fm.getCipherFactories(), negotiated[SSHConstants.PROPOSAL_ENC_ALGS_STOC]);
+        s2ccipher = NamedFactory.Utils.create(fm.getCipherFactories(),
+                negotiated[Constants.PROPOSAL_ENC_ALGS_STOC]);
         Es2c = resizeKey(Es2c, s2ccipher.getBlockSize(), hash, K, H);
         s2ccipher.init(Cipher.Mode.Decrypt, Es2c, IVs2c);
         
-        s2cmac = NamedFactory.Utils.create(fm.getMACFactories(), negotiated[SSHConstants.PROPOSAL_MAC_ALGS_STOC]);
+        s2cmac = NamedFactory.Utils.create(fm.getMACFactories(),
+                negotiated[Constants.PROPOSAL_MAC_ALGS_STOC]);
         s2cmac.init(MACs2c);
         
-        c2scipher = NamedFactory.Utils.create(fm.getCipherFactories(), negotiated[SSHConstants.PROPOSAL_ENC_ALGS_CTOS]);
+        c2scipher = NamedFactory.Utils.create(fm.getCipherFactories(),
+                negotiated[Constants.PROPOSAL_ENC_ALGS_CTOS]);
         Ec2s = resizeKey(Ec2s, c2scipher.getBlockSize(), hash, K, H);
         c2scipher.init(Cipher.Mode.Encrypt, Ec2s, IVc2s);
         
-        c2smac = NamedFactory.Utils.create(fm.getMACFactories(), negotiated[SSHConstants.PROPOSAL_MAC_ALGS_CTOS]);
+        c2smac = NamedFactory.Utils.create(fm.getMACFactories(),
+                negotiated[Constants.PROPOSAL_MAC_ALGS_CTOS]);
         c2smac.init(MACc2s);
         
         s2ccomp = NamedFactory.Utils.create(fm.getCompressionFactories(),
-                                            negotiated[SSHConstants.PROPOSAL_COMP_ALGS_STOC]);
+                negotiated[Constants.PROPOSAL_COMP_ALGS_STOC]);
         c2scomp = NamedFactory.Utils.create(fm.getCompressionFactories(),
-                                            negotiated[SSHConstants.PROPOSAL_COMP_ALGS_CTOS]);
+                negotiated[Constants.PROPOSAL_COMP_ALGS_CTOS]);
         
         transport.bin.setClientToServer(c2scipher, c2smac, c2scomp);
         transport.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
     }
     
     /**
-     * Compute the negotiated proposals by merging the client and server proposal. The negotiated proposal will be
-     * stored in the {@link #negotiated} property.
+     * Compute the negotiated proposals by merging the client and server proposal. The negotiated
+     * proposal will be stored in the {@link #negotiated} property.
      */
     private void negotiate() throws SSHException
     {
-        String[] guess = new String[SSHConstants.PROPOSAL_MAX];
-        for (int i = 0; i < SSHConstants.PROPOSAL_MAX; i++)
-        {
+        String[] guess = new String[Constants.PROPOSAL_MAX];
+        for (int i = 0; i < Constants.PROPOSAL_MAX; i++) {
             String[] c = clientProposal[i].split(",");
             String[] s = serverProposal[i].split(",");
-            for (String ci : c)
-            {
+            for (String ci : c) {
                 for (String si : s)
-                    if (ci.equals(si))
-                    {
+                    if (ci.equals(si)) {
                         guess[i] = ci;
                         break;
                     }
                 if (guess[i] != null)
                     break;
             }
-            if (guess[i] == null && i != SSHConstants.PROPOSAL_LANG_CTOS && i != SSHConstants.PROPOSAL_LANG_STOC)
+            if (guess[i] == null && i != Constants.PROPOSAL_LANG_CTOS
+                    && i != Constants.PROPOSAL_LANG_STOC)
                 throw new SSHException("Unable to negotiate");
         }
         negotiated = guess;
         
         log.info("Negotiated (Cipher, MAC, Compression) --- client -> server: ("
-                 + negotiated[SSHConstants.PROPOSAL_ENC_ALGS_CTOS] + ", "
-                 + negotiated[SSHConstants.PROPOSAL_MAC_ALGS_CTOS] + ", "
-                 + negotiated[SSHConstants.PROPOSAL_COMP_ALGS_CTOS] + ") --- server -> client: ("
-                 + negotiated[SSHConstants.PROPOSAL_ENC_ALGS_STOC] + ", "
-                 + negotiated[SSHConstants.PROPOSAL_MAC_ALGS_STOC] + ", "
-                 + negotiated[SSHConstants.PROPOSAL_COMP_ALGS_STOC] + ")");
+                + negotiated[Constants.PROPOSAL_ENC_ALGS_CTOS] + ", "
+                + negotiated[Constants.PROPOSAL_MAC_ALGS_CTOS] + ", "
+                + negotiated[Constants.PROPOSAL_COMP_ALGS_CTOS] + ") --- server -> client: ("
+                + negotiated[Constants.PROPOSAL_ENC_ALGS_STOC] + ", "
+                + negotiated[Constants.PROPOSAL_MAC_ALGS_STOC] + ", "
+                + negotiated[Constants.PROPOSAL_COMP_ALGS_STOC] + ")");
     }
     
     /**
-     * Private method used while putting new keys into use that will resize the key used to initialize the cipher to the
-     * needed length.
+     * Private method used while putting new keys into use that will resize the key used to
+     * initialize the cipher to the needed length.
      * 
      * @param E
      *            the key to resize
@@ -257,10 +257,10 @@ class KexHandler
      * @throws Exception
      *             if a problem occur while resizing the key
      */
-    private byte[] resizeKey(byte[] E, int blockSize, Digest hash, byte[] K, byte[] H) throws Exception
+    private byte[] resizeKey(byte[] E, int blockSize, Digest hash, byte[] K, byte[] H)
+            throws Exception
     {
-        while (blockSize > E.length)
-        {
+        while (blockSize > E.length) {
             Buffer buffer = new Buffer();
             buffer.putMPInt(K);
             buffer.putRawBytes(H);
@@ -280,8 +280,8 @@ class KexHandler
      */
     private void sendKexInit() throws IOException
     {
-        clientProposal = createProposal(KeyPairProvider.SSH_RSA + "," + KeyPairProvider.SSH_DSS);
-        Buffer buffer = transport.createBuffer(SSHConstants.Message.SSH_MSG_KEXINIT);
+        clientProposal = createProposal(Constants.SSH_RSA + "," + Constants.SSH_DSS);
+        Buffer buffer = transport.createBuffer(Constants.Message.SSH_MSG_KEXINIT);
         int p = buffer.wpos();
         buffer.wpos(p + 16);
         transport.prng.fill(buffer.array(), p, 16);
@@ -298,59 +298,57 @@ class KexHandler
     private void sendNewKeys() throws IOException
     {
         log.info("Sending SSH_MSG_NEWKEYS");
-        transport.writePacket(transport.createBuffer(SSHConstants.Message.SSH_MSG_NEWKEYS));
+        transport.writePacket(transport.createBuffer(Constants.Message.SSH_MSG_NEWKEYS));
     }
     
-    boolean handle(SSHConstants.Message cmd, Buffer buffer) throws Exception
+    boolean handle(Constants.Message cmd, Buffer buffer) throws Exception
     {
         switch (state)
         {
-            case EXPECT_KEXINIT:
-                if (cmd != SSHConstants.Message.SSH_MSG_KEXINIT)
-                {
-                    log.error("Ignoring command " + cmd + " while waiting for " + SSHConstants.Message.SSH_MSG_KEXINIT);
-                    break;
-                }
-                log.info("Received SSH_MSG_KEXINIT");
-                // make sure init() has been called; its a pre-requisite for negotiating
-                while (!sentKexInit)
-                    ;
-                gotKexInit(buffer);
-                state = State.EXPECT_FOLLOWUP;
+        case EXPECT_KEXINIT:
+            if (cmd != Constants.Message.SSH_MSG_KEXINIT) {
+                log.error("Ignoring command " + cmd + " while waiting for "
+                        + Constants.Message.SSH_MSG_KEXINIT);
                 break;
-            case EXPECT_FOLLOWUP:
-                log.info("Received kex followup data");
-                buffer.rpos(buffer.rpos() - 1);
-                if (kex.next(buffer))
-                {
-                    if (!transport.verifyHost(kex.getHostKey()))
-                        throw new SSHException("Could not verify host key");
-                    sendNewKeys();
-                    state = State.EXPECT_NEWKEYS;
-                }
+            }
+            log.info("Received SSH_MSG_KEXINIT");
+            // make sure init() has been called; its a pre-requisite for negotiating
+            while (!sentKexInit)
+                ;
+            gotKexInit(buffer);
+            state = State.EXPECT_FOLLOWUP;
+            break;
+        case EXPECT_FOLLOWUP:
+            log.info("Received kex followup data");
+            buffer.rpos(buffer.rpos() - 1);
+            if (kex.next(buffer)) {
+                if (!transport.verifyHost(kex.getHostKey()))
+                    throw new SSHException("Could not verify host key");
+                sendNewKeys();
+                state = State.EXPECT_NEWKEYS;
+            }
+            break;
+        case EXPECT_NEWKEYS:
+            if (cmd != Constants.Message.SSH_MSG_NEWKEYS) {
+                transport.disconnect(Constants.SSH_DISCONNECT_PROTOCOL_ERROR,
+                        "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
                 break;
-            case EXPECT_NEWKEYS:
-                if (cmd != SSHConstants.Message.SSH_MSG_NEWKEYS)
-                {
-                    transport.disconnect(SSHConstants.SSH_DISCONNECT_PROTOCOL_ERROR,
-                                         "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
-                    break;
-                }
-                log.info("Received SSH_MSG_NEWKEYS");
-                gotNewKeys();
-                state = State.KEX_DONE;
-                break;
-            case KEX_DONE:
-                if (cmd != SSHConstants.Message.SSH_MSG_KEXINIT)
-                    throw new IllegalStateException("Asked to handle " + cmd
-                                                    + ", was expecting SSH_MSG_KEXINIT for key re-exchange");
-                log.info("Received SSH_MSG_KEXINIT, initiating re-exchange");
-                sendKexInit();
-                gotKexInit(buffer);
-                state = State.EXPECT_FOLLOWUP;
-                break;
-            default:
-                assert false;
+            }
+            log.info("Received SSH_MSG_NEWKEYS");
+            gotNewKeys();
+            state = State.KEX_DONE;
+            break;
+        case KEX_DONE:
+            if (cmd != Constants.Message.SSH_MSG_KEXINIT)
+                throw new IllegalStateException("Asked to handle " + cmd
+                        + ", was expecting SSH_MSG_KEXINIT for key re-exchange");
+            log.info("Received SSH_MSG_KEXINIT, initiating re-exchange");
+            sendKexInit();
+            gotKexInit(buffer);
+            state = State.EXPECT_FOLLOWUP;
+            break;
+        default:
+            assert false;
         }
         return state == State.KEX_DONE ? true : false;
     }

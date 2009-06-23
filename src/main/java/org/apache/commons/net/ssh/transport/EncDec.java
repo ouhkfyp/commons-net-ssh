@@ -20,7 +20,7 @@ package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.SSHConstants;
+import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
@@ -101,7 +101,7 @@ class EncDec
                     if (decoderLength < 5 || decoderLength > 256 * 1024)
                     {
                         log.info("Error decoding packet (invalid length) {}", decoderBuffer.printHex());
-                        throw new SSHException(SSHConstants.SSH_DISCONNECT_PROTOCOL_ERROR, "Invalid packet length: "
+                        throw new SSHException(Constants.SSH_DISCONNECT_PROTOCOL_ERROR, "Invalid packet length: "
                                                                                            + decoderLength);
                     }
                     // Ok, that's good, we can go to the next step
@@ -133,7 +133,7 @@ class EncDec
                         // Check the computed result with the received mac (just
                         // after the packet data)
                         if (!BufferUtils.equals(inMACResult, 0, data, decoderLength + 4, macSize))
-                            throw new SSHException(SSHConstants.SSH_DISCONNECT_MAC_ERROR, "MAC Error");
+                            throw new SSHException(Constants.SSH_DISCONNECT_MAC_ERROR, "MAC Error");
                     }
                     // Increment incoming packet sequence number
                     seqi++;
