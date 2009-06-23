@@ -32,10 +32,11 @@ import org.apache.commons.net.ssh.signature.Signature;
  * Allows retrieving all the <code>NamedFactory</code> for Cipher, MAC, etc.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
 public class FactoryManager
-{ 
-
+{
+    
     private List<NamedFactory<KeyExchange>> keyExchangeFactories;
     private List<NamedFactory<Cipher>> cipherFactories;
     private List<NamedFactory<Compression>> compressionFactories;
@@ -43,76 +44,65 @@ public class FactoryManager
     private List<NamedFactory<Signature>> signatureFactories;
     private NamedFactory<Random> randomFactory;
     private KeyPairProvider keyPairProvider;
-    private final String version;
-    
-    /**
-     * An upper case string identifying the version of the software used on
-     * client or server side. This version includes the name of the software and
-     * usually looks like: <code>SSHD-1.0</code>
-     * 
-     * @return the version of the software
-     */
-    public String getVersion() {
-        return version;
-    }
     
     /**
      * Retrieve the list of named factories for <code>KeyExchange</code>.
      * 
-     * @return a list of named <code>KeyExchange</code> factories, never
-     *         <code>null</code>
+     * @return a list of named <code>KeyExchange</code> factories, never <code>null</code>
      */
-    public List<NamedFactory<KeyExchange>> getKeyExchangeFactories() {
+    public List<NamedFactory<KeyExchange>> getKeyExchangeFactories()
+    {
         return keyExchangeFactories;
     }
     
     /**
      * Retrieve the list of named factories for <code>Cipher</code>.
      * 
-     * @return a list of named <code>Cipher</code> factories, never
-     *         <code>null</code>
+     * @return a list of named <code>Cipher</code> factories, never <code>null</code>
      */
-    public List<NamedFactory<Cipher>> getCipherFactories() {
+    public List<NamedFactory<Cipher>> getCipherFactories()
+    {
         return cipherFactories;
     }
     
     /**
      * Retrieve the list of named factories for <code>Compression</code>.
      * 
-     * @return a list of named <code>Compression</code> factories, never
-     *         <code>null</code>
+     * @return a list of named <code>Compression</code> factories, never <code>null</code>
      */
-    public List<NamedFactory<Compression>> getCompressionFactories() {
+    public List<NamedFactory<Compression>> getCompressionFactories()
+    {
         return compressionFactories;
     }
     
     /**
      * Retrieve the list of named factories for <code>MAC</code>.
      * 
-     * @return a list of named <code>Mac</code> factories, never
-     *         <code>null</code>
+     * @return a list of named <code>Mac</code> factories, never <code>null</code>
      */
-    public List<NamedFactory<MAC>> getMACFactories() {
+    public List<NamedFactory<MAC>> getMACFactories()
+    {
         return macFactories;
     }
     
     /**
      * Retrieve the list of named factories for <code>Signature</code>.
      * 
-     * @return a list of named <code>Signature</code> factories, never
-     *         <code>null</code>
+     * @return a list of named <code>Signature</code> factories, never <code>null</code>
      */
-    public List<NamedFactory<Signature>> getSignatureFactories() {
+    public List<NamedFactory<Signature>> getSignatureFactories()
+    {
         return signatureFactories;
     }
     
     /**
-     * Retrieve the <code>KeyPairProvider</code> that will be used to find the
-     * host key to use on the server side or the user key on the client side.
+     * Retrieve the <code>KeyPairProvider</code> that will be used to find the host key to use on
+     * the server side or the user key on the client side.
      * 
      * @return the <code>KeyPairProvider</code>, never <code>null</code>
      */
-    public KeyPairProvider getKeyPairProvider() {
+    public KeyPairProvider getKeyPairProvider()
+    {
         return keyPairProvider;
     }
     
@@ -121,7 +111,8 @@ public class FactoryManager
      * 
      * @return the <code>Random</code> factory, never <code>null</code>
      */
-    public NamedFactory<Random> getRandomFactory() {
+    public NamedFactory<Random> getRandomFactory()
+    {
         return randomFactory;
     }
     
@@ -158,11 +149,6 @@ public class FactoryManager
     public void setSignatureFactories(List<NamedFactory<Signature>> signatureFactories)
     {
         this.signatureFactories = signatureFactories;
-    }
-
-    FactoryManager(String version)
-    {
-        this.version = version;
     }
     
 }

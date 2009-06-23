@@ -1,8 +1,7 @@
 package org.apache.commons.net.ssh;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.net.Socket;
 
 import org.apache.commons.net.ssh.util.Buffer;
 
@@ -16,7 +15,7 @@ public interface Session
      *            the SSH command
      * @return a new buffer ready for write
      */
-    public abstract Buffer createBuffer(SSHConstants.Message cmd);
+    Buffer createBuffer(Constants.Message cmd);
 
     /**
      * Send a disconnect packet with the given reason and message, and close the session.
@@ -28,24 +27,28 @@ public interface Session
      * @throws IOException
      *             if an error occured sending the packet
      */
-    public abstract void disconnect(int reason, String msg) throws IOException;
+    void disconnect(int reason, String msg) throws IOException;
     
-    public abstract String getClientVersion();
+    String getClientVersion();
     
     /**
      * Retrieve the factory manager
      * 
      * @return the factory manager for this session
      */
-    public abstract FactoryManager getFactoryManager();
+    FactoryManager getFactoryManager();
     
-    public abstract String getServerVersion();
+    String getServerVersion();
     
-    public abstract void init(InputStream input, OutputStream output) throws Exception;
+    void init(Socket socket) throws Exception;
     
-    public abstract boolean isRunning();
+    boolean isRunning();
     
-    public abstract void startService(Service service) throws Exception;
+    void setAuthenticated(boolean authed);
+    
+    void setHostKeyVerifier(HostKeyVerifier hkv);
+    
+    void startService(Service service) throws Exception;
     
     /**
      * Encode the payload as an SSH packet and send it over the session.
@@ -53,8 +56,6 @@ public interface Session
      * @param payload
      * @throws IOException
      */    
-    public abstract int writePacket(Buffer payload) throws IOException;
-    
-    public abstract void setAuthenticated(boolean authed);
+    int writePacket(Buffer payload) throws IOException;
     
 }

@@ -18,38 +18,44 @@
  */
 package org.apache.commons.net.ssh.signature;
 
+import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.keyprovider.KeyPairProvider;
 
 /**
  * DSA <code>Signature</code>
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class SignatureDSA extends AbstractSignature {
-
+public class SignatureDSA extends AbstractSignature
+{
+    
     /**
      * A named factory for DSA signature
      */
-    public static class Factory implements NamedFactory<Signature> {
-
-        public String getName() {
-            return KeyPairProvider.SSH_DSS;
+    public static class Factory implements NamedFactory<Signature>
+    {
+        
+        public String getName()
+        {
+            return Constants.SSH_DSS;
         }
-
-        public Signature create() {
+        
+        public Signature create()
+        {
             return new SignatureDSA();
         }
-
+        
     }
-
-    public SignatureDSA() {
+    
+    public SignatureDSA()
+    {
         super("SHA1withDSA");
     }
-
-    public byte[] sign() throws Exception {
+    
+    public byte[] sign() throws Exception
+    {
         byte[] sig = signature.sign();
-
+        
         // sig is in ASN.1
         // SEQUENCE::={ r INTEGER, s INTEGER }
         int len = 0;
@@ -61,32 +67,27 @@ public class SignatureDSA extends AbstractSignature {
         len = sig[index++] & 0xff;
         byte[] s = new byte[len];
         System.arraycopy(sig, index, s, 0, s.length);
-
+        
         byte[] result = new byte[40];
-
+        
         // result must be 40 bytes, but length of r and s may not be 20 bytes
-
-        System.arraycopy(r,
-                         (r.length > 20) ? 1 : 0,
-                         result,
-                         (r.length > 20) ? 0 : 20 - r.length,
-                         (r.length > 20) ? 20 : r.length);
-        System.arraycopy(s,
-                         (s.length > 20) ? 1 : 0,
-                         result,
-                         (s.length > 20) ? 20 : 40 - s.length,
-                         (s.length > 20) ? 20 : s.length);
-
+        
+        System.arraycopy(r, (r.length > 20) ? 1 : 0, result, (r.length > 20) ? 0 : 20 - r.length,
+                (r.length > 20) ? 20 : r.length);
+        System.arraycopy(s, (s.length > 20) ? 1 : 0, result, (s.length > 20) ? 20 : 40 - s.length,
+                (s.length > 20) ? 20 : s.length);
+        
         return result;
     }
-
-    public boolean verify(byte[] sig) throws Exception {
+    
+    public boolean verify(byte[] sig) throws Exception
+    {
         sig = extractSig(sig);
-
+        
         // ASN.1
         int frst = ((sig[0] & 0x80) != 0 ? 1 : 0);
         int scnd = ((sig[20] & 0x80) != 0 ? 1 : 0);
-
+        
         int length = sig.length + 6 + frst + scnd;
         byte[] tmp = new byte[length];
         tmp[0] = (byte) 0x30;
@@ -102,8 +103,8 @@ public class SignatureDSA extends AbstractSignature {
         tmp[5 + tmp[3]] += scnd;
         System.arraycopy(sig, 20, tmp, 6 + tmp[3] + scnd, 20);
         sig = tmp;
-
+        
         return signature.verify(sig);
     }
-
+    
 }

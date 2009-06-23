@@ -20,7 +20,9 @@
 package org.apache.commons.net.ssh;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.security.InvalidKeyException;
+import java.security.PublicKey;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -59,43 +61,23 @@ import org.apache.log4j.BasicConfigurator;
 public class SSHClient extends SocketClient
 {
     
-    /** Default SSH port */
-    public static final int DEFAULT_PORT = 22;
-    
-    /** Sent to server as part of identification string */
-    public static final String VERSION = "NET_2_0";
-    
-    public static void main(String[] args)
-    {
-        try {
-            BasicConfigurator.configure(); // logging
-            SSHClient s = new SSHClient();
-            s.connect("localhost");
-            s.disconnect();
-        }
-        catch (Exception e)
-        {
-            System.err.println(e);
-        }
-    }
-    
     protected static FactoryManager getDefaultFactoryManager()
     {
-        FactoryManager fm = new FactoryManager(SSHClient.VERSION);
+        FactoryManager fm = new FactoryManager();
         
         // DHG14 uses 2048 bits key which are not supported by the default JCE provider
-        if (SecurityUtils.isBouncyCastleRegistered())
-        {
-            fm.setKeyExchangeFactories(new LinkedList<NamedFactory<KeyExchange>>() {
+        if (SecurityUtils.isBouncyCastleRegistered()) {
+            fm.setKeyExchangeFactories(new LinkedList<NamedFactory<KeyExchange>>()
+            {
                 {
                     add(new DHG14.Factory());
                     add(new DHG1.Factory());
                 }
             });
             fm.setRandomFactory(new SingletonRandomFactory(new BouncyCastleRandom.Factory()));
-        } else
-        {
-            fm.setKeyExchangeFactories(new LinkedList<NamedFactory<KeyExchange>>() {
+        } else {
+            fm.setKeyExchangeFactories(new LinkedList<NamedFactory<KeyExchange>>()
+            {
                 {
                     add(new DHG1.Factory());
                 }
@@ -103,7 +85,8 @@ public class SSHClient extends SocketClient
             fm.setRandomFactory(new SingletonRandomFactory(new JCERandom.Factory()));
         }
         
-        List<NamedFactory<Cipher>> avail = new LinkedList<NamedFactory<Cipher>>() {
+        List<NamedFactory<Cipher>> avail = new LinkedList<NamedFactory<Cipher>>()
+        {
             {
                 add(new AES256CBC.Factory());
                 add(new AES192CBC.Factory());
@@ -112,26 +95,23 @@ public class SSHClient extends SocketClient
                 add(new TripleDESCBC.Factory());
             }
         };
-        for (Iterator<NamedFactory<Cipher>> i = avail.iterator(); i.hasNext();)
-        {
+        for (Iterator<NamedFactory<Cipher>> i = avail.iterator(); i.hasNext();) {
             final NamedFactory<Cipher> f = i.next();
-            try
-            {
+            try {
                 final Cipher c = f.create();
                 final byte[] key = new byte[c.getBlockSize()];
                 final byte[] iv = new byte[c.getIVSize()];
                 c.init(Cipher.Mode.Encrypt, key, iv);
-            } catch (InvalidKeyException e)
-            {
+            } catch (InvalidKeyException e) {
                 i.remove();
-            } catch (Exception e)
-            {
+            } catch (Exception e) {
                 i.remove();
             }
         }
         fm.setCipherFactories(avail);
         
-        fm.setCompressionFactories(new LinkedList<NamedFactory<Compression>>() {
+        fm.setCompressionFactories(new LinkedList<NamedFactory<Compression>>()
+        {
             {
                 add(new CompressionZlib.Factory());
                 add(new CompressionDelayedZlib.Factory());
@@ -139,7 +119,8 @@ public class SSHClient extends SocketClient
             }
         });
         
-        fm.setMACFactories(new LinkedList<NamedFactory<MAC>>() {
+        fm.setMACFactories(new LinkedList<NamedFactory<MAC>>()
+        {
             {
                 add(new HMACSHA1.Factory());
                 add(new HMACSHA196.Factory());
@@ -148,7 +129,8 @@ public class SSHClient extends SocketClient
             }
         });
         
-        fm.setSignatureFactories(new LinkedList<NamedFactory<Signature>>() {
+        fm.setSignatureFactories(new LinkedList<NamedFactory<Signature>>()
+        {
             {
                 add(new SignatureDSA.Factory());
                 add(new SignatureRSA.Factory());
@@ -158,9 +140,31 @@ public class SSHClient extends SocketClient
         return fm;
     }
     
+    public static void main(String[] args) throws Exception
+    {
+        BasicConfigurator.configure(); // logging
+        SSHClient s = new SSHClient();
+        
+        // still working on support for reading in known_hosts...
+        s.setHostKeyVerifier(new HostKeyVerifier()
+        {
+            public boolean verify(InetAddress address, PublicKey key)
+            {
+                return "localhost".equals(address.getHostName())
+                        && "2e:26:99:ec:71:51:ca:a0:b3:1d:3d:10:4c:a7:80:e5".equals(SecurityUtils
+                                .getFingerprint(key));
+            }
+        });
+        
+        s.connect("localhost");
+        s.disconnect();
+    }
+    
     private final Session trans;
     private final UserAuth auth;
     private final Connection conn;
+    
+    private HostKeyVerifier hostKeyVerifier;
     
     public SSHClient()
     {
@@ -172,26 +176,18 @@ public class SSHClient extends SocketClient
         trans = new Transport(fm);
         conn = new Connection(trans);
         auth = new UserAuth(trans, conn.getName());
-        setDefaultPort(SSHClient.DEFAULT_PORT);
-    }
-    
-    @Override
-    public void disconnect() throws IOException
-    {
-        trans.disconnect(SSHConstants.SSH_DISCONNECT_BY_APPLICATION, "Session closed by user");
-        super.disconnect();
+        setDefaultPort(Constants.DEFAULT_PORT);
     }
     
     @Override
     protected void _connectAction_() throws IOException
     {
         super._connectAction_();
-        try
-        {
-            trans.init(_input_, _output_);
+        try {
+            trans.setHostKeyVerifier(hostKeyVerifier);
+            trans.init(_socket_);
             trans.startService(auth);
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new IOException(e);
         }
     }
@@ -201,4 +197,15 @@ public class SSHClient extends SocketClient
         auth.authPassword(username, password);
     }
     
+    @Override
+    public void disconnect() throws IOException
+    {
+        trans.disconnect(Constants.SSH_DISCONNECT_BY_APPLICATION, "Session closed by user");
+        super.disconnect();
+    }
+    
+    public void setHostKeyVerifier(HostKeyVerifier hostKeyVerifier)
+    {
+        this.hostKeyVerifier = hostKeyVerifier;
+    }
 }

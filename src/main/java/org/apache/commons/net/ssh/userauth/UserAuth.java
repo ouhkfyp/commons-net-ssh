@@ -1,6 +1,6 @@
 package org.apache.commons.net.ssh.userauth;
 
-import org.apache.commons.net.ssh.SSHConstants;
+import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.util.Buffer;
@@ -29,7 +29,7 @@ public class UserAuth implements Service
         return serviceName;
     }
     
-    public void handle(SSHConstants.Message cmd, Buffer packet)
+    public void handle(Constants.Message cmd, Buffer packet)
     {
         switch (cmd)
         {
@@ -59,7 +59,7 @@ public class UserAuth implements Service
     
     private void request(String username)
     {
-        Buffer buffer = session.createBuffer(SSHConstants.Message.SSH_MSG_USERAUTH_REQUEST);
+        Buffer buffer = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST);
         buffer.putString(username);
         buffer.putString(nextServiceName);
         

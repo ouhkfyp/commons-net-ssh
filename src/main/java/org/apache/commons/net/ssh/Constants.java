@@ -20,16 +20,38 @@ package org.apache.commons.net.ssh;
 
 /**
  * This interface defines constants for the SSH protocol.
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-public interface SSHConstants {
-
+public interface Constants
+{
+    /**
+     * Software version; sent as part of client identification string
+     */
+    public static final String VERSION = "NET_3_0";
+    
+    /**
+     * Default SSH port
+     */
+    public static final int DEFAULT_PORT = 22;
+    
+    /**
+     * SSH identifier for RSA keys
+     */
+    String SSH_RSA = "ssh-rsa";
+    
+    /**
+     * SSH identifier for DSA keys
+     */
+    String SSH_DSS = "ssh-dss";
+    
     /**
      * SSH message identifiers
      */
-    public enum Message {
-
+    public enum Message
+    {
+        
         SSH_MSG_DISCONNECT(1),
         SSH_MSG_IGNORE(2),
         SSH_MSG_UNIMPLEMENTED(3),
@@ -38,16 +60,16 @@ public interface SSHConstants {
         SSH_MSG_SERVICE_ACCEPT(6),
         SSH_MSG_KEXINIT(20),
         SSH_MSG_NEWKEYS(21),
-
+        
         SSH_MSG_KEXDH_INIT(30),
-
+        
         // KEXDH_REPLY and KEX_DH_GEX_GROUP have the same command ID
         SSH_MSG_KEXDH_REPLY_KEX_DH_GEX_GROUP(31),
-
+        
         SSH_MSG_KEX_DH_GEX_INIT(32),
         SSH_MSG_KEX_DH_GEX_REPLY(33),
         SSH_MSG_KEX_DH_GEX_REQUEST(34),
-
+        
         SSH_MSG_USERAUTH_REQUEST(50),
         SSH_MSG_USERAUTH_FAILURE(51),
         SSH_MSG_USERAUTH_SUCCESS(52),
@@ -55,7 +77,7 @@ public interface SSHConstants {
         SSH_MSG_USERAUTH_INFO_REQUEST(60),
         SSH_MSG_USERAUTH_INFO_RESPONSE(61),
         SSH_MSG_USERAUTH_PK_OK(60),
-
+        
         SSH_MSG_GLOBAL_REQUEST(80),
         SSH_MSG_REQUEST_SUCCESS(81),
         SSH_MSG_REQUEST_FAILURE(82),
@@ -71,16 +93,19 @@ public interface SSHConstants {
         SSH_MSG_CHANNEL_REQUEST(98),
         SSH_MSG_CHANNEL_SUCCESS(99),
         SSH_MSG_CHANNEL_FAILURE(100);
-
+        
         private byte b;
-        private Message(int b) {
+        
+        private Message(int b)
+        {
             this.b = (byte) b;
         }
-
-        public byte toByte() {
+        
+        public byte toByte()
+        {
             return b;
         }
-
+        
         static Message[] commands;
         static {
             commands = new Message[256];
@@ -90,13 +115,15 @@ public interface SSHConstants {
                 }
             }
         }
-        public static Message fromByte(byte b) {
+        
+        public static Message fromByte(byte b)
+        {
             return commands[b];
         }
     }
-
+    
     //
-    // Values for the algorithms negotiation 
+    // Values for the algorithms negotiation
     //
     static final int PROPOSAL_KEX_ALGS = 0;
     static final int PROPOSAL_SERVER_HOST_KEY_ALGS = 1;
@@ -109,37 +136,36 @@ public interface SSHConstants {
     static final int PROPOSAL_LANG_CTOS = 8;
     static final int PROPOSAL_LANG_STOC = 9;
     static final int PROPOSAL_MAX = 10;
-
-
+    
     //
     // Disconnect error codes
     //
-    static final int SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT =     1;
-    static final int SSH_DISCONNECT_PROTOCOL_ERROR =                  2;
-    static final int SSH_DISCONNECT_KEY_EXCHANGE_FAILED =             3;
-    static final int SSH_DISCONNECT_HOST_AUTHENTICATION_FAILED =      4;
-    static final int SSH_DISCONNECT_RESERVED =                        4;
-    static final int SSH_DISCONNECT_MAC_ERROR =                       5;
-    static final int SSH_DISCONNECT_COMPRESSION_ERROR =               6;
-    static final int SSH_DISCONNECT_SERVICE_NOT_AVAILABLE =           7;
-    static final int SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED =  8;
-    static final int SSH_DISCONNECT_HOST_KEY_NOT_VERIFIABLE =         9;
-    static final int SSH_DISCONNECT_CONNECTION_LOST =                10;
-    static final int SSH_DISCONNECT_BY_APPLICATION =                 11;
-    static final int SSH_DISCONNECT_TOO_MANY_CONNECTIONS =           12;
-    static final int SSH_DISCONNECT_AUTH_CANCELLED_BY_USER =         13;
+    static final int SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT = 1;
+    static final int SSH_DISCONNECT_PROTOCOL_ERROR = 2;
+    static final int SSH_DISCONNECT_KEY_EXCHANGE_FAILED = 3;
+    static final int SSH_DISCONNECT_HOST_AUTHENTICATION_FAILED = 4;
+    static final int SSH_DISCONNECT_RESERVED = 4;
+    static final int SSH_DISCONNECT_MAC_ERROR = 5;
+    static final int SSH_DISCONNECT_COMPRESSION_ERROR = 6;
+    static final int SSH_DISCONNECT_SERVICE_NOT_AVAILABLE = 7;
+    static final int SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED = 8;
+    static final int SSH_DISCONNECT_HOST_KEY_NOT_VERIFIABLE = 9;
+    static final int SSH_DISCONNECT_CONNECTION_LOST = 10;
+    static final int SSH_DISCONNECT_BY_APPLICATION = 11;
+    static final int SSH_DISCONNECT_TOO_MANY_CONNECTIONS = 12;
+    static final int SSH_DISCONNECT_AUTH_CANCELLED_BY_USER = 13;
     static final int SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE = 14;
-    static final int SSH_DISCONNECT_ILLEGAL_USER_NAME =              15;
-
+    static final int SSH_DISCONNECT_ILLEGAL_USER_NAME = 15;
+    
     //
     // Open error codes
     //
-
-    static final int SSH_OPEN_ADMINISTRATIVELY_PROHIBITED=     1;
-    static final int SSH_OPEN_CONNECT_FAILED=                  2;
-    static final int SSH_OPEN_UNKNOWN_CHANNEL_TYPE=            3;
-    static final int SSH_OPEN_RESOURCE_SHORTAGE=               4;
-
+    
+    static final int SSH_OPEN_ADMINISTRATIVELY_PROHIBITED = 1;
+    static final int SSH_OPEN_CONNECT_FAILED = 2;
+    static final int SSH_OPEN_UNKNOWN_CHANNEL_TYPE = 3;
+    static final int SSH_OPEN_RESOURCE_SHORTAGE = 4;
+    
     //
     // Services
     //

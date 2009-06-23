@@ -24,15 +24,18 @@ import java.security.interfaces.RSAKey;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.net.ssh.Constants;
 
 /**
  * TODO Add javadoc
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public abstract class AbstractKeyPairProvider implements KeyPairProvider {
-
-    public KeyPair loadKey(String type) {
+public abstract class AbstractKeyPairProvider implements KeyPairProvider
+{
+    
+    public KeyPair loadKey(String type)
+    {
         assert type != null;
         KeyPair[] keys = loadKeys();
         for (KeyPair key : keys) {
@@ -42,8 +45,9 @@ public abstract class AbstractKeyPairProvider implements KeyPairProvider {
         }
         return null;
     }
-
-    public String getKeyTypes() {
+    
+    public String getKeyTypes()
+    {
         List<String> types = new ArrayList<String>();
         KeyPair[] keys = loadKeys();
         for (KeyPair key : keys) {
@@ -61,16 +65,17 @@ public abstract class AbstractKeyPairProvider implements KeyPairProvider {
         }
         return sb.toString();
     }
-
-    protected String getKeyType(KeyPair kp) {
+    
+    protected String getKeyType(KeyPair kp)
+    {
         Object key = kp.getPrivate() != null ? kp.getPrivate() : kp.getPublic();
         if (key instanceof DSAKey) {
-            return SSH_DSS;
+            return Constants.SSH_DSS;
         } else if (key instanceof RSAKey) {
-            return SSH_RSA;
+            return Constants.SSH_RSA;
         }
         return null;
     }
-
+    
     protected abstract KeyPair[] loadKeys();
 }

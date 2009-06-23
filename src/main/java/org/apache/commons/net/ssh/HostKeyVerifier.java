@@ -16,33 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh.keyprovider;
+package org.apache.commons.net.ssh;
 
-import java.security.KeyPair;
+import java.net.InetAddress;
+import java.security.PublicKey;
 
 /**
- * Provider for key pairs used to provide the user key.
+ * Interface for host key verification.
  * 
- * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-public interface KeyPairProvider
+public interface HostKeyVerifier
 {
     
     /**
-     * Load a key of the specified type which can be "ssh-rsa" or "ssh-dss". If there is no key of
-     * this type, return <code>null</code>
+     * This is the callback that is called when the server's host key needs to be verified, and its
+     * return value indicates whether the SSH connection should proceed.
+     * <p>
+     * <b>Note</b>: host key verification is the basis for security in SSH, therefore exercise due
+     * caution in implementing this interface.
      * 
-     * @param type
-     *            the type of key to load
-     * @return a valid key pair or <code>null</code>
+     * @param address
+     * @param key
+     * @return
      */
-    KeyPair loadKey(String type);
-    
-    /**
-     * Return a comma separated list of the key types available
-     * 
-     * @return the list of key availables
-     */
-    String getKeyTypes();
+    boolean verify(InetAddress address, PublicKey fingerprint);
     
 }
