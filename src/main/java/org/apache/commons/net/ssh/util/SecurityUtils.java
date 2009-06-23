@@ -25,152 +25,206 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
 import java.security.Signature;
+import java.security.interfaces.DSAParams;
+import java.security.interfaces.DSAPublicKey;
+import java.security.interfaces.RSAPublicKey;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
 import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 
+import org.apache.commons.net.ssh.Constants;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * TODO Add javadoc
- *
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-public class SecurityUtils {
-
-    public static final String BOUNCY_CASTLE = "BC";
-
-    private static final Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);
-
-    private static String securityProvider = null;
-    private static Boolean registerBouncyCastle;
-    private static boolean registrationDone;
-
-    public static synchronized void setSecurityProvider(String securityProvider) {
-        SecurityUtils.securityProvider = securityProvider;
-        registrationDone = false;
-    }
-
-    public static synchronized void setRegisterBouncyCastle(boolean registerBouncyCastle) {
-        SecurityUtils.registerBouncyCastle = registerBouncyCastle;
-        registrationDone = false;
-    }
-
-    public static synchronized String getSecurityProvider() {
-        register();
-        return securityProvider;
-    }
-
-    public static synchronized boolean isBouncyCastleRegistered() {
-        register();
-        return BOUNCY_CASTLE.equals(securityProvider);
-    }
-
-    private static void register() {
-        if (!registrationDone) {
-            if (securityProvider == null && (registerBouncyCastle == null || registerBouncyCastle)) {
-                // Use an inner class to avoid a strong dependency on BouncyCastle
-                try {
-                    new BouncyCastleRegistration().run();
-                } catch (Throwable t) {
-                    if (registerBouncyCastle == null) {
-                        LOG.info("BouncyCastle not registered, using the default JCE provider");
-                    } else {
-                        LOG.error("Failed to register BouncyCastle as the defaut JCE provider");
-                        throw new RuntimeException("Failed to register BouncyCastle as the defaut JCE provider", t);
-                    }
-                }
-            }
-            registrationDone = true;
-        }
-    }
-
-    private static class BouncyCastleRegistration {
-        public void run() throws Exception {
+public class SecurityUtils
+{
+    
+    private static class BouncyCastleRegistration
+    {
+        public void run() throws Exception
+        {
             if (java.security.Security.getProvider(BOUNCY_CASTLE) == null) {
                 LOG.info("Trying to register BouncyCastle as a JCE provider");
                 java.security.Security.addProvider(new BouncyCastleProvider());
                 MessageDigest.getInstance("MD5", BOUNCY_CASTLE);
                 KeyAgreement.getInstance("DH", BOUNCY_CASTLE);
                 LOG.info("Registration succeeded");
-            } else {
+            } else
                 LOG.info("BouncyCastle already registered as a JCE provider");
-            }
             securityProvider = BOUNCY_CASTLE;
         }
     }
-
-    public static synchronized KeyFactory getKeyFactory(String algorithm) throws NoSuchAlgorithmException, NoSuchProviderException {
+    
+    public static final String BOUNCY_CASTLE = "BC";
+    
+    private static final Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);
+    private static String securityProvider = null;
+    private static Boolean registerBouncyCastle;
+    
+    private static boolean registrationDone;
+    
+    public static synchronized Cipher getCipher(String transformation)
+            throws NoSuchAlgorithmException, NoSuchPaddingException, NoSuchProviderException
+    {
         register();
-        if (getSecurityProvider() == null) {
-            return KeyFactory.getInstance(algorithm);
-        } else {
-            return KeyFactory.getInstance(algorithm, getSecurityProvider());
-        }
-    }
-
-    public static synchronized Cipher getCipher(String transformation) throws NoSuchAlgorithmException, NoSuchPaddingException, NoSuchProviderException {
-        register();
-        if (getSecurityProvider() == null) {
+        if (getSecurityProvider() == null)
             return Cipher.getInstance(transformation);
-        } else {
+        else
             return Cipher.getInstance(transformation, getSecurityProvider());
-        }
     }
-
-    public static synchronized MessageDigest getMessageDigest(String algorithm) throws NoSuchAlgorithmException, NoSuchProviderException {
-        register();
-        if (getSecurityProvider() == null) {
-            return MessageDigest.getInstance(algorithm);
-        } else {
-            return MessageDigest.getInstance(algorithm, getSecurityProvider());
+    
+    /**
+     * Computes the fingerprint for a publickey, in the typical SSH format, e.g.
+     * "4b:69:6c:72:6f:79:20:77:61:73:20:68:65:72:65:21"
+     * 
+     * @param key
+     *            the public key
+     * @return the fingerprint
+     * @see <a href="http://tools.ietf.org/html/draft-friedl-secsh-fingerprint-00">specification</a>
+     */
+    public static String getFingerprint(PublicKey key)
+    {
+        MessageDigest md5 = null;
+        try {
+            md5 = MessageDigest.getInstance("MD5");
+        } catch (NoSuchAlgorithmException e) { // can't happen.
+            e.printStackTrace();
         }
+        Buffer buf = new Buffer();
+        if (key.getAlgorithm() == "RSA") {
+            RSAPublicKey rsa = (RSAPublicKey) key;
+            buf.putString(Constants.SSH_RSA);
+            buf.putMPInt(rsa.getPublicExponent());
+            buf.putMPInt(rsa.getModulus());
+        } else if (key.getAlgorithm() == "DSA") {
+            buf.putString(Constants.SSH_DSS);
+            DSAPublicKey dsa = (DSAPublicKey) key;
+            DSAParams params = dsa.getParams();
+            buf.putMPInt(params.getP());
+            buf.putMPInt(params.getQ());
+            buf.putMPInt(params.getG());
+            buf.putMPInt(dsa.getY());
+        } else
+            assert false;
+        md5.update(buf.array(), 0, buf.available());
+        String undelimed = BufferUtils.toHex(md5.digest());
+        String fp = undelimed.substring(0, 2);
+        for (int i = 2; i <= undelimed.length() - 2; i += 2)
+            fp += ":" + undelimed.substring(i, i + 2);
+        return fp;
     }
-
-    public static synchronized KeyPairGenerator getKeyPairGenerator(String algorithm) throws NoSuchAlgorithmException, NoSuchProviderException {
+    
+    public static synchronized KeyAgreement getKeyAgreement(String algorithm)
+            throws NoSuchAlgorithmException, NoSuchProviderException
+    {
         register();
-        if (getSecurityProvider() == null) {
-            return KeyPairGenerator.getInstance(algorithm);
-        } else {
-            return KeyPairGenerator.getInstance(algorithm, getSecurityProvider());
-        }
-    }
-
-    public static synchronized KeyAgreement getKeyAgreement(String algorithm) throws NoSuchAlgorithmException, NoSuchProviderException {
-        register();
-        if (getSecurityProvider() == null) {
+        if (getSecurityProvider() == null)
             return KeyAgreement.getInstance(algorithm);
-        } else {
+        else
             return KeyAgreement.getInstance(algorithm, getSecurityProvider());
-        }
     }
-
-    public static synchronized Mac getMac(String algorithm) throws NoSuchAlgorithmException, NoSuchProviderException {
+    
+    public static synchronized KeyFactory getKeyFactory(String algorithm)
+            throws NoSuchAlgorithmException, NoSuchProviderException
+    {
         register();
-        if (getSecurityProvider() == null) {
+        if (getSecurityProvider() == null)
+            return KeyFactory.getInstance(algorithm);
+        else
+            return KeyFactory.getInstance(algorithm, getSecurityProvider());
+    }
+    
+    public static synchronized KeyPairGenerator getKeyPairGenerator(String algorithm)
+            throws NoSuchAlgorithmException, NoSuchProviderException
+    {
+        register();
+        if (getSecurityProvider() == null)
+            return KeyPairGenerator.getInstance(algorithm);
+        else
+            return KeyPairGenerator.getInstance(algorithm, getSecurityProvider());
+    }
+    
+    public static synchronized Mac getMac(String algorithm) throws NoSuchAlgorithmException,
+            NoSuchProviderException
+    {
+        register();
+        if (getSecurityProvider() == null)
             return Mac.getInstance(algorithm);
-        } else {
+        else
             return Mac.getInstance(algorithm, getSecurityProvider());
-        }
     }
-
-    public static synchronized Signature getSignature(String algorithm) throws NoSuchAlgorithmException, NoSuchProviderException {
+    
+    public static synchronized MessageDigest getMessageDigest(String algorithm)
+            throws NoSuchAlgorithmException, NoSuchProviderException
+    {
         register();
-        if (getSecurityProvider() == null) {
+        if (getSecurityProvider() == null)
+            return MessageDigest.getInstance(algorithm);
+        else
+            return MessageDigest.getInstance(algorithm, getSecurityProvider());
+    }
+    
+    public static synchronized String getSecurityProvider()
+    {
+        register();
+        return securityProvider;
+    }
+    
+    public static synchronized Signature getSignature(String algorithm)
+            throws NoSuchAlgorithmException, NoSuchProviderException
+    {
+        register();
+        if (getSecurityProvider() == null)
             return Signature.getInstance(algorithm);
-        } else {
+        else
             return Signature.getInstance(algorithm, getSecurityProvider());
+    }
+    
+    public static synchronized boolean isBouncyCastleRegistered()
+    {
+        register();
+        return BOUNCY_CASTLE.equals(securityProvider);
+    }
+    
+    private static void register()
+    {
+        if (!registrationDone) {
+            if (securityProvider == null && (registerBouncyCastle == null || registerBouncyCastle))
+                // Use an inner class to avoid a strong dependency on BouncyCastle
+                try {
+                    new BouncyCastleRegistration().run();
+                } catch (Throwable t) {
+                    if (registerBouncyCastle == null)
+                        LOG.info("BouncyCastle not registered, using the default JCE provider");
+                    else {
+                        LOG.error("Failed to register BouncyCastle as the defaut JCE provider");
+                        throw new RuntimeException(
+                                "Failed to register BouncyCastle as the defaut JCE provider", t);
+                    }
+                }
+            registrationDone = true;
         }
     }
     
-    public static String getFingerprint(PublicKey key)
+    public static synchronized void setRegisterBouncyCastle(boolean registerBouncyCastle)
     {
-        // TODO
-        return null;
+        SecurityUtils.registerBouncyCastle = registerBouncyCastle;
+        registrationDone = false;
     }
-
+    
+    public static synchronized void setSecurityProvider(String securityProvider)
+    {
+        SecurityUtils.securityProvider = securityProvider;
+        registrationDone = false;
+    }
+    
 }

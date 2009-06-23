@@ -19,51 +19,111 @@
 package org.apache.commons.net.ssh.util;
 
 /**
- * TODO Add javadoc
- *
+ * Utility functions for byte arrays.
+ * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-public class BufferUtils {
-
-    public static String printHex(byte[] array) {
+public class BufferUtils
+{
+    
+    final static char[] digits = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c',
+            'd', 'e', 'f' };
+    
+    /**
+     * Efficiently check whether <code>a1</code> and <code>a2</code> are the same.
+     * 
+     * @param a1
+     * @param a2
+     * @return <code>true</code> or <code>false</code>
+     */
+    public static boolean equals(byte[] a1, byte[] a2)
+    {
+        if (a1.length != a2.length)
+            return false;
+        return equals(a1, 0, a2, 0, a1.length);
+    }
+    
+    /**
+     * 
+     * @param a1
+     * @param a1Offset
+     * @param a2
+     * @param a2Offset
+     * @param length
+     * @return
+     */
+    public static boolean equals(byte[] a1, int a1Offset, byte[] a2, int a2Offset, int length)
+    {
+        if (a1.length < a1Offset + length || a2.length < a2Offset + length)
+            return false;
+        while (length-- > 0)
+            if (a1[a1Offset++] != a2[a2Offset++])
+                return false;
+        return true;
+    }
+    
+    /**
+     * Get a hexadecimal representation of <code>array</code>, with each octet separated by a space.
+     * 
+     * @param array
+     * @return hex string, each octet delimited by a space
+     */
+    public static String printHex(byte[] array)
+    {
         return printHex(array, 0, array.length);
     }
-
-    public static String printHex(byte[] array, int offset, int len) {
+    
+    /**
+     * Get a hexadecimal representation of <code>array</code> starting at index <code>offset</code>
+     * till <code>len</code>, with each octet separated by a space.
+     * 
+     * @param array
+     * @param offset
+     * @param len
+     * @return hex string, each octet delimited by a space
+     */
+    public static String printHex(byte[] array, int offset, int len)
+    {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < len; i++) {
             byte b = array[offset + i];
-            if (sb.length() > 0) {
+            if (sb.length() > 0)
                 sb.append(' ');
-            }
-            sb.append(digits[(b >> 4) & 0x0F]);
+            sb.append(digits[b >> 4 & 0x0F]);
             sb.append(digits[b & 0x0F]);
         }
         return sb.toString();
     }
-
-    public static boolean equals(byte[] a1, byte[] a2) {
-        if (a1.length != a2.length) {
-            return false;
-        }
-        return equals(a1, 0, a2, 0, a1.length);
+    
+    /**
+     * Get a hexadecimal representation of <code>array</code>.
+     * 
+     * @param array
+     * @return hex string
+     */
+    public static String toHex(byte[] array)
+    {
+        return toHex(array, 0, array.length);
     }
-
-    public static boolean equals(byte[] a1, int a1Offset, byte[] a2, int a2Offset, int length) {
-        if (a1.length < a1Offset + length || a2.length < a2Offset + length) {
-            return false;
+    
+    /**
+     * Get a hexadecimal representation of <code>array</code> starting at index <code>offset</code>
+     * till <code>len</code>.
+     * 
+     * @param array
+     * @param offset
+     * @param len
+     * @return hex string
+     */
+    public static String toHex(byte[] array, int offset, int len)
+    {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < len; i++) {
+            byte b = array[offset + i];
+            sb.append(digits[b >> 4 & 0x0F]);
+            sb.append(digits[b & 0x0F]);
         }
-        while (length-- > 0) {
-            if (a1[a1Offset++] != a2[a2Offset++]) {
-                return false;
-            }
-        }
-        return true;
+        return sb.toString();
     }
-
-    final static char[] digits = {
-	    '0' , '1' , '2' , '3' , '4' , '5' ,
-	    '6' , '7' , '8' , '9' , 'a' , 'b' ,
-	    'c' , 'd' , 'e' , 'f'
-    };
 }
