@@ -23,6 +23,19 @@ import java.io.IOException;
 import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.util.Buffer;
 
+/*
+ * TODO:
+ * 
+ * > finish by end-of-month
+ * 
+ * .... once done:
+ * 
+ * > document
+ * 
+ * > unit tests
+ * 
+ */
+
 public class Publickey extends Method
 {
     

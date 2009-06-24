@@ -38,6 +38,22 @@ import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/*
+ * TODO:
+ * 
+ * > document
+ * 
+ * > unit tests
+ * 
+ * > "mystery-packet-whose-packet-length-can't-be-decoded-a-few-minutes-into-an-idle-session-post-kex" BUG 
+ * 
+ * > Have to work out how to block further requests once key re-exchange has been started; some form of of synchronization just don't know yet what. Basically only a concern once working on ssh-connection, so defer to July.
+ * 
+ * > Future, not GSOC priorities: 
+ *   - perhaps should be _initiating_ key re-exchange after 1 hour or 1 gb -- certainly is an RFC recommendation
+ *   -  
+ */
+
 /**
  * Transport layer
  * 
@@ -48,16 +64,16 @@ public class Transport implements Session
 {
     
     /*
-     * This enum describes what 'phase' this SSH session is in, so we that we know which class to
-     * delegate message handling to, can wait for some phase to be reached, etc.
+     * This enum describes what state this SSH session is in, so we that we know which class to
+     * delegate message handling to, can wait for some state to be reached, etc.
      */
     private enum State
     {
-        KEX, // delegate message handling to Kex
+        KEX, // delegate message handling to KexHandler
         KEX_DONE, // indicates kex done
         SERVICE_REQ, // a service has been requested
         SERVICE_OK, // indicates service request was successful
-        SERVICE, // delegate message handling to the active service
+        SERVICE, // delegate message handling to the active service instance
         ERROR, // indicates an error event in one of the threads
         STOPPED, // indicates this session has been stopped
     }
@@ -90,8 +106,6 @@ public class Transport implements Session
     
     /* Lock object supporting correct encoding and queuing of packets */
     private final Object encodeLock = new Object();
-    
-    // private final ReentrantLock lock = new ReentrantLock();
     
     private InputStream input;
     private OutputStream output;
@@ -250,7 +264,7 @@ public class Transport implements Session
             {
             case KEX:
             {
-                if (kex.handle(cmd, packet)) // key-exchange completed
+                if (kex.handle(cmd, packet)) // key exchange completed
                     setState(State.KEX_DONE);
                 break;
             }
@@ -269,10 +283,6 @@ public class Transport implements Session
                 if (cmd != Constants.Message.SSH_MSG_KEXINIT)
                     service.handle(cmd, packet);
                 else {
-                    /*
-                     * Key re-exchange. Per RFC should be after every GB or 1 hour, whichever is
-                     * sooner. --- TODO: ?initiate?
-                     */
                     setState(State.KEX);
                     kex.handle(cmd, packet);
                 }
@@ -280,7 +290,7 @@ public class Transport implements Session
             }
             case KEX_DONE:
             case SERVICE_OK:
-                // in-between states: what happens here??
+                log.debug("Why was this reached?");
                 break;
             default:
                 assert false;
@@ -492,6 +502,12 @@ public class Transport implements Session
                 throw new SSHException("Stopped");
     }
     
+    /**
+     * Encode <code>payload</code> as an SSH packet and send it over the output stream for this
+     * session. It is guaranteed that packets are sent according to the order of invocation.
+     * 
+     * @return the sequence no. of the packet written
+     */
     public int writePacket(Buffer payload) throws IOException
     {
         int seq = 0;

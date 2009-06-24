@@ -23,11 +23,13 @@ import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
-/**
- * STUB class, TODO for July
+/*
+ * TODO:
  * 
- * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ * This class is a stub. A lot of work to be done in this package; most of July.
+ * 
  */
+
 public class Connection implements Service
 {
     

@@ -67,7 +67,7 @@ public class BaseMAC implements MAC
         }
         
         SecretKeySpec skey = new SecretKeySpec(key, algorithm);
-        mac = SecurityUtils.getMac(algorithm);
+        mac = SecurityUtils.getMAC(algorithm);
         mac.init(skey);
     }
     

@@ -23,8 +23,20 @@ import java.io.IOException;
 import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.util.Buffer;
 
+/*
+ * TODO:
+ * 
+ * > finish by end-of-month
+ * 
+ * .... once done:
+ * 
+ * > document
+ * 
+ * > unit tests
+ * 
+ */
+
 /**
- * TODO Add javadoc
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */

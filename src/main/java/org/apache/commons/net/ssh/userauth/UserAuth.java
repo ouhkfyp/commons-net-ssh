@@ -26,6 +26,19 @@ import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
+/*
+ * TODO:
+ * 
+ * > finish by end-of-month
+ * 
+ * .... once done:
+ * 
+ * > document
+ * 
+ * > unit tests
+ * 
+ */
+
 public class UserAuth implements Service
 {
     
