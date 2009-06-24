@@ -31,6 +31,15 @@ import java.security.spec.RSAPublicKeySpec;
 
 import org.apache.commons.net.ssh.Constants;
 
+/*
+ * TODO:
+ * 
+ * > document
+ * 
+ * > unit tests
+ * 
+ */
+
 /**
  * Facilitates reading and writing SSH packets
  * 

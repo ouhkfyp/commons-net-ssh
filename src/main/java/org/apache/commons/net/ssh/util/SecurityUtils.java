@@ -39,8 +39,16 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/*
+ * TODO:
+ * 
+ * > document
+ * 
+ * > unit tests
+ * 
+ */
+
 /**
- * TODO Add javadoc
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
@@ -83,7 +91,7 @@ public class SecurityUtils
     }
     
     /**
-     * Computes the fingerprint for a publickey, in the typical SSH format, e.g.
+     * Computes the fingerprint for a public key, in the standard SSH format, e.g.
      * "4b:69:6c:72:6f:79:20:77:61:73:20:68:65:72:65:21"
      * 
      * @param key
@@ -95,8 +103,10 @@ public class SecurityUtils
     {
         MessageDigest md5 = null;
         try {
-            md5 = MessageDigest.getInstance("MD5");
+            md5 = getMessageDigest("MD5");
         } catch (NoSuchAlgorithmException e) { // can't happen.
+            e.printStackTrace();
+        } catch (NoSuchProviderException e) { // can't happen.
             e.printStackTrace();
         }
         Buffer buf = new Buffer();
@@ -153,7 +163,7 @@ public class SecurityUtils
             return KeyPairGenerator.getInstance(algorithm, getSecurityProvider());
     }
     
-    public static synchronized Mac getMac(String algorithm) throws NoSuchAlgorithmException,
+    public static synchronized Mac getMAC(String algorithm) throws NoSuchAlgorithmException,
             NoSuchProviderException
     {
         register();

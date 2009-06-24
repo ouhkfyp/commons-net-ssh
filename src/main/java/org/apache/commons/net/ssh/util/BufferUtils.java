@@ -31,7 +31,7 @@ public class BufferUtils
             'd', 'e', 'f' };
     
     /**
-     * Efficiently check whether <code>a1</code> and <code>a2</code> are the same.
+     * Check whether two byte arrays are the equal.
      * 
      * @param a1
      * @param a2
@@ -45,13 +45,15 @@ public class BufferUtils
     }
     
     /**
+     * Check whether some part or whole of two byte arrays is equal, for <code>length</code> bytes
+     * starting at some offset.
      * 
      * @param a1
      * @param a1Offset
      * @param a2
      * @param a2Offset
      * @param length
-     * @return
+     * @return <code>true</code> or <code>false</code>
      */
     public static boolean equals(byte[] a1, int a1Offset, byte[] a2, int a2Offset, int length)
     {
@@ -75,8 +77,8 @@ public class BufferUtils
     }
     
     /**
-     * Get a hexadecimal representation of <code>array</code> starting at index <code>offset</code>
-     * till <code>len</code>, with each octet separated by a space.
+     * Get a hexadecimal representation of a byte array starting at <code>offset</code> index for
+     * <code>len</code> bytes, with each octet separated by a space.
      * 
      * @param array
      * @param offset
@@ -97,7 +99,7 @@ public class BufferUtils
     }
     
     /**
-     * Get a hexadecimal representation of <code>array</code>.
+     * Get the hexadecimal representation of a byte array.
      * 
      * @param array
      * @return hex string
@@ -108,8 +110,8 @@ public class BufferUtils
     }
     
     /**
-     * Get a hexadecimal representation of <code>array</code> starting at index <code>offset</code>
-     * till <code>len</code>.
+     * Get the hexadecimal representation of a byte array starting at <code>offset</code> index for
+     * <code>len</code> bytes.
      * 
      * @param array
      * @param offset

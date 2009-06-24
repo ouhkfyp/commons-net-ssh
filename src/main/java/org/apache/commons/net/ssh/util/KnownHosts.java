@@ -32,8 +32,20 @@ import org.apache.commons.net.ssh.HostKeyVerifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/*
+ * TODO:
+ * 
+ * > way from complete, finish by end-of-month
+ * 
+ * .... once done:
+ * 
+ * > document
+ * 
+ * > unit tests
+ * 
+ */
+
 /**
- * Wayy from complete, TODO
  * 
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
