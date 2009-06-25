@@ -18,6 +18,11 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
+import java.security.KeyPair;
+
+import org.apache.commons.net.ssh.Constants.Message;
+import org.apache.commons.net.ssh.transport.Session;
+import org.apache.commons.net.ssh.util.Buffer;
 
 /*
  * TODO:
@@ -31,3 +36,36 @@ package org.apache.commons.net.ssh.userauth;
  * > unit tests
  * 
  */
+
+class MethPublickey implements Method
+{
+    public static final String NAME = "publickey";
+    
+    public MethPublickey(Session session, String username, String nextService, KeyPair ident)
+    {
+        
+    }
+    
+    public void buildRequest(Buffer buf)
+    {
+        
+    }
+    
+    public String[] getAllowedMethods()
+    {
+        // TODO Auto-generated method stub
+        return null;
+    }
+    
+    public String getName()
+    {
+        return NAME;
+    }
+    
+    public Result next(Message cmd, Buffer buf) throws Exception
+    {
+        // TODO Auto-generated method stub
+        return null;
+    }
+    
+}

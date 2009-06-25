@@ -19,6 +19,7 @@
 package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
+import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.FactoryManager;
@@ -30,17 +31,9 @@ import org.apache.commons.net.ssh.digest.Digest;
 import org.apache.commons.net.ssh.kex.KeyExchange;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-/*
- * TODO:
- * 
- * > document
- * 
- * > unit tests
- * 
- */
 
 /**
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
@@ -216,6 +209,9 @@ class KexHandler
     
     boolean handle(Constants.Message cmd, Buffer buffer) throws Exception
     {
+        /*
+         * Thread context = Transport.inPump
+         */
         switch (state)
         {
         case EXPECT_KEXINIT:
@@ -235,8 +231,10 @@ class KexHandler
             log.info("Received kex followup data");
             buffer.rpos(buffer.rpos() - 1);
             if (kex.next(buffer)) {
-                if (!transport.verifyHost(kex.getHostKey()))
-                    throw new SSHException("Could not verify host key");
+                PublicKey hostKey = kex.getHostKey();
+                if (!transport.verifyHost(hostKey))
+                    throw new SSHException("Could not verify host key with fingerprint ["
+                            + SecurityUtils.getFingerprint(hostKey) + "]");
                 sendNewKeys();
                 state = State.EXPECT_NEWKEYS;
             }
@@ -250,12 +248,15 @@ class KexHandler
             log.info("Received SSH_MSG_NEWKEYS");
             gotNewKeys();
             state = State.KEX_DONE;
+            if (transport.writeLock.isHeldByCurrentThread()) // for key re-ex, see below
+                transport.writeLock.unlock();
             break;
         case KEX_DONE:
             if (cmd != Constants.Message.SSH_MSG_KEXINIT)
                 throw new IllegalStateException("Asked to handle " + cmd
                         + ", was expecting SSH_MSG_KEXINIT for key re-exchange");
             log.info("Received SSH_MSG_KEXINIT, initiating re-exchange");
+            transport.writeLock.lock(); // prevent other packets being sent while re-ex is ongoing
             sendKexInit();
             gotKexInit(buffer);
             state = State.EXPECT_FOLLOWUP;
@@ -266,8 +267,11 @@ class KexHandler
         return state == State.KEX_DONE ? true : false;
     }
     
-    void init() throws IOException
+    void init() throws Exception
     {
+        /*
+         * Thread context: API client, via Transport.init()
+         */
         sendKexInit();
         sentKexInit = true;
     }
@@ -297,10 +301,10 @@ class KexHandler
         }
         negotiated = guess;
         
-        log.info("Negotiated (Cipher, MAC, Compression) --- client -> server: ("
+        log.info("Negotiated algorithms: client -> server = ("
                 + negotiated[Constants.PROPOSAL_ENC_ALGS_CTOS] + ", "
                 + negotiated[Constants.PROPOSAL_MAC_ALGS_CTOS] + ", "
-                + negotiated[Constants.PROPOSAL_COMP_ALGS_CTOS] + ") --- server -> client: ("
+                + negotiated[Constants.PROPOSAL_COMP_ALGS_CTOS] + "); server -> client = ("
                 + negotiated[Constants.PROPOSAL_ENC_ALGS_STOC] + ", "
                 + negotiated[Constants.PROPOSAL_MAC_ALGS_STOC] + ", "
                 + negotiated[Constants.PROPOSAL_COMP_ALGS_STOC] + ")");
@@ -342,9 +346,6 @@ class KexHandler
         return E;
     }
     
-    /**
-     * Send the key exchange initialization packet.
-     */
     private void sendKexInit() throws IOException
     {
         clientProposal = createProposal(Constants.SSH_RSA + "," + Constants.SSH_DSS);

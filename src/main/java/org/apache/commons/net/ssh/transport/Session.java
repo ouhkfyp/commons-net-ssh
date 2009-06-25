@@ -16,11 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
 import java.net.Socket;
 
+import org.apache.commons.net.ssh.Constants;
+import org.apache.commons.net.ssh.FactoryManager;
+import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -40,6 +43,22 @@ public interface Session
      * @return a new buffer ready for write
      */
     Buffer createBuffer(Constants.Message cmd);
+    
+    /**
+     * Send a disconnection packet with reason as {@link Constants#SSH_DISCONNECT_BY_APPLICATION}
+     * and closoe the session.
+     * 
+     * @throws IOException
+     */
+    void disconnect() throws IOException;
+    
+    /**
+     * Send a disconnect packet with the given reason and close the session.
+     * 
+     * @param reason
+     * @throws IOException
+     */
+    void disconnect(int reason) throws IOException;
     
     /**
      * Send a disconnect packet with the given reason and message, and close the session.
@@ -68,17 +87,48 @@ public interface Session
     
     boolean isRunning();
     
-    void setAuthenticated(boolean authed);
-    
-    void setHostKeyVerifier(HostKeyVerifier hkv);
-    
-    void startService(Service service) throws Exception;
+    /**
+     * Request a service. Implicitly sets the active service instance, so a call to
+     * {@link #setService(Service)} is not needed.
+     * 
+     * @param service
+     * @throws Exception
+     */
+    void reqService(Service service) throws Exception;
     
     /**
-     * Encode the payload as an SSH packet and send it over the session.
+     * Must be called after the session has been authenticated, so that delayed compression may
+     * become effective if applicable.
+     * 
+     * @param authed
+     */
+    void setAuthenticated();
+    
+    /**
+     * Specify the callback for host key verification.
+     * 
+     * @param hkv
+     * @see HostKeyVerifier#verify(java.net.InetAddress, java.security.PublicKey)
+     */
+    void setHostKeyVerifier(HostKeyVerifier hkv);
+    
+    /**
+     * Set the currently active service, to which handling of incoming packets is delegated by
+     * calling its {@link Service#handle(Constants.Message, Buffer)} method.
+     * 
+     * @param service
+     */
+    void setService(Service service);
+    
+    /**
+     * Encode <code>payload</code> as an SSH packet and send it over the output stream for this
+     * session. It is guaranteed that packets are sent according to the order of invocation.
+     * 
+     * Implementation required to be thread-safe.
      * 
      * @param payload
      * @throws IOException
+     * @return the sequence no. of the packet written
      */
     int writePacket(Buffer payload) throws IOException;
     

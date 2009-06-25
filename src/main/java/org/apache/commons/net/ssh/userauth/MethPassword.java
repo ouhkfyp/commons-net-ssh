@@ -23,13 +23,16 @@ import java.io.IOException;
 import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MethPassword implements Method
 {
-    
     public interface ChangeRequestHandler
     {
         char[] getNewPassword();
+        
+        char[] getOldPassword();
         
         void notifyFailure();
         
@@ -42,6 +45,7 @@ public class MethPassword implements Method
     
     public static final String NAME = "password";
     
+    private final Logger log = LoggerFactory.getLogger(getClass());
     private final Session session;
     private final String username;
     private final String nextService;
@@ -51,12 +55,15 @@ public class MethPassword implements Method
     private ChangeRequestHandler crh;
     private boolean changeRequested = false;
     
-    public MethPassword(Session session, String username, String nextService, PasswordFinder pwdf)
+    // crh may be null
+    public MethPassword(Session session, String username, String nextService, PasswordFinder pwdf,
+            ChangeRequestHandler crh)
     {
         this.session = session;
         this.username = username;
         this.nextService = nextService;
         this.pwdf = pwdf;
+        this.crh = crh;
     }
     
     public void buildRequest(Buffer buf)
@@ -103,31 +110,31 @@ public class MethPassword implements Method
                 return Result.FAILURE;
             }
         case SSH_MSG_USERAUTH_PASSWD_CHANGEREQ:
+            log.debug("Got x");
             if (changeRequested)
                 crh = crh.notifyUnacceptable();
             if (crh != null) {
                 crh.setPrompt(buf.getString());
                 sendChangeReq(buf.getString());
                 changeRequested = true;
-            }
-            return Result.CONTINUED;
+                return Result.CONTINUED;
+            } else
+                return Result.FAILURE;
+        default:
+            log.error("Unexpected packet");
+            return Result.FAILURE;
         }
-        return null;
     }
     
     private void sendChangeReq(String prompt) throws IOException
     {
+        log.debug("Sending SSH_MSG_USERAUTH_PASSWD_CHANGEREQ");
         Buffer crbuf = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_PASSWD_CHANGEREQ);
         buildRequestCommon(crbuf);
         crbuf.putBoolean(true);
         crbuf.putString(pwdf.getPassword());
         crbuf.putString(crh.getNewPassword());
         session.writePacket(crbuf);
-    }
-    
-    public void setChangeRequestHandler(ChangeRequestHandler crh)
-    {
-        this.crh = crh;
     }
     
 }

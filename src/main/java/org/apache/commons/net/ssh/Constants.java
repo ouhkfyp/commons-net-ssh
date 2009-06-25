@@ -18,6 +18,13 @@
  */
 package org.apache.commons.net.ssh;
 
+/*
+ * TODO:
+ * 
+ *  > determine if ambiguous Message enum constants are a problem?? 
+ * 
+ */
+
 /**
  * This interface defines constants for the SSH protocol.
  * 
@@ -54,9 +61,10 @@ public interface Constants
         SSH_MSG_USERAUTH_FAILURE(51),
         SSH_MSG_USERAUTH_SUCCESS(52),
         SSH_MSG_USERAUTH_BANNER(53),
+        SSH_MSG_USERAUTH_PASSWD_CHANGEREQ(60),
+        SSH_MSG_USERAUTH_PK_OK(60),
         SSH_MSG_USERAUTH_INFO_REQUEST(60),
         SSH_MSG_USERAUTH_INFO_RESPONSE(61),
-        SSH_MSG_USERAUTH_PK_OK(60),
         
         SSH_MSG_GLOBAL_REQUEST(80),
         SSH_MSG_REQUEST_SUCCESS(81),
@@ -169,6 +177,6 @@ public interface Constants
     // Services
     //
     static final String SERVICE_USERAUTH = "ssh-userauth";
-    static final String SERVICE_CONN = "ssh-conn";
+    static final String SERVICE_CONN = "ssh-connection";
     
 }

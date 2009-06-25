@@ -40,7 +40,6 @@ import org.slf4j.LoggerFactory;
  */
 
 /**
- * TODO Give a better name!
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
@@ -49,7 +48,7 @@ class EncDec
 {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final Transport session;
+    private final Transport transport;
     
     //
     // SSH packets encoding / decoding support
@@ -77,7 +76,7 @@ class EncDec
     
     EncDec(Transport session)
     {
-        this.session = session;
+        this.transport = session;
     }
     
     /**
@@ -149,7 +148,7 @@ class EncDec
                     Buffer buf;
                     int wpos = decoderBuffer.wpos();
                     // Decompress if needed
-                    if (inCompression != null && (session.authed || !inCompression.isDelayed())) {
+                    if (inCompression != null && (transport.authed || !inCompression.isDelayed())) {
                         if (uncompressBuffer == null)
                             uncompressBuffer = new Buffer();
                         else
@@ -165,7 +164,7 @@ class EncDec
                         log.trace("Received packet #{}: {}", seqi, buf.printHex());
                     
                     // ----------------------------------------------------- //
-                    session.handle(buf); /* process the decoded packet */
+                    transport.handle(buf); /* process the decoded packet */
                     // ----------------------------------------------------- //
                     
                     // Set ready to handle next packet
@@ -209,7 +208,7 @@ class EncDec
             if (log.isDebugEnabled())
                 log.trace("Sending packet #{}: {}", seqo, buffer.printHex());
             // Compress the packet if needed
-            if (outCompression != null && (session.authed || !outCompression.isDelayed())) {
+            if (outCompression != null && (transport.authed || !outCompression.isDelayed())) {
                 outCompression.compress(buffer);
                 len = buffer.available();
             }
@@ -227,7 +226,7 @@ class EncDec
             buffer.putByte((byte) pad);
             // Fill padding
             buffer.wpos(off + oldLen + 5 + pad);
-            session.prng.fill(buffer.array(), buffer.wpos() - pad, pad);
+            transport.prng.fill(buffer.array(), buffer.wpos() - pad, pad);
             // Compute mac
             if (outMAC != null) {
                 int macSize = outMAC.getBlockSize();

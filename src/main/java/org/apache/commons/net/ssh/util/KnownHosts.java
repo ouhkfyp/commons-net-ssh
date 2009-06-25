@@ -28,7 +28,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.net.ssh.HostKeyVerifier;
+import org.apache.commons.net.ssh.transport.HostKeyVerifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

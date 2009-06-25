@@ -20,8 +20,8 @@ package org.apache.commons.net.ssh.kex;
 
 import java.security.PublicKey;
 
-import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.digest.Digest;
+import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**

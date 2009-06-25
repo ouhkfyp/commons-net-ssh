@@ -19,9 +19,7 @@
 package org.apache.commons.net.ssh;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.security.InvalidKeyException;
-import java.security.PublicKey;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -52,10 +50,11 @@ import org.apache.commons.net.ssh.random.SingletonRandomFactory;
 import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.signature.SignatureDSA;
 import org.apache.commons.net.ssh.signature.SignatureRSA;
+import org.apache.commons.net.ssh.transport.HostKeyVerifier;
+import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.userauth.UserAuth;
 import org.apache.commons.net.ssh.util.SecurityUtils;
-import org.apache.log4j.BasicConfigurator;
 
 /**
  * TODO javadocs
@@ -64,7 +63,6 @@ import org.apache.log4j.BasicConfigurator;
  */
 public class SSHClient extends SocketClient
 {
-    
     protected static FactoryManager getDefaultFactoryManager()
     {
         FactoryManager fm = new FactoryManager();
@@ -117,9 +115,9 @@ public class SSHClient extends SocketClient
         fm.setCompressionFactories(new LinkedList<NamedFactory<Compression>>()
         {
             {
-                add(new CompressionZlib.Factory());
-                add(new CompressionDelayedZlib.Factory());
                 add(new CompressionNone.Factory());
+                add(new CompressionDelayedZlib.Factory());
+                add(new CompressionZlib.Factory());
             }
         });
         
@@ -144,26 +142,6 @@ public class SSHClient extends SocketClient
         return fm;
     }
     
-    public static void main(String[] args) throws Exception
-    {
-        BasicConfigurator.configure(); // logging
-        SSHClient s = new SSHClient();
-        
-        // still working on support for reading in known_hosts...
-        s.setHostKeyVerifier(new HostKeyVerifier()
-        {
-            public boolean verify(InetAddress address, PublicKey key)
-            {
-                return "localhost".equals(address.getHostName())
-                        && "2e:26:99:ec:71:51:ca:a0:b3:1d:3d:10:4c:a7:80:e5".equals(SecurityUtils
-                                .getFingerprint(key));
-            }
-        });
-        
-        s.connect("localhost");
-        s.disconnect();
-    }
-    
     private final Session trans;
     private final UserAuth auth;
     private final Connection conn;
@@ -179,7 +157,8 @@ public class SSHClient extends SocketClient
     {
         trans = new Transport(fm);
         conn = new Connection(trans);
-        auth = new UserAuth(trans, conn.getName());
+        // this will change; just to test service request:
+        auth = new UserAuth.Builder(trans, "temp").build();
         setDefaultPort(Constants.DEFAULT_PORT);
     }
     
@@ -190,15 +169,10 @@ public class SSHClient extends SocketClient
         try {
             trans.setHostKeyVerifier(hostKeyVerifier);
             trans.init(_socket_);
-            trans.startService(auth);
+            trans.reqService(auth);
         } catch (Exception e) {
             throw new IOException(e);
         }
-    }
-    
-    public void authPassword(String username, PasswordFinder passwordFinder) throws IOException
-    {
-        auth.authPassword(username, passwordFinder);
     }
     
     @Override
