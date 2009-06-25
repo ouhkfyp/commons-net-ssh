@@ -21,9 +21,8 @@ package org.apache.commons.net.ssh.userauth;
 import java.io.IOException;
 
 import org.apache.commons.net.ssh.Constants;
-import org.apache.commons.net.ssh.PasswordFinder;
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.Session;
+import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /*
@@ -42,31 +41,35 @@ import org.apache.commons.net.ssh.util.Buffer;
 public class UserAuth implements Service
 {
     
-    public enum State
-    {
-        NONE, ONGOING, DONE
-    }
-    
-    public static final String serviceName = "ssh-userauth";
+    public static final String NAME = "ssh-userauth";
     
     private final Session session;
-    private final String nextServiceName;
     
     private final String[] allowedMethods = { "publickey", "password" };
     private String banner;
-    private final State state = State.NONE;
     
     private Method method; // currently active method
     
-    public UserAuth(Session session, String nextServiceName)
+    public UserAuth(Session session)
     {
         this.session = session;
-        this.nextServiceName = nextServiceName;
     }
     
-    public void authPassword(String username, PasswordFinder pwdf) throws IOException
+    public void authenticateWith(Method method) throws IOException
     {
-        request(username);
+        this.method = method;
+        request();
+    }
+    
+    public void authPassword(String username, String nextService, PasswordFinder pwdf)
+            throws IOException
+    {
+        authenticateWith(new MethPassword(session, username, nextService, pwdf));
+    }
+    
+    private void failure()
+    {
+        
     }
     
     public String getBanner()
@@ -76,31 +79,56 @@ public class UserAuth implements Service
     
     public String getName()
     {
-        return serviceName;
+        return NAME;
     }
     
-    public void handle(Constants.Message cmd, Buffer packet)
+    public void handle(Constants.Message cmd, Buffer packet) throws Exception
     {
         switch (cmd)
         {
         case SSH_MSG_USERAUTH_BANNER:
             banner = packet.getString();
             break;
-        case SSH_MSG_USERAUTH_SUCCESS:
-            session.setAuthenticated(true);
-            break;
         default:
-
+            switch (method.next(cmd, packet))
+            {
+            case SUCCESS:
+                success();
+            case FAILURE:
+                failure();
+            case PARTIAL_SUCCESS:
+                success();
+            case CONTINUED:
+                break;
+            default:
+                assert false;
+            }
         }
     }
     
-    private void request(String username) throws IOException
+    private void request() throws IOException
     {
         Buffer buffer = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST);
-        buffer.putString(username);
-        buffer.putString(nextServiceName);
-        method.updateRequest(buffer);
+        method.buildRequest(buffer);
         session.writePacket(buffer);
     }
     
+    public void setError(Exception ex)
+    {
+        // TODO Auto-generated method stub
+        
+    }
+    
+    private void success()
+    {
+        // TODO Auto-generated method stub
+        
+    }
+    
 }
+// /**
+// * Authentication methods that may be allowed to continue. Only set in case the result of
+// * {@link #next(Buffer)} is {@link Result#FAILURE}, otherwise will be <code>null</code>.
+// *
+// * @return array of strings e.g. {"publickey", "password", "keyboard-interactive"}
+// */

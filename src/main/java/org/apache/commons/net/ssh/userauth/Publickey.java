@@ -18,10 +18,6 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import java.io.IOException;
-
-import org.apache.commons.net.ssh.Constants;
-import org.apache.commons.net.ssh.util.Buffer;
 
 /*
  * TODO:
@@ -35,29 +31,3 @@ import org.apache.commons.net.ssh.util.Buffer;
  * > unit tests
  * 
  */
-
-public class Publickey extends Method
-{
-    
-    @Override
-    public String[] getAllowedMethods()
-    {
-        // TODO Auto-generated method stub
-        return null;
-    }
-    
-    @Override
-    public Result next(Constants.Message cmd, Buffer buffer) throws IOException
-    {
-        // TODO Auto-generated method stub
-        return null;
-    }
-    
-    @Override
-    void updateRequest(Buffer buf)
-    {
-        // TODO Auto-generated method stub
-        
-    }
-    
-}
