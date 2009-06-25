@@ -18,38 +18,14 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import java.io.IOException;
-
-import org.apache.commons.net.ssh.Constants;
-import org.apache.commons.net.ssh.PasswordFinder;
-import org.apache.commons.net.ssh.util.Buffer;
-
-public class Password extends Method
+/**
+ * Same as org.bouncycastle.openssl.PasswordFinder; offers a sole method for password retrieval.
+ * 
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ */
+public interface PasswordFinder
 {
     
-    public static final String methodName = "password";
-    
-    private final String username;
-    private final PasswordFinder pwdf;
-    
-    Password(String username, PasswordFinder pwdf)
-    {
-        this.username = username;
-        this.pwdf = pwdf;
-    }
-    
-    @Override
-    public Result next(Constants.Message cmd, Buffer buffer) throws IOException
-    {
-        return null;
-    }
-    
-    @Override
-    void updateRequest(Buffer buf)
-    {
-        buf.putString(methodName);
-        buf.putBoolean(false);
-        buf.putString(pwdf.getPassword());
-    }
+    char[] getPassword();
     
 }
