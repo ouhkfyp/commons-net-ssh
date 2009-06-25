@@ -18,6 +18,7 @@
  */
 package org.apache.commons.net.ssh.util;
 
+import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -241,7 +242,11 @@ public final class Buffer
         if (len < 0 || len > 32768)
             throw new IllegalStateException("Bad item length: " + len);
         ensureAvailable(len);
-        String s = new String(data, rpos, len);
+        String s = null;
+        try {
+            s = new String(data, rpos, len, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+        }
         rpos += len;
         return s;
     }

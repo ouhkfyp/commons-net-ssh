@@ -19,55 +19,113 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
+import java.security.KeyPair;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.Constants;
+import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.Session;
+import org.apache.commons.net.ssh.userauth.MethPassword.ChangeRequestHandler;
 import org.apache.commons.net.ssh.util.Buffer;
-
-/*
- * TODO:
- * 
- * > finish by end-of-month
- * 
- * .... once done:
- * 
- * > document
- * 
- * > unit tests
- * 
- */
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class UserAuth implements Service
 {
     
-    public static final String NAME = "ssh-userauth";
+    public static class Builder
+    {
+        private final Session session;
+        private final Queue<Method> methods = new LinkedList<Method>();
+        private final String username;
+        private String nextService = Constants.SERVICE_CONN;
+        
+        public Builder(Session session, String username)
+        {
+            this.session = session;
+            this.username = username;
+        }
+        
+        public UserAuth build()
+        {
+            return new UserAuth(this);
+        }
+        
+        public Builder hostbased(KeyPair hostKey)
+        {
+            return this;
+        }
+        
+        public Builder nextService(String nextService)
+        {
+            this.nextService = nextService;
+            return this;
+        }
+        
+        public Builder password(PasswordFinder pwdf)
+        {
+            return password(pwdf, null);
+        }
+        
+        public Builder password(PasswordFinder pwdf, ChangeRequestHandler crh)
+        {
+            methods.add(new MethPassword(session, username, nextService, pwdf, crh));
+            return this;
+        }
+        
+        public Builder publickey(KeyPair ident)
+        {
+            methods.add(new MethPublickey(session, username, nextService, ident));
+            return this;
+        }
+        
+        public Builder publickey(KeyPair[] idents)
+        {
+            for (KeyPair ident : idents)
+                publickey(ident);
+            return this;
+        }
+        
+        public Builder publickey(List<KeyPair> idents)
+        {
+            return this;
+        }
+        
+    }
+    
+    private final Logger log = LoggerFactory.getLogger(getClass());
+    
+    private final List<String> allowedMethods = Arrays.asList("publickey", "password");
+    
+    private final Queue<Method> methods;
     
     private final Session session;
     
-    private final String[] allowedMethods = { "publickey", "password" };
+    private String nextService = Constants.SERVICE_CONN; // default
+    
     private String banner;
     
-    private Method method; // currently active method
+    private Method activeMethod; // currently active method
     
-    public UserAuth(Session session)
+    private final ReentrantLock authLock = new ReentrantLock();
+    private final Condition methodComplete = authLock.newCondition();
+    
+    public static final String NAME = "ssh-userauth";
+    
+    public UserAuth(Builder builder)
     {
-        this.session = session;
+        this.session = builder.session;
+        this.nextService = builder.nextService;
+        this.methods = builder.methods;
     }
     
-    public void authenticateWith(Method method) throws IOException
-    {
-        this.method = method;
-        request();
-    }
-    
-    public void authPassword(String username, String nextService, PasswordFinder pwdf)
-            throws IOException
-    {
-        authenticateWith(new MethPassword(session, username, nextService, pwdf));
-    }
-    
-    private void failure()
+    public void authenticate() throws SSHException
     {
         
     }
@@ -90,14 +148,18 @@ public class UserAuth implements Service
             banner = packet.getString();
             break;
         default:
-            switch (method.next(cmd, packet))
+            switch (activeMethod.next(cmd, packet))
             {
             case SUCCESS:
-                success();
+                log.info("success");
+                session.setAuthenticated();
+                break;
             case FAILURE:
-                failure();
+                log.info("failure, allowed = {}", allowedMethods.toString());
+                break;
             case PARTIAL_SUCCESS:
-                success();
+                log.info("partial success");
+                break;
             case CONTINUED:
                 break;
             default:
@@ -106,29 +168,17 @@ public class UserAuth implements Service
         }
     }
     
-    private void request() throws IOException
+    protected void request() throws IOException
     {
+        assert allowedMethods.contains(activeMethod.getName());
         Buffer buffer = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST);
-        method.buildRequest(buffer);
+        activeMethod.buildRequest(buffer);
         session.writePacket(buffer);
     }
     
     public void setError(Exception ex)
     {
-        // TODO Auto-generated method stub
-        
-    }
-    
-    private void success()
-    {
-        // TODO Auto-generated method stub
         
     }
     
 }
-// /**
-// * Authentication methods that may be allowed to continue. Only set in case the result of
-// * {@link #next(Buffer)} is {@link Result#FAILURE}, otherwise will be <code>null</code>.
-// *
-// * @return array of strings e.g. {"publickey", "password", "keyboard-interactive"}
-// */

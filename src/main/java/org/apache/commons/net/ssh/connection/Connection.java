@@ -20,7 +20,7 @@ package org.apache.commons.net.ssh.connection;
 
 import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.Session;
+import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /*
@@ -33,7 +33,7 @@ import org.apache.commons.net.ssh.util.Buffer;
 public class Connection implements Service
 {
     
-    private static final String SERVICE_NAME = "ssh-connection";
+    private static final String NAME = "ssh-connection";
     private final Session session;
     
     public Connection(Session session)
@@ -43,11 +43,17 @@ public class Connection implements Service
     
     public String getName()
     {
-        return SERVICE_NAME;
+        return NAME;
     }
     
-    public void handle(Constants.Message cmd, Buffer packet)
+    public void handle(Constants.Message cmd, Buffer packet) throws Exception
     {
+    }
+    
+    public void setError(Exception ex)
+    {
+        // TODO Auto-generated method stub
+        
     }
     
 }
