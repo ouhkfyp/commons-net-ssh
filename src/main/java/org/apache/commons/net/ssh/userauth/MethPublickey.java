@@ -62,7 +62,7 @@ class MethPublickey implements Method
         return NAME;
     }
     
-    public Result next(Message cmd, Buffer buf) throws Exception
+    public Result handle(Message cmd, Buffer buf) throws Exception
     {
         // TODO Auto-generated method stub
         return null;

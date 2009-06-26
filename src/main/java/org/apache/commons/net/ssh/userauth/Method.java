@@ -61,5 +61,5 @@ public interface Method
     
     String getName();
     
-    Result next(Constants.Message cmd, Buffer buf) throws Exception;
+    Result handle(Constants.Message cmd, Buffer buf) throws Exception;
 }

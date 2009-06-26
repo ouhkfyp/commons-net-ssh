@@ -18,14 +18,11 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import java.io.IOException;
 import java.security.KeyPair;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.Semaphore;
 
 import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.SSHException;
@@ -101,33 +98,61 @@ public class UserAuth implements Service
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
-    private final List<String> allowedMethods = Arrays.asList("publickey", "password");
+    private String[] allowedMeths = { "password" };
     
     private final Queue<Method> methods;
     
     private final Session session;
     
-    private String nextService = Constants.SERVICE_CONN; // default
-    
     private String banner;
     
-    private Method activeMethod; // currently active method
+    private Method activeMeth; // currently active method
     
-    private final ReentrantLock authLock = new ReentrantLock();
-    private final Condition methodComplete = authLock.newCondition();
+    private final Semaphore sema = new Semaphore(0);
+    
+    private Thread currentThread;
+    
+    private Method.Result lastRes;
     
     public static final String NAME = "ssh-userauth";
+    
+    {
+        // TODO init allowed mehtods
+        
+    }
     
     public UserAuth(Builder builder)
     {
         this.session = builder.session;
-        this.nextService = builder.nextService;
         this.methods = builder.methods;
     }
     
     public void authenticate() throws SSHException
     {
-        
+        while (methods.size() > 0) {
+            if (allowedMeths.length == 0)
+                break;
+            // check if activeMeth.getName() is allowed
+            Buffer buffer = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST);
+            activeMeth.buildRequest(buffer);
+            try {
+                session.writePacket(buffer);
+                // : so that we may be interrupted in case of error in transport layer
+                currentThread = Thread.currentThread();
+                sema.acquire();
+            } catch (Exception e) {
+                throw new SSHException(e);
+            }
+            switch (lastRes)
+            {
+            case SUCCESS:
+                return;
+            case FAILURE:
+            case PARTIAL_SUCCESS:
+                continue;
+            }
+        }
+        throw new SSHException("Exhausted available authentication methods");
     }
     
     public String getBanner()
@@ -148,17 +173,22 @@ public class UserAuth implements Service
             banner = packet.getString();
             break;
         default:
-            switch (activeMethod.next(cmd, packet))
+            lastRes = activeMeth.handle(cmd, packet);
+            log.debug("Result of {} auth: {}", activeMeth.getName(), lastRes);
+            switch (lastRes)
             {
             case SUCCESS:
-                log.info("success");
                 session.setAuthenticated();
+                sema.release();
                 break;
             case FAILURE:
-                log.info("failure, allowed = {}", allowedMethods.toString());
+                allowedMeths = activeMeth.getAllowedMethods();
+                log.info("Allowed methods: {}", allowedMeths);
+                sema.release();
                 break;
             case PARTIAL_SUCCESS:
                 log.info("partial success");
+                sema.release();
                 break;
             case CONTINUED:
                 break;
@@ -168,17 +198,9 @@ public class UserAuth implements Service
         }
     }
     
-    protected void request() throws IOException
-    {
-        assert allowedMethods.contains(activeMethod.getName());
-        Buffer buffer = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST);
-        activeMethod.buildRequest(buffer);
-        session.writePacket(buffer);
-    }
-    
     public void setError(Exception ex)
     {
-        
+        if (currentThread != null)
+            currentThread.interrupt();
     }
-    
 }
