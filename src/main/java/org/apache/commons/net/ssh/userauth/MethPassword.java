@@ -90,7 +90,7 @@ public class MethPassword implements Method
         return NAME;
     }
     
-    public Result next(Constants.Message cmd, Buffer buf) throws IOException
+    public Result handle(Constants.Message cmd, Buffer buf) throws IOException
     {
         switch (cmd)
         {
