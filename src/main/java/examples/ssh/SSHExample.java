@@ -4,7 +4,7 @@ import java.net.InetAddress;
 import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.SSHClient;
-import org.apache.commons.net.ssh.transport.Session;
+import org.apache.commons.net.ssh.transport.Session.HostKeyVerifier;
 import org.apache.commons.net.ssh.userauth.UserAuthService.PasswordFinder;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.apache.log4j.BasicConfigurator;
@@ -22,7 +22,7 @@ public class SSHExample
         SSHClient client = new SSHClient();
         
         // still working on support for reading in known_hosts...
-        client.setHostKeyVerifier(new Session.HostKeyVerifier()
+        client.setHostKeyVerifier(new HostKeyVerifier()
         {
             public boolean verify(InetAddress address, PublicKey key)
             {
