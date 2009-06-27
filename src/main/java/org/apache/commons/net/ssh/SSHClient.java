@@ -19,7 +19,6 @@
 package org.apache.commons.net.ssh;
 
 import java.io.IOException;
-import java.security.InvalidKeyException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -36,6 +35,7 @@ import org.apache.commons.net.ssh.compression.CompressionDelayedZlib;
 import org.apache.commons.net.ssh.compression.CompressionNone;
 import org.apache.commons.net.ssh.compression.CompressionZlib;
 import org.apache.commons.net.ssh.connection.Connection;
+import org.apache.commons.net.ssh.connection.ConnectionService;
 import org.apache.commons.net.ssh.kex.DHG1;
 import org.apache.commons.net.ssh.kex.DHG14;
 import org.apache.commons.net.ssh.kex.KeyExchange;
@@ -50,10 +50,10 @@ import org.apache.commons.net.ssh.random.SingletonRandomFactory;
 import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.signature.SignatureDSA;
 import org.apache.commons.net.ssh.signature.SignatureRSA;
-import org.apache.commons.net.ssh.transport.HostKeyVerifier;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.userauth.UserAuth;
+import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
@@ -104,9 +104,7 @@ public class SSHClient extends SocketClient
                 final byte[] key = new byte[c.getBlockSize()];
                 final byte[] iv = new byte[c.getIVSize()];
                 c.init(Cipher.Mode.Encrypt, key, iv);
-            } catch (InvalidKeyException e) {
-                i.remove();
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 i.remove();
             }
         }
@@ -142,11 +140,10 @@ public class SSHClient extends SocketClient
         return fm;
     }
     
-    private final Session trans;
-    private final UserAuth auth;
-    private final Connection conn;
+    protected final Session trans;
+    protected final ConnectionService conn;
     
-    private HostKeyVerifier hostKeyVerifier;
+    protected Session.HostKeyVerifier hostKeyVerifier;
     
     public SSHClient()
     {
@@ -155,11 +152,9 @@ public class SSHClient extends SocketClient
     
     public SSHClient(FactoryManager fm)
     {
+        setDefaultPort(Constants.DEFAULT_PORT);
         trans = new Transport(fm);
         conn = new Connection(trans);
-        // this will change; just to test service request:
-        auth = new UserAuth.Builder(trans, "temp").build();
-        setDefaultPort(Constants.DEFAULT_PORT);
     }
     
     @Override
@@ -169,7 +164,6 @@ public class SSHClient extends SocketClient
         try {
             trans.setHostKeyVerifier(hostKeyVerifier);
             trans.init(_socket_);
-            trans.reqService(auth);
         } catch (Exception e) {
             throw new IOException(e);
         }
@@ -178,12 +172,24 @@ public class SSHClient extends SocketClient
     @Override
     public void disconnect() throws IOException
     {
-        trans.disconnect(Constants.SSH_DISCONNECT_BY_APPLICATION, "Session closed by user");
+        trans.disconnect();
         super.disconnect();
     }
     
-    public void setHostKeyVerifier(HostKeyVerifier hostKeyVerifier)
+    public UserAuth.Builder getAuthBuilder()
+    {
+        return new UserAuth.Builder(trans, conn);
+    }
+    
+    @Override
+    public boolean isConnected()
+    {
+        return super.isConnected() && trans.isRunning();
+    }
+    
+    public void setHostKeyVerifier(Session.HostKeyVerifier hostKeyVerifier)
     {
         this.hostKeyVerifier = hostKeyVerifier;
     }
+    
 }

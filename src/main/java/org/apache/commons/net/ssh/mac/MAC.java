@@ -26,11 +26,11 @@ package org.apache.commons.net.ssh.mac;
 public interface MAC
 {
     
-    void doFinal(byte[] buf, int offset) throws Exception;
+    void doFinal(byte[] buf, int offset);
     
     int getBlockSize();
     
-    void init(byte[] key) throws Exception;
+    void init(byte[] key);
     
     void update(byte[] foo, int start, int len);
     

@@ -18,8 +18,10 @@
  */
 package org.apache.commons.net.ssh.signature;
 
-import org.apache.commons.net.ssh.Constants;
+import java.security.SignatureException;
+
 import org.apache.commons.net.ssh.NamedFactory;
+import org.apache.commons.net.ssh.util.Constants;
 
 /**
  * RSA <code>Signature</code>
@@ -52,15 +54,23 @@ public class SignatureRSA extends AbstractSignature
         super("SHA1withRSA");
     }
     
-    public byte[] sign() throws Exception
+    public byte[] sign()
     {
-        return signature.sign();
+        try {
+            return signature.sign();
+        } catch (SignatureException e) {
+            throw new RuntimeException(e);
+        }
     }
     
-    public boolean verify(byte[] sig) throws Exception
+    public boolean verify(byte[] sig)
     {
         sig = extractSig(sig);
-        return signature.verify(sig);
+        try {
+            return signature.verify(sig);
+        } catch (SignatureException e) {
+            throw new RuntimeException(e);
+        }
     }
     
 }

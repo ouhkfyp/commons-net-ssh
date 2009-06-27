@@ -18,6 +18,9 @@
  */
 package org.apache.commons.net.ssh.mac;
 
+import java.security.GeneralSecurityException;
+
+import javax.crypto.ShortBufferException;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.net.ssh.util.SecurityUtils;
@@ -44,13 +47,19 @@ public class BaseMAC implements MAC
         tmp = new byte[defbsize];
     }
     
-    public void doFinal(byte[] buf, int offset) throws Exception
+    public void doFinal(byte[] buf, int offset)
     {
-        if (bsize != defbsize) {
-            mac.doFinal(tmp, 0);
-            System.arraycopy(tmp, 0, buf, offset, bsize);
-        } else
-            mac.doFinal(buf, offset);
+        try {
+            if (bsize != defbsize) {
+                mac.doFinal(tmp, 0);
+                System.arraycopy(tmp, 0, buf, offset, bsize);
+            } else
+                mac.doFinal(buf, offset);
+        } catch (ShortBufferException e) {
+            throw new RuntimeException(e);
+        } catch (IllegalStateException e) {
+            throw new RuntimeException(e);
+        }
     }
     
     public int getBlockSize()
@@ -58,7 +67,7 @@ public class BaseMAC implements MAC
         return bsize;
     }
     
-    public void init(byte[] key) throws Exception
+    public void init(byte[] key)
     {
         if (key.length > defbsize) {
             byte[] tmp = new byte[defbsize];
@@ -67,8 +76,12 @@ public class BaseMAC implements MAC
         }
         
         SecretKeySpec skey = new SecretKeySpec(key, algorithm);
-        mac = SecurityUtils.getMAC(algorithm);
-        mac.init(skey);
+        try {
+            mac = SecurityUtils.getMAC(algorithm);
+            mac.init(skey);
+        } catch (GeneralSecurityException e) {
+            throw new RuntimeException(e);
+        }
     }
     
     public void update(byte foo[], int s, int l)

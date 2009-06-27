@@ -18,144 +18,130 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import java.security.KeyPair;
+import java.io.IOException;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Semaphore;
 
-import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.Session;
-import org.apache.commons.net.ssh.userauth.MethPassword.ChangeRequestHandler;
+import org.apache.commons.net.ssh.userauth.AuthPassword.ChangeRequestHandler;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.LanguageQualifiedString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class UserAuth implements Service
+public class UserAuth implements UserAuthService
 {
-    
     public static class Builder
     {
         private final Session session;
-        private final Queue<Method> methods = new LinkedList<Method>();
-        private final String username;
-        private String nextService = Constants.SERVICE_CONN;
+        private final LinkedList<AuthMethod> methods = new LinkedList<AuthMethod>();
+        private String username = System.getProperty("user.name");
+        private Service nextService;
         
-        public Builder(Session session, String username)
+        public Builder(Session session, Service nextService)
         {
             this.session = session;
-            this.username = username;
+            this.nextService = nextService;
         }
         
-        public UserAuth build()
+        public Builder authMethod(AuthMethod method)
         {
-            return new UserAuth(this);
-        }
-        
-        public Builder hostbased(KeyPair hostKey)
-        {
+            methods.add(method);
             return this;
         }
         
-        public Builder nextService(String nextService)
+        public Builder authPassword(PasswordFinder pwdf)
+        {
+            return authPassword(pwdf, null);
+        }
+        
+        public Builder authPassword(PasswordFinder pwdf, ChangeRequestHandler crh)
+        {
+            methods.add(new AuthPassword(session, nextService, username, pwdf, crh));
+            return this;
+        }
+        
+        public UserAuthService build()
+        {
+            return new UserAuth(session, methods);
+        }
+        
+        public Builder withNextService(Service nextService)
         {
             this.nextService = nextService;
             return this;
         }
         
-        public Builder password(PasswordFinder pwdf)
+        public Builder withUsername(String username)
         {
-            return password(pwdf, null);
-        }
-        
-        public Builder password(PasswordFinder pwdf, ChangeRequestHandler crh)
-        {
-            methods.add(new MethPassword(session, username, nextService, pwdf, crh));
-            return this;
-        }
-        
-        public Builder publickey(KeyPair ident)
-        {
-            methods.add(new MethPublickey(session, username, nextService, ident));
-            return this;
-        }
-        
-        public Builder publickey(KeyPair[] idents)
-        {
-            for (KeyPair ident : idents)
-                publickey(ident);
-            return this;
-        }
-        
-        public Builder publickey(List<KeyPair> idents)
-        {
+            this.username = username;
             return this;
         }
         
     }
     
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    protected final Logger log = LoggerFactory.getLogger(getClass());
     
-    private String[] allowedMeths = { "password" };
+    protected String[] allowedMeths = { "password" };
     
-    private final Queue<Method> methods;
+    protected Queue<AuthMethod> methods;
     
-    private final Session session;
+    protected final Session session;
     
-    private String banner;
+    protected LanguageQualifiedString banner;
     
-    private Method activeMeth; // currently active method
+    protected AuthMethod activeMeth; // currently active method
     
-    private final Semaphore sema = new Semaphore(0);
+    protected final Semaphore sema = new Semaphore(0);
     
-    private Thread currentThread;
+    protected Thread currentThread;
     
-    private Method.Result lastRes;
+    protected AuthMethod.Result lastRes;
     
-    public static final String NAME = "ssh-userauth";
+    protected Exception exception;
     
+    protected boolean active;
+    
+    private UserAuth(Session session, Queue<AuthMethod> methods)
     {
-        // TODO init allowed mehtods
-        
+        this.session = session;
+        this.methods = methods;
     }
     
-    public UserAuth(Builder builder)
+    public void authenticate() throws IOException
     {
-        this.session = builder.session;
-        this.methods = builder.methods;
-    }
-    
-    public void authenticate() throws SSHException
-    {
-        while (methods.size() > 0) {
-            if (allowedMeths.length == 0)
-                break;
-            // check if activeMeth.getName() is allowed
-            Buffer buffer = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST);
-            activeMeth.buildRequest(buffer);
+        if (methods == null)
+            throw new SSHException("No authentication methods provided");
+        request();
+        while (true) {
+            if ((activeMeth = methods.poll()) == null)
+                throw new SSHException("Exhausted available authentication methods");
+            if (!isAllowed(activeMeth.getName()))
+                continue;
             try {
-                session.writePacket(buffer);
-                // : so that we may be interrupted in case of error in transport layer
+                activeMeth.request();
                 currentThread = Thread.currentThread();
                 sema.acquire();
             } catch (Exception e) {
-                throw new SSHException(e);
+                SSHException.chain(exception);
             }
             switch (lastRes)
             {
             case SUCCESS:
+                session.setService(activeMeth.getNextService());
                 return;
             case FAILURE:
             case PARTIAL_SUCCESS:
                 continue;
             }
         }
-        throw new SSHException("Exhausted available authentication methods");
     }
     
-    public String getBanner()
+    public LanguageQualifiedString getBanner()
     {
         return banner;
     }
@@ -165,15 +151,20 @@ public class UserAuth implements Service
         return NAME;
     }
     
-    public void handle(Constants.Message cmd, Buffer packet) throws Exception
+    public Session getSession()
+    {
+        return session;
+    }
+    
+    public void handle(Constants.Message cmd, Buffer buf) throws IOException
     {
         switch (cmd)
         {
         case SSH_MSG_USERAUTH_BANNER:
-            banner = packet.getString();
+            banner = buf.getLanguageQualifiedField();
             break;
         default:
-            lastRes = activeMeth.handle(cmd, packet);
+            lastRes = activeMeth.handle(cmd, buf);
             log.debug("Result of {} auth: {}", activeMeth.getName(), lastRes);
             switch (lastRes)
             {
@@ -198,8 +189,29 @@ public class UserAuth implements Service
         }
     }
     
+    protected boolean isAllowed(String methodName)
+    {
+        if ("composite@apache.org".equals(methodName))
+            return true;
+        for (String x : allowedMeths)
+            if (x.equals(methodName))
+                return true;
+        return false;
+    }
+    
+    public void request() throws IOException
+    {
+        try {
+            if (!equals(session.getActiveService()))
+                session.reqService(this);
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
+    }
+    
     public void setError(Exception ex)
     {
+        exception = ex;
         if (currentThread != null)
             currentThread.interrupt();
     }

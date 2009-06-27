@@ -56,11 +56,11 @@ public class CipherNone implements Cipher
         return 8;
     }
     
-    public void init(Mode mode, byte[] bytes, byte[] bytes1) throws Exception
+    public void init(Mode mode, byte[] bytes, byte[] bytes1)
     {
     }
     
-    public void update(byte[] input, int inputOffset, int inputLen) throws Exception
+    public void update(byte[] input, int inputOffset, int inputLen)
     {
     }
     

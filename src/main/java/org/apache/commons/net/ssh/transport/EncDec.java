@@ -20,13 +20,13 @@ package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.BufferUtils;
+import org.apache.commons.net.ssh.util.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,9 +74,9 @@ class EncDec
     // see decode()
     private int needed = inCipherSize;
     
-    EncDec(Transport session)
+    EncDec(Transport transport)
     {
-        this.transport = session;
+        this.transport = transport;
     }
     
     /**
@@ -85,9 +85,9 @@ class EncDec
      * Returns advised number of bytes that should be made available in decoderBuffer before the
      * method should be called again.
      * 
-     * @throws Exception
+     * @throws IOException
      */
-    private int decode() throws Exception
+    private int decode() throws IOException
     {
         int need;
         // Decoding loop

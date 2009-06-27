@@ -19,6 +19,7 @@
 package org.apache.commons.net.ssh.kex;
 
 import java.math.BigInteger;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -48,32 +49,46 @@ public class DH
     private final KeyPairGenerator myKpairGen;
     private final KeyAgreement myKeyAgree;
     
-    public DH() throws Exception
+    public DH()
     {
-        myKpairGen = SecurityUtils.getKeyPairGenerator("DH");
-        myKeyAgree = SecurityUtils.getKeyAgreement("DH");
+        try {
+            myKpairGen = SecurityUtils.getKeyPairGenerator("DH");
+            myKeyAgree = SecurityUtils.getKeyAgreement("DH");
+        } catch (GeneralSecurityException e) {
+            throw new RuntimeException(e);
+        }
+        
     }
     
-    public byte[] getE() throws Exception
+    public byte[] getE()
     {
         if (e == null) {
             DHParameterSpec dhSkipParamSpec = new DHParameterSpec(p, g);
-            myKpairGen.initialize(dhSkipParamSpec);
-            KeyPair myKpair = myKpairGen.generateKeyPair();
-            myKeyAgree.init(myKpair.getPrivate());
+            KeyPair myKpair;
+            try {
+                myKpairGen.initialize(dhSkipParamSpec);
+                myKpair = myKpairGen.generateKeyPair();
+                myKeyAgree.init(myKpair.getPrivate());
+            } catch (GeneralSecurityException e) {
+                throw new RuntimeException(e);
+            }
             e = ((javax.crypto.interfaces.DHPublicKey) myKpair.getPublic()).getY();
             e_array = e.toByteArray();
         }
         return e_array;
     }
     
-    public byte[] getK() throws Exception
+    public byte[] getK()
     {
         if (K == null) {
-            KeyFactory myKeyFac = SecurityUtils.getKeyFactory("DH");
-            DHPublicKeySpec keySpec = new DHPublicKeySpec(f, p, g);
-            PublicKey yourPubKey = myKeyFac.generatePublic(keySpec);
-            myKeyAgree.doPhase(yourPubKey, true);
+            try {
+                KeyFactory myKeyFac = SecurityUtils.getKeyFactory("DH");
+                DHPublicKeySpec keySpec = new DHPublicKeySpec(f, p, g);
+                PublicKey yourPubKey = myKeyFac.generatePublic(keySpec);
+                myKeyAgree.doPhase(yourPubKey, true);
+            } catch (GeneralSecurityException e) {
+                throw new RuntimeException(e);
+            }
             byte[] mySharedSecret = myKeyAgree.generateSecret();
             K = new BigInteger(mySharedSecret);
             K_array = mySharedSecret;

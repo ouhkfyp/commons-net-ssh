@@ -18,10 +18,11 @@
  */
 package org.apache.commons.net.ssh.kex;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
 
-import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.digest.Digest;
@@ -29,6 +30,7 @@ import org.apache.commons.net.ssh.digest.SHA1;
 import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,7 +80,7 @@ public abstract class AbstractDHG implements KeyExchange
     }
     
     public void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C)
-            throws Exception
+            throws IOException
     {
         this.session = session;
         this.V_S = V_S;
@@ -99,7 +101,7 @@ public abstract class AbstractDHG implements KeyExchange
     
     protected abstract void initDH(DH dh);
     
-    public boolean next(Buffer buffer) throws Exception
+    public boolean next(Buffer buffer) throws SSHException
     {
         Constants.Message cmd = buffer.getCommand();
         if (cmd != Constants.Message.SSH_MSG_KEXDH_REPLY_KEX_DH_GEX_GROUP)
@@ -117,7 +119,11 @@ public abstract class AbstractDHG implements KeyExchange
         K = dh.getK();
         
         buffer = new Buffer(K_S);
-        hostKey = buffer.getPublicKey();
+        try {
+            hostKey = buffer.getPublicKey();
+        } catch (GeneralSecurityException e) {
+            throw new RuntimeException(e);
+        }
         String keyAlg = hostKey instanceof RSAPublicKey ? Constants.SSH_RSA : Constants.SSH_DSS;
         
         buffer = new Buffer();

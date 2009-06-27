@@ -26,12 +26,12 @@ package org.apache.commons.net.ssh.digest;
 public interface Digest
 {
     
-    byte[] digest() throws Exception;
+    byte[] digest();
     
     int getBlockSize();
     
-    void init() throws Exception;
+    void init();
     
-    void update(byte[] foo, int start, int len) throws Exception;
+    void update(byte[] foo, int start, int len);
     
 }

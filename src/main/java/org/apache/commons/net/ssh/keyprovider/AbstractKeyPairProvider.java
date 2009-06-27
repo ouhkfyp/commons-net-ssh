@@ -24,7 +24,7 @@ import java.security.interfaces.RSAKey;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.net.ssh.Constants;
+import org.apache.commons.net.ssh.util.Constants;
 
 /**
  * TODO Add javadoc

@@ -18,6 +18,7 @@
  */
 package org.apache.commons.net.ssh.digest;
 
+import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 
 import org.apache.commons.net.ssh.util.SecurityUtils;
@@ -31,7 +32,7 @@ public class BaseDigest implements Digest
 {
     
     private final String algorithm;
-    private int bsize;
+    private final int bsize;
     private MessageDigest md;
     
     /**
@@ -49,7 +50,7 @@ public class BaseDigest implements Digest
         this.bsize = bsize;
     }
     
-    public byte[] digest() throws Exception
+    public byte[] digest()
     {
         return md.digest();
     }
@@ -59,12 +60,16 @@ public class BaseDigest implements Digest
         return bsize;
     }
     
-    public void init() throws Exception
+    public void init()
     {
-        md = SecurityUtils.getMessageDigest(algorithm);
+        try {
+            md = SecurityUtils.getMessageDigest(algorithm);
+        } catch (GeneralSecurityException e) {
+            throw new RuntimeException(e);
+        }
     }
     
-    public void update(byte[] foo, int start, int len) throws Exception
+    public void update(byte[] foo, int start, int len)
     {
         md.update(foo, start, len);
     }

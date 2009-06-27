@@ -18,8 +18,10 @@
  */
 package org.apache.commons.net.ssh.signature;
 
+import java.security.GeneralSecurityException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SignatureException;
 
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
@@ -56,17 +58,25 @@ public abstract class AbstractSignature implements Signature
         return sig;
     }
     
-    public void init(PublicKey pubkey, PrivateKey prvkey) throws Exception
+    public void init(PublicKey pubkey, PrivateKey prvkey)
     {
-        signature = SecurityUtils.getSignature(algorithm);
-        if (pubkey != null)
-            signature.initVerify(pubkey);
-        if (prvkey != null)
-            signature.initSign(prvkey);
+        try {
+            signature = SecurityUtils.getSignature(algorithm);
+            if (pubkey != null)
+                signature.initVerify(pubkey);
+            if (prvkey != null)
+                signature.initSign(prvkey);
+        } catch (GeneralSecurityException e) {
+            throw new RuntimeException(e);
+        }
     }
     
-    public void update(byte[] foo, int off, int len) throws Exception
+    public void update(byte[] foo, int off, int len)
     {
-        signature.update(foo, off, len);
+        try {
+            signature.update(foo, off, len);
+        } catch (SignatureException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

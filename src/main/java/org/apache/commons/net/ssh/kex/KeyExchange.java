@@ -18,8 +18,10 @@
  */
 package org.apache.commons.net.ssh.kex;
 
+import java.io.IOException;
 import java.security.PublicKey;
 
+import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.digest.Digest;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
@@ -68,10 +70,10 @@ public interface KeyExchange
      *            the server key init packet
      * @param I_C
      *            the client key init packet
-     * @throws Exception
+     * @throws IOException
      *             if an error occurs
      */
-    void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception;
+    void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws IOException;
     
     /**
      * Process the next packet
@@ -80,9 +82,10 @@ public interface KeyExchange
      *            the packet
      * @return a boolean indicating if the processing is complete or if more packets are to be
      *         received
+     * @throws SSHException
      * @throws Exception
      *             if an error occurs
      */
-    boolean next(Buffer buffer) throws Exception;
+    boolean next(Buffer buffer) throws SSHException;
     
 }
