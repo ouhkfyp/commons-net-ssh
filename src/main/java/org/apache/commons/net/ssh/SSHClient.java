@@ -52,6 +52,7 @@ import org.apache.commons.net.ssh.signature.SignatureDSA;
 import org.apache.commons.net.ssh.signature.SignatureRSA;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.Session.HostKeyVerifier;
 import org.apache.commons.net.ssh.userauth.UserAuth;
 import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.SecurityUtils;
@@ -143,7 +144,7 @@ public class SSHClient extends SocketClient
     protected final Session trans;
     protected final ConnectionService conn;
     
-    protected Session.HostKeyVerifier hostKeyVerifier;
+    protected HostKeyVerifier hostKeyVerifier;
     
     public SSHClient()
     {
@@ -187,7 +188,7 @@ public class SSHClient extends SocketClient
         return super.isConnected() && trans.isRunning();
     }
     
-    public void setHostKeyVerifier(Session.HostKeyVerifier hostKeyVerifier)
+    public void setHostKeyVerifier(HostKeyVerifier hostKeyVerifier)
     {
         this.hostKeyVerifier = hostKeyVerifier;
     }
