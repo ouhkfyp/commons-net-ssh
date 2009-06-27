@@ -20,19 +20,17 @@ package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.Constants;
+import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.LanguageQualifiedString;
 
-public class MethPassword implements Method
+public class AuthPassword extends AbstractAuthMethod
 {
-    public interface ChangeRequestHandler
+    public interface ChangeRequestHandler extends UserAuthService.PasswordFinder
     {
         char[] getNewPassword();
-        
-        char[] getOldPassword();
         
         void notifyFailure();
         
@@ -40,49 +38,30 @@ public class MethPassword implements Method
         
         ChangeRequestHandler notifyUnacceptable();
         
-        void setPrompt(String prompt);
+        void setPrompt(LanguageQualifiedString prompt);
     }
     
     public static final String NAME = "password";
     
-    private final Logger log = LoggerFactory.getLogger(getClass());
-    private final Session session;
-    private final String username;
-    private final String nextService;
-    private final PasswordFinder pwdf;
-    
-    private String[] allowed;
+    private final UserAuthService.PasswordFinder pwdf;
     private ChangeRequestHandler crh;
     private boolean changeRequested = false;
     
     // crh may be null
-    public MethPassword(Session session, String username, String nextService, PasswordFinder pwdf,
+    public AuthPassword(Session session, Service nextService, String username, UserAuthService.PasswordFinder pwdf,
             ChangeRequestHandler crh)
     {
-        this.session = session;
-        this.username = username;
-        this.nextService = nextService;
+        super(session, nextService, username);
         this.pwdf = pwdf;
         this.crh = crh;
     }
     
-    public void buildRequest(Buffer buf)
+    @Override
+    protected Buffer buildRequest(Buffer buf)
     {
-        buildRequestCommon(buf);
         buf.putBoolean(false);
         buf.putString(pwdf.getPassword());
-    }
-    
-    private void buildRequestCommon(Buffer buf)
-    {
-        buf.putString(username);
-        buf.putString(nextService);
-        buf.putString(NAME);
-    }
-    
-    public String[] getAllowedMethods()
-    {
-        return allowed;
+        return buf;
     }
     
     public String getName()
@@ -114,7 +93,7 @@ public class MethPassword implements Method
             if (changeRequested)
                 crh = crh.notifyUnacceptable();
             if (crh != null) {
-                crh.setPrompt(buf.getString());
+                crh.setPrompt(buf.getLanguageQualifiedField());
                 sendChangeReq(buf.getString());
                 changeRequested = true;
                 return Result.CONTINUED;
@@ -130,9 +109,10 @@ public class MethPassword implements Method
     {
         log.debug("Sending SSH_MSG_USERAUTH_PASSWD_CHANGEREQ");
         Buffer crbuf = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_PASSWD_CHANGEREQ);
-        buildRequestCommon(crbuf);
+        crbuf.putString(username);
+        crbuf.putString(nextService.getName());
         crbuf.putBoolean(true);
-        crbuf.putString(pwdf.getPassword());
+        crbuf.putString(crh.getPassword());
         crbuf.putString(crh.getNewPassword());
         session.writePacket(crbuf);
     }

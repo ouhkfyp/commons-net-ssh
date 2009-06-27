@@ -30,16 +30,6 @@ import java.security.spec.DSAPublicKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPublicKeySpec;
 
-import org.apache.commons.net.ssh.Constants;
-
-/*
- * TODO:
- * 
- * > document
- * 
- * > unit tests
- * 
- */
 
 /**
  * Facilitates reading and writing SSH packets
@@ -190,6 +180,26 @@ public final class Buffer
         int i = data[rpos++] << 24 & 0xff000000 | data[rpos++] << 16 & 0x00ff0000
                 | data[rpos++] << 8 & 0x0000ff00 | data[rpos++] & 0x000000ff;
         return i;
+    }
+    
+    public LanguageQualifiedString getLanguageQualifiedField()
+    {
+        final String text = getString();
+        final String langTag = getString();
+        return new LanguageQualifiedString()
+        {
+            
+            public String getLanguage()
+            {
+                return text;
+            }
+            
+            public String getText()
+            {
+                return langTag;
+            }
+            
+        };
     }
     
     public BigInteger getMPInt()

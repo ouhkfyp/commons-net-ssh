@@ -18,6 +18,9 @@
  */
 package org.apache.commons.net.ssh.cipher;
 
+import java.security.GeneralSecurityException;
+
+import javax.crypto.ShortBufferException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -66,7 +69,7 @@ public class BaseCipher implements Cipher
         return ivsize;
     }
     
-    public void init(Mode mode, byte[] key, byte[] iv) throws Exception
+    public void init(Mode mode, byte[] key, byte[] iv)
     {
         key = BaseCipher.resize(key, bsize);
         iv = BaseCipher.resize(iv, ivsize);
@@ -75,15 +78,19 @@ public class BaseCipher implements Cipher
             cipher.init((mode == Mode.Encrypt ? javax.crypto.Cipher.ENCRYPT_MODE
                     : javax.crypto.Cipher.DECRYPT_MODE), new SecretKeySpec(key, algorithm),
                     new IvParameterSpec(iv));
-        } catch (final Exception e) {
+        } catch (GeneralSecurityException e) {
             cipher = null;
-            throw e;
+            throw new RuntimeException(e);
         }
     }
     
-    public void update(byte[] input, int inputOffset, int inputLen) throws Exception
+    public void update(byte[] input, int inputOffset, int inputLen)
     {
-        cipher.update(input, inputOffset, inputLen, input, inputOffset);
+        try {
+            cipher.update(input, inputOffset, inputLen, input, inputOffset);
+        } catch (ShortBufferException e) {
+            throw new RuntimeException(e);
+        }
     }
     
 }

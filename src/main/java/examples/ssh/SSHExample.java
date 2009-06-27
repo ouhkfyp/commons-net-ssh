@@ -4,7 +4,8 @@ import java.net.InetAddress;
 import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.SSHClient;
-import org.apache.commons.net.ssh.transport.HostKeyVerifier;
+import org.apache.commons.net.ssh.transport.Session;
+import org.apache.commons.net.ssh.userauth.UserAuthService.PasswordFinder;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.apache.log4j.BasicConfigurator;
 
@@ -21,7 +22,7 @@ public class SSHExample
         SSHClient client = new SSHClient();
         
         // still working on support for reading in known_hosts...
-        client.setHostKeyVerifier(new HostKeyVerifier()
+        client.setHostKeyVerifier(new Session.HostKeyVerifier()
         {
             public boolean verify(InetAddress address, PublicKey key)
             {
@@ -32,13 +33,13 @@ public class SSHExample
         
         client.connect("localhost");
         
-        // client.authPassword("bleh", new PasswordFinder()
-        // {
-        // public char[] getPassword()
-        // {
-        // return "abcsdef".toCharArray();
-        // }
-        // });
+        client.getAuthBuilder().withUsername("bleh").authPassword(new PasswordFinder()
+        {
+            public char[] getPassword()
+            {
+                return "abcdef".toCharArray();
+            }
+        }).build().authenticate();
         
         client.disconnect();
         

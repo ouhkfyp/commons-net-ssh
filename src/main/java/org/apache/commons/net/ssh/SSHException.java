@@ -28,6 +28,14 @@ import java.io.IOException;
 public class SSHException extends IOException
 {
     
+    public static void chain(Exception e) throws SSHException
+    {
+        if (e instanceof SSHException)
+            throw (SSHException) e;
+        else
+            throw new SSHException(e);
+    }
+    
     private final int disconnectCode;
     
     public SSHException()
@@ -77,4 +85,5 @@ public class SSHException extends IOException
     {
         return disconnectCode;
     }
+    
 }

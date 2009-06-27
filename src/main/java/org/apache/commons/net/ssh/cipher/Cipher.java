@@ -54,7 +54,7 @@ public interface Cipher
      * @param iv
      * @throws Exception
      */
-    void init(Mode mode, byte[] key, byte[] iv) throws Exception;
+    void init(Mode mode, byte[] key, byte[] iv);
     
     /**
      * Performs in-place encryption or decryption on the given data.
@@ -62,8 +62,7 @@ public interface Cipher
      * @param input
      * @param inputOffset
      * @param inputLen
-     * @throws Exception
      */
-    void update(byte[] input, int inputOffset, int inputLen) throws Exception;
+    void update(byte[] input, int inputOffset, int inputLen);
     
 }

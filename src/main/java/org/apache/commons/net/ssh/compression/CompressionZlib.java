@@ -20,10 +20,10 @@ package org.apache.commons.net.ssh.compression;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants;
 
 import com.jcraft.jzlib.JZlib;
 import com.jcraft.jzlib.ZStream;

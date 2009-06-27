@@ -16,12 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.util;
 
 /*
  * TODO:
  * 
- *  > determine if ambiguous Message enum constants are a problem?? 
+ *  > replace Message enum with byte constants due to ambiguities arising from reuse of message idents in SSH
  * 
  */
 
@@ -112,12 +112,12 @@ public interface Constants
     /**
      * Software version; sent as part of client identification string
      */
-    public static final String VERSION = "NET_3_0";
+    String VERSION = "NET_3_0";
     
     /**
      * Default SSH port
      */
-    public static final int DEFAULT_PORT = 22;
+    int DEFAULT_PORT = 22;
     
     /**
      * SSH identifier for RSA keys
@@ -133,50 +133,44 @@ public interface Constants
     // Values for the algorithms negotiation
     //
     static final int PROPOSAL_KEX_ALGS = 0;
-    static final int PROPOSAL_SERVER_HOST_KEY_ALGS = 1;
-    static final int PROPOSAL_ENC_ALGS_CTOS = 2;
-    static final int PROPOSAL_ENC_ALGS_STOC = 3;
-    static final int PROPOSAL_MAC_ALGS_CTOS = 4;
-    static final int PROPOSAL_MAC_ALGS_STOC = 5;
-    static final int PROPOSAL_COMP_ALGS_CTOS = 6;
-    static final int PROPOSAL_COMP_ALGS_STOC = 7;
-    static final int PROPOSAL_LANG_CTOS = 8;
-    static final int PROPOSAL_LANG_STOC = 9;
-    static final int PROPOSAL_MAX = 10;
+    int PROPOSAL_SERVER_HOST_KEY_ALGS = 1;
+    int PROPOSAL_ENC_ALGS_CTOS = 2;
+    int PROPOSAL_ENC_ALGS_STOC = 3;
+    int PROPOSAL_MAC_ALGS_CTOS = 4;
+    int PROPOSAL_MAC_ALGS_STOC = 5;
+    int PROPOSAL_COMP_ALGS_CTOS = 6;
+    int PROPOSAL_COMP_ALGS_STOC = 7;
+    int PROPOSAL_LANG_CTOS = 8;
+    int PROPOSAL_LANG_STOC = 9;
+    int PROPOSAL_MAX = 10;
     
     //
     // Disconnect error codes
     //
-    static final int SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT = 1;
-    static final int SSH_DISCONNECT_PROTOCOL_ERROR = 2;
-    static final int SSH_DISCONNECT_KEY_EXCHANGE_FAILED = 3;
-    static final int SSH_DISCONNECT_HOST_AUTHENTICATION_FAILED = 4;
-    static final int SSH_DISCONNECT_RESERVED = 4;
-    static final int SSH_DISCONNECT_MAC_ERROR = 5;
-    static final int SSH_DISCONNECT_COMPRESSION_ERROR = 6;
-    static final int SSH_DISCONNECT_SERVICE_NOT_AVAILABLE = 7;
-    static final int SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED = 8;
-    static final int SSH_DISCONNECT_HOST_KEY_NOT_VERIFIABLE = 9;
-    static final int SSH_DISCONNECT_CONNECTION_LOST = 10;
-    static final int SSH_DISCONNECT_BY_APPLICATION = 11;
-    static final int SSH_DISCONNECT_TOO_MANY_CONNECTIONS = 12;
-    static final int SSH_DISCONNECT_AUTH_CANCELLED_BY_USER = 13;
-    static final int SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE = 14;
-    static final int SSH_DISCONNECT_ILLEGAL_USER_NAME = 15;
+    int SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT = 1;
+    int SSH_DISCONNECT_PROTOCOL_ERROR = 2;
+    int SSH_DISCONNECT_KEY_EXCHANGE_FAILED = 3;
+    int SSH_DISCONNECT_HOST_AUTHENTICATION_FAILED = 4;
+    int SSH_DISCONNECT_RESERVED = 4;
+    int SSH_DISCONNECT_MAC_ERROR = 5;
+    int SSH_DISCONNECT_COMPRESSION_ERROR = 6;
+    int SSH_DISCONNECT_SERVICE_NOT_AVAILABLE = 7;
+    int SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED = 8;
+    int SSH_DISCONNECT_HOST_KEY_NOT_VERIFIABLE = 9;
+    int SSH_DISCONNECT_CONNECTION_LOST = 10;
+    int SSH_DISCONNECT_BY_APPLICATION = 11;
+    int SSH_DISCONNECT_TOO_MANY_CONNECTIONS = 12;
+    int SSH_DISCONNECT_AUTH_CANCELLED_BY_USER = 13;
+    int SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE = 14;
+    int SSH_DISCONNECT_ILLEGAL_USER_NAME = 15;
     
     //
     // Open error codes
     //
     
-    static final int SSH_OPEN_ADMINISTRATIVELY_PROHIBITED = 1;
-    static final int SSH_OPEN_CONNECT_FAILED = 2;
-    static final int SSH_OPEN_UNKNOWN_CHANNEL_TYPE = 3;
-    static final int SSH_OPEN_RESOURCE_SHORTAGE = 4;
-    
-    //
-    // Services
-    //
-    static final String SERVICE_USERAUTH = "ssh-userauth";
-    static final String SERVICE_CONN = "ssh-connection";
+    int SSH_OPEN_ADMINISTRATIVELY_PROHIBITED = 1;
+    int SSH_OPEN_CONNECT_FAILED = 2;
+    int SSH_OPEN_UNKNOWN_CHANNEL_TYPE = 3;
+    int SSH_OPEN_RESOURCE_SHORTAGE = 4;
     
 }

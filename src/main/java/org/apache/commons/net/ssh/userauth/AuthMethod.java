@@ -18,42 +18,31 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import org.apache.commons.net.ssh.Constants;
-import org.apache.commons.net.ssh.util.Buffer;
+import java.io.IOException;
 
-/*
- * TODO:
- * 
- * > finish by end-of-month
- * 
- * .... once done:
- * 
- * > document
- * 
- * > unit tests
- * 
- */
+import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants;
 
 /**
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public interface Method
+public interface AuthMethod
 {
     
     enum Result
     {
-        SUCCESS, //
-        CONTINUED, //
-        PARTIAL_SUCCESS, //
-        FAILURE, //
+        SUCCESS, // authentication successful
+        CONTINUED, // no conclusion yet, wants next packet directed to it
+        PARTIAL_SUCCESS, // multiple authentications required - one step down, continue trying
+        FAILURE, // failed to authenticate using this method
+        UNKNOWN, // indeterminable
     }
     
-    void buildRequest(Buffer buf);
-    
     /**
-     * Authentication methods that may be allowed to continue. Only set in case the result of
-     * {@link #next(Buffer)} is {@link Result#FAILURE}, otherwise will be <code>null</code>.
+     * Authentication methods that may be allowed to continue. Only initialized in case the result
+     * of {@link #next(Buffer)} is {@link Result#FAILURE}, and otherwise will be <code>null</code>.
      * 
      * @return array of strings e.g. {"publickey", "password", "keyboard-interactive"}
      */
@@ -61,5 +50,12 @@ public interface Method
     
     String getName();
     
-    Result handle(Constants.Message cmd, Buffer buf) throws Exception;
+    Service getNextService();
+    
+    String getUsername();
+    
+    Result handle(Constants.Message cmd, Buffer buf) throws IOException;
+    
+    void request() throws IOException;
+    
 }

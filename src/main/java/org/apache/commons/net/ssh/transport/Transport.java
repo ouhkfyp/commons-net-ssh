@@ -30,12 +30,12 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -116,8 +116,10 @@ public class Transport implements Session
                 try {
                     bin.gotByte((byte) input.read());
                 } catch (Exception e) {
-                    if (!stopPumping)
+                    if (!stopPumping) {
+                        log.error("Encountered error: {}", e.toString());
                         setError(e);
+                    }
                 }
             log.debug("Stopping");
         }
@@ -144,9 +146,10 @@ public class Transport implements Session
                 try {
                     output.write(outQ.take());
                 } catch (Exception e) {
-                    log.error("Encountered error: {}", e.toString());
-                    if (!stopPumping)
+                    if (!stopPumping) {
+                        log.error("Encountered error: {}", e.toString());
                         setError(e);
+                    }
                 }
             log.debug("Stopping");
         }
@@ -215,6 +218,11 @@ public class Transport implements Session
         stop();
     }
     
+    public Service getActiveService()
+    {
+        return service;
+    }
+    
     public String getClientVersion()
     {
         return clientID.substring(8);
@@ -230,7 +238,7 @@ public class Transport implements Session
         return serverID == null ? serverID : serverID.substring(8);
     }
     
-    void handle(Buffer packet) throws Exception
+    void handle(Buffer packet) throws IOException
     {
         Constants.Message cmd = packet.getCommand();
         log.debug("Received packet {}", cmd);
@@ -305,7 +313,7 @@ public class Transport implements Session
         }
     }
     
-    public void init(Socket socket) throws Exception
+    public void init(Socket socket) throws IOException
     {
         this.socket = socket;
         input = socket.getInputStream();
@@ -324,9 +332,12 @@ public class Transport implements Session
         outPump.start();
         inPump.start();
         
-        kex.init();
-        
-        waitFor(State.KEX_DONE);
+        try {
+            kex.init();
+            waitFor(State.KEX_DONE);
+        } catch (Exception e) {
+            SSHException.chain(e);
+        }
     }
     
     /*
@@ -385,12 +396,16 @@ public class Transport implements Session
         return ident;
     }
     
-    public void reqService(Service service) throws Exception
+    public void reqService(Service service) throws IOException
     {
         setState(State.SERVICE_REQ);
         sendServiceRequest(service.getName());
-        waitFor(State.SERVICE);
-        setService(service);
+        try {
+            waitFor(State.SERVICE);
+            this.service = service;
+        } catch (Exception e) {
+            SSHException.chain(e);
+        }
     }
     
     private void sendServiceRequest(String serviceName) throws IOException
@@ -417,7 +432,7 @@ public class Transport implements Session
     
     synchronized public void setAuthenticated()
     {
-        this.authed = true;
+        authed = true;
     }
     
     /**
@@ -443,7 +458,7 @@ public class Transport implements Session
         log.error("Encountered error: {}", e);
         
         if (service != null)
-            service.setError(e);
+            service.setError(e instanceof SSHException ? (SSHException) e : new SSHException(e));
         
         /*
          * will result in exception being thrown in any thread that was waiting for state change;
@@ -451,7 +466,11 @@ public class Transport implements Session
          */
         setState(State.ERROR);
         
-        stop(); // stop inPump and outPump
+        try {
+            stop();
+        } catch (IOException e1) {
+            
+        }
     }
     
     public void setHostKeyVerifier(HostKeyVerifier hkv)
@@ -462,7 +481,6 @@ public class Transport implements Session
     public void setService(Service service)
     {
         log.info("Setting active service to {}", service.getName());
-        setState(State.SERVICE);
         this.service = service;
     }
     
@@ -475,19 +493,24 @@ public class Transport implements Session
         }
     }
     
-    void stop()
+    void stop() throws IOException
     {
         // stop inPump and outPump
         stopPumping = true;
-        while (inPump.isAlive() || outPump.isAlive())
-            ;
+        
+        if (socket != null)
+            try {
+                socket.close(); // any threads blocked on it will die, yay
+            } catch (IOException e) {
+                log.debug("setError ignoring {}", e);
+            }
+        // can safely reset these refs
+        socket = null;
+        input = null;
+        output = null;
         
         // will wakeup any thread that was waiting for phase change, see waitFor()
         setState(State.STOPPED);
-        
-        // can safely reset these refs
-        input = null;
-        output = null;
     }
     
     boolean verifyHost(PublicKey key)
@@ -507,18 +530,14 @@ public class Transport implements Session
     {
         synchronized (stateLock) {
             while (state != s && state != State.ERROR && state != State.STOPPED)
-                try {
-                    stateLock.wait(0);
-                } catch (InterruptedException e) {
-                    throw e;
-                }
+                stateLock.wait(0);
         }
         log.debug("Woke up to {}", state.toString());
         if (state != s)
             if (state == State.ERROR)
                 throw exception;
             else if (state == State.STOPPED)
-                throw new SSHException("Stopped");
+                throw new SSHException("oStopped while waiting");
     }
     
     /*
@@ -555,4 +574,5 @@ public class Transport implements Session
             writeLock.unlock();
         }
     }
+    
 }

@@ -21,7 +21,6 @@ package org.apache.commons.net.ssh.transport;
 import java.io.IOException;
 import java.security.PublicKey;
 
-import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.SSHException;
@@ -31,6 +30,7 @@ import org.apache.commons.net.ssh.digest.Digest;
 import org.apache.commons.net.ssh.kex.KeyExchange;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,7 +89,7 @@ class KexHandler
                 NamedFactory.Utils.getNames(fm.getCompressionFactories()), "", "" };
     }
     
-    private void extractProposal(Buffer buffer) throws Exception
+    private void extractProposal(Buffer buffer)
     {
         serverProposal = new String[Constants.PROPOSAL_MAX];
         // recreate the packet payload which will be needed at a later time
@@ -107,7 +107,7 @@ class KexHandler
         buffer.getInt();
     }
     
-    private void gotKexInit(Buffer buffer) throws Exception
+    private void gotKexInit(Buffer buffer) throws IOException
     {
         extractProposal(buffer);
         negotiate();
@@ -125,7 +125,7 @@ class KexHandler
      * @throws Exception
      *             if an error occurs
      */
-    private void gotNewKeys() throws Exception
+    private void gotNewKeys()
     {
         byte[] IVc2s;
         byte[] IVs2c;
@@ -207,7 +207,7 @@ class KexHandler
         transport.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
     }
     
-    boolean handle(Constants.Message cmd, Buffer buffer) throws Exception
+    boolean handle(Constants.Message cmd, Buffer buffer) throws IOException
     {
         /*
          * Thread context = Transport.inPump
@@ -267,7 +267,7 @@ class KexHandler
         return state == State.KEX_DONE ? true : false;
     }
     
-    void init() throws Exception
+    void init() throws IOException
     {
         /*
          * Thread context: API client, via Transport.init()
@@ -329,7 +329,6 @@ class KexHandler
      *             if a problem occur while resizing the key
      */
     private byte[] resizeKey(byte[] E, int blockSize, Digest hash, byte[] K, byte[] H)
-            throws Exception
     {
         while (blockSize > E.length) {
             Buffer buffer = new Buffer();

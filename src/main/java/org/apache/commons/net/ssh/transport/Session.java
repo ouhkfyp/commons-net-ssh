@@ -19,12 +19,15 @@
 package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.Socket;
+import java.security.PublicKey;
 
-import org.apache.commons.net.ssh.Constants;
 import org.apache.commons.net.ssh.FactoryManager;
+import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants;
 
 /**
  * TODO javadocs
@@ -33,6 +36,31 @@ import org.apache.commons.net.ssh.util.Buffer;
  */
 public interface Session
 {
+    
+    /**
+     * Interface for host key verification.
+     * 
+     * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+     */
+    interface HostKeyVerifier
+    {
+        
+        /**
+         * This is the callback that is called when the server's host key needs to be verified, and
+         * its return value indicates whether the SSH connection should proceed.
+         * <p>
+         * <b>Note</b>: host key verification is the basis for security in SSH, therefore exercise
+         * due caution in implementing!
+         * 
+         * @param address
+         *            remote address we are connected to
+         * @param key
+         *            public key provided server
+         * @return <code>true</code> if key acceptable, <code>false</code> otherwise
+         */
+        boolean verify(InetAddress address, PublicKey key);
+        
+    }
     
     /**
      * Create a new buffer for the specified SSH packet and reserve the needed space (5 bytes) for
@@ -72,6 +100,8 @@ public interface Session
      */
     void disconnect(int reason, String msg) throws IOException;
     
+    Service getActiveService();
+    
     String getClientVersion();
     
     /**
@@ -83,7 +113,13 @@ public interface Session
     
     String getServerVersion();
     
-    void init(Socket socket) throws Exception;
+    /**
+     * Do kex
+     * 
+     * @param socket
+     * @throws SSHException
+     */
+    void init(Socket socket) throws IOException;
     
     boolean isRunning();
     
@@ -94,7 +130,7 @@ public interface Session
      * @param service
      * @throws Exception
      */
-    void reqService(Service service) throws Exception;
+    void reqService(Service service) throws IOException;
     
     /**
      * Must be called after the session has been authenticated, so that delayed compression may
