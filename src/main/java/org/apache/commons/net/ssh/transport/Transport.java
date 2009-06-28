@@ -88,7 +88,7 @@ public class Transport implements Session
      */
     private Exception exception;
     
-    /** Lock object for session phase */
+    /** Lock object for session state */
     private final Object stateLock = new Object();
     
     /** Lock object supporting correct encoding and queuing of packets */

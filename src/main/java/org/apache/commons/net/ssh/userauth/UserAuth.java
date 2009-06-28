@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 
 public class UserAuth implements UserAuthService
 {
-    public static class Builder
+    public static class Builder implements UserAuthService.Builder
     {
         private final Session session;
         private final LinkedList<AuthMethod> methods = new LinkedList<AuthMethod>();

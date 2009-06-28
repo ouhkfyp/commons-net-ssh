@@ -50,8 +50,10 @@ public interface Constants
         
         SSH_MSG_KEXDH_INIT(30),
         
-        // KEXDH_REPLY and KEX_DH_GEX_GROUP have the same command ID
-        SSH_MSG_KEXDH_REPLY_KEX_DH_GEX_GROUP(31),
+        /**
+         * { SSH_MSG_KEXDH_REPLY, SSH_MSG_KEXDH_GEX_GROUP }
+         */
+        SSH_MSG_KEXDH_31(31),
         
         SSH_MSG_KEX_DH_GEX_INIT(32),
         SSH_MSG_KEX_DH_GEX_REPLY(33),
@@ -61,9 +63,13 @@ public interface Constants
         SSH_MSG_USERAUTH_FAILURE(51),
         SSH_MSG_USERAUTH_SUCCESS(52),
         SSH_MSG_USERAUTH_BANNER(53),
-        SSH_MSG_USERAUTH_PASSWD_CHANGEREQ(60),
-        SSH_MSG_USERAUTH_PK_OK(60),
-        SSH_MSG_USERAUTH_INFO_REQUEST(60),
+        
+        /**
+         * { SSH_MSG_USERAUTH_PASSWD_CHANGREQ, SSH_MSG_USERAUTH_PK_OK, SSH_MSG_USERAUTH_INFO_REQUEST
+         * }
+         */
+        SSH_MSG_USERAUTH_60(60),
+        
         SSH_MSG_USERAUTH_INFO_RESPONSE(61),
         
         SSH_MSG_GLOBAL_REQUEST(80),
