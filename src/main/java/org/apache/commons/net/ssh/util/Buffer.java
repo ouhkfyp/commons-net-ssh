@@ -30,7 +30,6 @@ import java.security.spec.DSAPublicKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPublicKeySpec;
 
-
 /**
  * Facilitates reading and writing SSH packets
  * 

@@ -8,6 +8,17 @@ import org.apache.commons.net.ssh.util.LanguageQualifiedString;
 public interface UserAuthService extends Service
 {
     
+    interface Builder
+    {
+        
+        UserAuthService build();
+        
+        Builder withNextService(Service nextService);
+        
+        Builder withUsername(String username);
+        
+    }
+    
     interface PasswordFinder
     {
         char[] getPassword();

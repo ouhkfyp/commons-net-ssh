@@ -24,12 +24,20 @@ public interface Service
      */
     void handle(Constants.Message cmd, Buffer packet) throws IOException;
     
+    /**
+     * Request this service. In case the currently active service as provided by the session is this
+     * instance, it is to be assumed that the service has already been requested successfully and
+     * this method has no effect.
+     * 
+     * @throws IOException
+     */
     void request() throws IOException;
     
     /**
      * Notify the service that an error occured in the transport layer.
      * 
      * @param ex
+     *            the exception that occured in session layer
      */
     void setError(Exception ex);
     

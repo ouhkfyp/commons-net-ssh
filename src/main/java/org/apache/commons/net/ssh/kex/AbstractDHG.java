@@ -104,10 +104,10 @@ public abstract class AbstractDHG implements KeyExchange
     public boolean next(Buffer buffer) throws SSHException
     {
         Constants.Message cmd = buffer.getCommand();
-        if (cmd != Constants.Message.SSH_MSG_KEXDH_REPLY_KEX_DH_GEX_GROUP)
+        if (cmd != Constants.Message.SSH_MSG_KEXDH_31)
             throw new SSHException(Constants.SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                     "Protocol error: expected packet "
-                            + Constants.Message.SSH_MSG_KEXDH_REPLY_KEX_DH_GEX_GROUP + ", got "
+                            + Constants.Message.SSH_MSG_KEXDH_31 + ", got "
                             + cmd);
         
         log.info("Received SSH_MSG_KEXDH_REPLY");

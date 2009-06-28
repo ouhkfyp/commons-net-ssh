@@ -48,8 +48,8 @@ public class AuthPassword extends AbstractAuthMethod
     private boolean changeRequested = false;
     
     // crh may be null
-    public AuthPassword(Session session, Service nextService, String username, UserAuthService.PasswordFinder pwdf,
-            ChangeRequestHandler crh)
+    public AuthPassword(Session session, Service nextService, String username,
+            UserAuthService.PasswordFinder pwdf, ChangeRequestHandler crh)
     {
         super(session, nextService, username);
         this.pwdf = pwdf;
@@ -88,8 +88,7 @@ public class AuthPassword extends AbstractAuthMethod
                     crh.notifyFailure();
                 return Result.FAILURE;
             }
-        case SSH_MSG_USERAUTH_PASSWD_CHANGEREQ:
-            log.debug("Got x");
+        case SSH_MSG_USERAUTH_60:
             if (changeRequested)
                 crh = crh.notifyUnacceptable();
             if (crh != null) {
@@ -108,7 +107,7 @@ public class AuthPassword extends AbstractAuthMethod
     private void sendChangeReq(String prompt) throws IOException
     {
         log.debug("Sending SSH_MSG_USERAUTH_PASSWD_CHANGEREQ");
-        Buffer crbuf = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_PASSWD_CHANGEREQ);
+        Buffer crbuf = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_60);
         crbuf.putString(username);
         crbuf.putString(nextService.getName());
         crbuf.putBoolean(true);
