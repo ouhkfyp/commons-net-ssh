@@ -44,7 +44,7 @@ public class SignatureDSA extends AbstractSignature
         
         public String getName()
         {
-            return Constants.SSH_DSS;
+            return Constants.KeyType.DSA.toString();
         }
         
     }

@@ -44,7 +44,7 @@ public class SignatureRSA extends AbstractSignature
         
         public String getName()
         {
-            return Constants.SSH_RSA;
+            return Constants.KeyType.RSA.toString();
         }
         
     }

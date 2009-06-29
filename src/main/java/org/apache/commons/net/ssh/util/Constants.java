@@ -18,6 +18,12 @@
  */
 package org.apache.commons.net.ssh.util;
 
+import java.security.Key;
+import java.security.interfaces.DSAPrivateKey;
+import java.security.interfaces.DSAPublicKey;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+
 /**
  * This interface defines constants for the SSH protocol.
  * 
@@ -26,10 +32,57 @@ package org.apache.commons.net.ssh.util;
  */
 public interface Constants
 {
+    enum KeyType
+    {
+        
+        /**
+         * SSH identifier for RSA keys
+         */
+        RSA("ssh-rsa"),
+
+        /**
+         * SSH identifier for DSA keys
+         */
+        DSA("ssh-dss");
+        
+        public static KeyType fromKey(Key key)
+        {
+            if (key instanceof RSAPublicKey || key instanceof RSAPrivateKey)
+                return RSA;
+            else if (key instanceof DSAPublicKey || key instanceof DSAPrivateKey)
+                return DSA;
+            else
+                assert false;
+            return null;
+        }
+        
+        public static KeyType fromString(String sType)
+        {
+            for (KeyType eType : KeyType.values())
+                if (eType.toString().equals(sType))
+                    return eType;
+            return null;
+        }
+        
+        private final String type;
+        
+        private KeyType(String type)
+        {
+            this.type = type;
+        }
+        
+        @Override
+        public String toString()
+        {
+            return type;
+        }
+        
+    }
+    
     /**
      * SSH message identifiers
      */
-    public enum Message
+    enum Message
     {
         
         SSH_MSG_DISCONNECT(1),
@@ -117,16 +170,6 @@ public interface Constants
      * Default SSH port
      */
     int DEFAULT_PORT = 22;
-    
-    /**
-     * SSH identifier for RSA keys
-     */
-    String SSH_RSA = "ssh-rsa";
-    
-    /**
-     * SSH identifier for DSA keys
-     */
-    String SSH_DSS = "ssh-dss";
     
     //
     // Values for the algorithms negotiation

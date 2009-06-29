@@ -20,7 +20,6 @@ package org.apache.commons.net.ssh.kex;
 
 import java.io.IOException;
 import java.security.PublicKey;
-import java.security.interfaces.RSAPublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.SSHException;
@@ -118,7 +117,6 @@ public abstract class AbstractDHG implements KeyExchange
         
         buffer = new Buffer(K_S);
         hostKey = buffer.getPublicKey();
-        String keyAlg = hostKey instanceof RSAPublicKey ? Constants.SSH_RSA : Constants.SSH_DSS;
         
         buffer = new Buffer();
         buffer.putString(V_C);
@@ -133,7 +131,7 @@ public abstract class AbstractDHG implements KeyExchange
         H = sha.digest();
         
         Signature verif = NamedFactory.Utils.create(session.getFactoryManager()
-                .getSignatureFactories(), keyAlg);
+                .getSignatureFactories(), Constants.KeyType.fromKey(hostKey).toString());
         verif.init(hostKey, null);
         verif.update(H, 0, H.length);
         if (!verif.verify(sig))
