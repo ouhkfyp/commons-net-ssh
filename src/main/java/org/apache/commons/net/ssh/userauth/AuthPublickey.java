@@ -20,6 +20,9 @@ package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
 import java.security.KeyPair;
+import java.security.PublicKey;
+import java.security.interfaces.DSAPublicKey;
+import java.security.interfaces.RSAPublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.Service;
@@ -34,18 +37,20 @@ public class AuthPublickey extends AbstractAuthMethod
     public static final String NAME = "publickey";
     private final KeyPair kp;
     
-    public AuthPublickey(Session session, Service nextService, String username, KeyPair key)
+    public AuthPublickey(Session session, Service nextService, String username, KeyPair kp)
     {
         super(session, nextService, username);
-        kp = key;
+        assert kp != null;
+        this.kp = kp;
     }
     
     @Override
     protected Buffer buildRequest()
     {
-        Buffer buf = buildRequestCommon(session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_60));
+        Buffer buf = buildRequestCommon(session
+                .createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST));
         buf.putBoolean(false);
-        buf.putPublicKey(kp.getPublic());
+        putPublicKey(buf);
         return buf;
     }
     
@@ -61,8 +66,10 @@ public class AuthPublickey extends AbstractAuthMethod
         case SSH_MSG_USERAUTH_SUCCESS:
             return Result.SUCCESS;
         case SSH_MSG_USERAUTH_FAILURE:
+            setAllowedMethods(buf.getString());
             return Result.FAILURE;
         case SSH_MSG_USERAUTH_60:
+            log.debug("Key acceptable, sending signature");
             sendSignedRequest();
             return Result.CONTINUED;
         default:
@@ -71,31 +78,37 @@ public class AuthPublickey extends AbstractAuthMethod
         }
     }
     
-    private void sendSignedRequest() throws IOException
+    private void putPublicKey(Buffer buf)
     {
-        String algo = kp.getPublic().getAlgorithm();
-        if (algo.equals("RSA"))
-            algo = Constants.SSH_RSA;
-        else if (algo.equals("DSA"))
-            algo = Constants.SSH_DSS;
+        PublicKey key = kp.getPublic();
+        if (key instanceof RSAPublicKey)
+            buf.putString(Constants.SSH_RSA);
+        else if (key instanceof DSAPublicKey)
+            buf.putString(Constants.SSH_RSA);
         else
             assert false;
+        
+        Buffer temp = new Buffer();
+        temp.putPublicKey(key);
+        buf.putString(temp.getCompactData());
+    }
+    
+    private void sendSignedRequest() throws IOException
+    {
         Signature sig = NamedFactory.Utils.create(session.getFactoryManager()
-                .getSignatureFactories(), algo);
-        sig.init(kp.getPublic(), kp.getPrivate());
+                .getSignatureFactories(), "ssh-rsa");
+        sig.init(null, kp.getPrivate());
         
-        Buffer buf = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST);
-        buildRequestCommon(buf);
+        Buffer buf = buildRequestCommon(session
+                .createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST));
         buf.putBoolean(true);
-        buf.putPublicKey(kp.getPublic());
+        putPublicKey(buf);
         
-        // signature
         sig.update(session.getID());
-        sig.update(buf.getBytes());
-        
+        sig.update(buf.getCompactData());
         buf.putString(sig.sign());
         
         session.writePacket(buf);
+        
     }
-    
 }

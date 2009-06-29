@@ -33,21 +33,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /*
- * TODO:
+ * STUB!
  * 
- * > way from complete, finish by end-of-month
- * 
- * .... once done:
- * 
- * > document
- * 
- * > unit tests
- * 
- */
-
-/**
- * 
- * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
 public class KnownHosts implements HostKeyVerifier
 {

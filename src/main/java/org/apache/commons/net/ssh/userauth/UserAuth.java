@@ -19,7 +19,8 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
-import java.util.HashSet;
+import java.security.KeyPair;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
@@ -70,6 +71,12 @@ public class UserAuth implements UserAuthService
             return this;
         }
         
+        public Builder authPublickey(KeyPair kp)
+        {
+            methods.add(new AuthPublickey(session, nextService, username, kp));
+            return this;
+        }
+        
         public UserAuthService build()
         {
             return new UserAuth(session, methods);
@@ -93,7 +100,7 @@ public class UserAuth implements UserAuthService
     
     protected final Session session;
     
-    protected Set<String> allowed = new HashSet<String>();
+    protected Set<String> allowed = new LinkedHashSet<String>();
     
     protected Queue<AuthMethod> methods;
     
@@ -121,34 +128,37 @@ public class UserAuth implements UserAuthService
     public void authenticate() throws IOException
     {
         request();
+        currentThread = Thread.currentThread();
         while (true) {
             if ((method = methods.poll()) == null)
                 throw new SSHException("Exhausted available authentication methods");
             String name = method.getName();
-            log.debug("Trying [{}] auth", name);
+            log.debug("Trying [{}] auth, allowed={}", name, allowed);
             if (!("composite@apache.org".equals(name) || allowed.contains(name)))
                 continue;
             resLock.lock();
             try {
                 res = Result.CONTINUED;
                 method.request();
-                currentThread = Thread.currentThread();
                 while (res == Result.CONTINUED)
                     resCond.await();
+                switch (res)
+                {
+                case SUCCESS:
+                    return;
+                case FAILURE:
+                case PARTIAL_SUCCESS:
+                    continue;
+                default:
+                    assert false;
+                }
             } catch (InterruptedException e) {
-                SSHException.chain(exception);
+                if (exception != null)
+                    SSHException.chain(exception);
+                else
+                    throw new SSHException(e);
             } finally {
                 resLock.unlock();
-            }
-            switch (res)
-            {
-            case SUCCESS:
-                return;
-            case FAILURE:
-            case PARTIAL_SUCCESS:
-                continue;
-            default:
-                assert false;
             }
         }
     }
@@ -218,8 +228,16 @@ public class UserAuth implements UserAuthService
     public void setError(Exception ex)
     {
         exception = ex;
-        if (currentThread != null)
-            currentThread.interrupt();
+        resLock.lock();
+        try {
+            if (resLock.hasWaiters(resCond)) {
+                assert currentThread != null;
+                log.debug("interrupting {}", currentThread);
+                currentThread.interrupt();
+            }
+        } finally {
+            resLock.unlock();
+        }
     }
     
 }

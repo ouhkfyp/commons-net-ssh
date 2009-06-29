@@ -52,6 +52,7 @@ public class AuthPassword extends AbstractAuthMethod
             UserAuthService.PasswordFinder pwdf, ChangeRequestHandler crh)
     {
         super(session, nextService, username);
+        assert pwdf != null;
         this.pwdf = pwdf;
         this.crh = crh;
     }
