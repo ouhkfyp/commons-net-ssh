@@ -21,7 +21,6 @@ package org.apache.commons.net.ssh.transport;
 import java.io.IOException;
 import java.security.PublicKey;
 
-import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.cipher.Cipher;
@@ -49,12 +48,12 @@ class KexHandler
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final Transport transport;
-    private final FactoryManager fm;
+    private final Session.FactoryManager fm;
     
     //
     // Key exchange support
     //
-    private byte[] sessionID;
+    byte[] sessionID;
     private String[] serverProposal;
     private String[] clientProposal;
     private String[] negotiated; // negotiated algorithms

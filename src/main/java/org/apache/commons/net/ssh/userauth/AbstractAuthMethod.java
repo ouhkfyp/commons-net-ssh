@@ -1,11 +1,13 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +18,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
     protected final Session session;
     protected final Service nextService;
     protected final String username;
-    protected String[] allowed;
+    protected Set<String> allowed;
     
     public AbstractAuthMethod(Session session, Service nextService, String username)
     {
@@ -25,9 +27,17 @@ public abstract class AbstractAuthMethod implements AuthMethod
         this.username = username;
     }
     
-    abstract protected Buffer buildRequest(Buffer buf);
+    abstract protected Buffer buildRequest();
     
-    public String[] getAllowedMethods()
+    public Buffer buildRequestCommon(Buffer buf)
+    {
+        buf.putString(username);
+        buf.putString(nextService.getName());
+        buf.putString(getName());
+        return buf;
+    }
+    
+    public Set<String> getAllowedMethods()
     {
         return allowed;
     }
@@ -44,11 +54,13 @@ public abstract class AbstractAuthMethod implements AuthMethod
     
     public void request() throws IOException
     {
-        Buffer buf = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST);
-        buf.putString(username);
-        buf.putString(nextService.getName());
-        buf.putString(getName());
-        session.writePacket(buildRequest(buf));
+        log.debug("Sending SSH_MSG_USERAUTH_REQUEST: method={}", getName());
+        session.writePacket(buildRequest());
+    }
+    
+    protected void setAllowedMethods(String commaDelimed)
+    {
+        allowed = new LinkedHashSet<String>(Arrays.asList(commaDelimed.split(",")));
     }
     
 }

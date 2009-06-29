@@ -19,6 +19,7 @@ public interface UserAuthService extends Service
         
     }
     
+    // same as org.bouncycastle.openssl.PasswordFinder
     interface PasswordFinder
     {
         char[] getPassword();

@@ -71,6 +71,11 @@ public abstract class AbstractSignature implements Signature
         }
     }
     
+    public void update(byte[] foo)
+    {
+        update(foo, 0, foo.length);
+    }
+    
     public void update(byte[] foo, int off, int len)
     {
         try {

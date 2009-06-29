@@ -52,6 +52,7 @@ import org.apache.commons.net.ssh.signature.SignatureDSA;
 import org.apache.commons.net.ssh.signature.SignatureRSA;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.Session.FactoryManager;
 import org.apache.commons.net.ssh.transport.Session.HostKeyVerifier;
 import org.apache.commons.net.ssh.userauth.UserAuth;
 import org.apache.commons.net.ssh.util.Constants;
@@ -179,7 +180,7 @@ public class SSHClient extends SocketClient
     
     public UserAuth.Builder getAuthBuilder()
     {
-        return new UserAuth.Builder(trans, conn);
+        return new UserAuth.Builder(trans, System.getProperty("user.name"), conn);
     }
     
     @Override

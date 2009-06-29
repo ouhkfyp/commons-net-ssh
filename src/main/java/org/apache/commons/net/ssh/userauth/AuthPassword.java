@@ -57,8 +57,10 @@ public class AuthPassword extends AbstractAuthMethod
     }
     
     @Override
-    protected Buffer buildRequest(Buffer buf)
+    protected Buffer buildRequest()
     {
+        Buffer buf = buildRequestCommon(session
+                .createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST));
         buf.putBoolean(false);
         buf.putString(pwdf.getPassword());
         return buf;
@@ -78,7 +80,7 @@ public class AuthPassword extends AbstractAuthMethod
                 crh.notifySuccess();
             return Result.SUCCESS;
         case SSH_MSG_USERAUTH_FAILURE:
-            allowed = buf.getString().split(",");
+            setAllowedMethods(buf.getString());
             if (buf.getBoolean()) {
                 if (changeRequested)
                     crh.notifySuccess();
@@ -88,7 +90,7 @@ public class AuthPassword extends AbstractAuthMethod
                     crh.notifyFailure();
                 return Result.FAILURE;
             }
-        case SSH_MSG_USERAUTH_60:
+        case SSH_MSG_USERAUTH_60: // SSH_MSG_USERAUTH_PASSWD_CHANGEREQ
             if (changeRequested)
                 crh = crh.notifyUnacceptable();
             if (crh != null) {
@@ -106,14 +108,11 @@ public class AuthPassword extends AbstractAuthMethod
     
     private void sendChangeReq(String prompt) throws IOException
     {
+        Buffer buf = buildRequestCommon(session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_60));
+        buf.putBoolean(true);
+        buf.putString(crh.getPassword());
+        buf.putString(crh.getNewPassword());
         log.debug("Sending SSH_MSG_USERAUTH_PASSWD_CHANGEREQ");
-        Buffer crbuf = session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_60);
-        crbuf.putString(username);
-        crbuf.putString(nextService.getName());
-        crbuf.putBoolean(true);
-        crbuf.putString(crh.getPassword());
-        crbuf.putString(crh.getNewPassword());
-        session.writePacket(crbuf);
+        session.writePacket(buf);
     }
-    
 }

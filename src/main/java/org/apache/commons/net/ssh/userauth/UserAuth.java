@@ -19,13 +19,17 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.Semaphore;
+import java.util.Set;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.Session;
+import org.apache.commons.net.ssh.userauth.AuthMethod.Result;
 import org.apache.commons.net.ssh.userauth.AuthPassword.ChangeRequestHandler;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants;
@@ -39,12 +43,13 @@ public class UserAuth implements UserAuthService
     {
         private final Session session;
         private final LinkedList<AuthMethod> methods = new LinkedList<AuthMethod>();
-        private String username = System.getProperty("user.name");
+        private String username;
         private Service nextService;
         
-        public Builder(Session session, Service nextService)
+        public Builder(Session session, String username, Service nextService)
         {
             this.session = session;
+            this.username = username;
             this.nextService = nextService;
         }
         
@@ -86,23 +91,21 @@ public class UserAuth implements UserAuthService
     
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
-    protected String[] allowedMeths = { "password" };
+    protected final Session session;
+    
+    protected Set<String> allowed = new HashSet<String>();
     
     protected Queue<AuthMethod> methods;
     
-    protected final Session session;
+    protected LanguageQualifiedString banner; // auth banner
     
-    protected LanguageQualifiedString banner;
+    protected AuthMethod method; // currently active method
+    protected AuthMethod.Result res; // its result
+    protected ReentrantLock resLock = new ReentrantLock(); // lock for res
+    protected Condition resCond = resLock.newCondition(); // signifies a conclusive resukt
     
-    protected AuthMethod activeMeth; // currently active method
-    
-    protected final Semaphore sema = new Semaphore(0);
-    
-    protected Thread currentThread;
-    
-    protected AuthMethod.Result lastRes;
-    
-    protected Exception exception;
+    protected volatile Thread currentThread;
+    protected volatile Exception exception;
     
     protected boolean active;
     
@@ -110,33 +113,42 @@ public class UserAuth implements UserAuthService
     {
         this.session = session;
         this.methods = methods;
+        for (AuthMethod m : methods)
+            // initially assume all available are allowed
+            allowed.add(m.getName());
     }
     
     public void authenticate() throws IOException
     {
-        if (methods == null)
-            throw new SSHException("No authentication methods provided");
         request();
         while (true) {
-            if ((activeMeth = methods.poll()) == null)
+            if ((method = methods.poll()) == null)
                 throw new SSHException("Exhausted available authentication methods");
-            if (!isAllowed(activeMeth.getName()))
+            String name = method.getName();
+            log.debug("Trying [{}] auth", name);
+            if (!("composite@apache.org".equals(name) || allowed.contains(name)))
                 continue;
+            resLock.lock();
             try {
-                activeMeth.request();
+                res = Result.CONTINUED;
+                method.request();
                 currentThread = Thread.currentThread();
-                sema.acquire();
-            } catch (Exception e) {
+                while (res == Result.CONTINUED)
+                    resCond.await();
+            } catch (InterruptedException e) {
                 SSHException.chain(exception);
+            } finally {
+                resLock.unlock();
             }
-            switch (lastRes)
+            switch (res)
             {
             case SUCCESS:
-                session.setService(activeMeth.getNextService());
                 return;
             case FAILURE:
             case PARTIAL_SUCCESS:
                 continue;
+            default:
+                assert false;
             }
         }
     }
@@ -164,39 +176,33 @@ public class UserAuth implements UserAuthService
             banner = buf.getLanguageQualifiedField();
             break;
         default:
-            lastRes = activeMeth.handle(cmd, buf);
-            log.debug("Result of {} auth: {}", activeMeth.getName(), lastRes);
-            switch (lastRes)
-            {
-            case SUCCESS:
-                session.setAuthenticated();
-                sema.release();
-                break;
-            case FAILURE:
-                allowedMeths = activeMeth.getAllowedMethods();
-                log.info("Allowed methods: {}", allowedMeths);
-                sema.release();
-                break;
-            case PARTIAL_SUCCESS:
-                log.info("partial success");
-                sema.release();
-                break;
-            case CONTINUED:
-                break;
-            default:
-                assert false;
+            resLock.lock();
+            try {
+                switch (res = method.handle(cmd, buf))
+                {
+                case SUCCESS:
+                    session.setAuthenticated();
+                    session.setService(method.getNextService());
+                    resCond.signal();
+                    break;
+                case FAILURE:
+                    allowed = method.getAllowedMethods();
+                    assert allowed != null;
+                    resCond.signal();
+                    break;
+                case PARTIAL_SUCCESS:
+                    log.info("partial success");
+                    resCond.signal();
+                    break;
+                case CONTINUED:
+                    break;
+                default:
+                    assert false;
+                }
+            } finally {
+                resLock.unlock();
             }
         }
-    }
-    
-    protected boolean isAllowed(String methodName)
-    {
-        if ("composite@apache.org".equals(methodName))
-            return true;
-        for (String x : allowedMeths)
-            if (x.equals(methodName))
-                return true;
-        return false;
     }
     
     public void request() throws IOException
@@ -215,4 +221,5 @@ public class UserAuth implements UserAuthService
         if (currentThread != null)
             currentThread.interrupt();
     }
+    
 }
