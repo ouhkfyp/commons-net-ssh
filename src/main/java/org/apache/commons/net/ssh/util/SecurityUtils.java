@@ -38,15 +38,6 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/*
- * TODO:
- * 
- * > document
- * 
- * > unit tests
- * 
- */
-
 /**
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>

@@ -18,13 +18,6 @@
  */
 package org.apache.commons.net.ssh.util;
 
-/*
- * TODO:
- * 
- *  > replace Message enum with byte constants due to ambiguities arising from reuse of message idents in SSH
- * 
- */
-
 /**
  * This interface defines constants for the SSH protocol.
  * 

@@ -26,12 +26,9 @@ import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
 /*
- * TODO:
- * 
- * This class is a stub. A lot of work to be done in this package; most of July.
+ * STUB!
  * 
  */
-
 public class Connection implements ConnectionService
 {
     
