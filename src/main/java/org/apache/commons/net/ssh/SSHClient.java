@@ -18,6 +18,8 @@
  */
 package org.apache.commons.net.ssh;
 
+import static org.apache.commons.net.ssh.util.Constants.*;
+
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -55,7 +57,6 @@ import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.Session.FactoryManager;
 import org.apache.commons.net.ssh.transport.Session.HostKeyVerifier;
 import org.apache.commons.net.ssh.userauth.UserAuth;
-import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
@@ -154,7 +155,7 @@ public class SSHClient extends SocketClient
     
     public SSHClient(FactoryManager fm)
     {
-        setDefaultPort(Constants.DEFAULT_PORT);
+        setDefaultPort(DEFAULT_PORT);
         trans = new Transport(fm);
         conn = new Connection(trans);
     }

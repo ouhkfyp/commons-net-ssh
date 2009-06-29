@@ -21,7 +21,7 @@ package org.apache.commons.net.ssh.signature;
 import java.security.SignatureException;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
 
 /**
  * RSA <code>Signature</code>
@@ -44,7 +44,7 @@ public class SignatureRSA extends AbstractSignature
         
         public String getName()
         {
-            return Constants.KeyType.RSA.toString();
+            return KeyType.RSA.toString();
         }
         
     }

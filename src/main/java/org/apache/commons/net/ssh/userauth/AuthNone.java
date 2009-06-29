@@ -23,7 +23,6 @@ import java.io.IOException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
 public class AuthNone extends AbstractAuthMethod
@@ -39,7 +38,7 @@ public class AuthNone extends AbstractAuthMethod
     @Override
     protected Buffer buildRequest()
     {
-        return buildRequestCommon(session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST));
+        return buildRequestCommon(session.createBuffer(Message.SSH_MSG_USERAUTH_REQUEST));
     }
     
     public String getName()

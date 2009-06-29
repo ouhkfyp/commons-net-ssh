@@ -18,6 +18,8 @@
  */
 package org.apache.commons.net.ssh.transport;
 
+import static org.apache.commons.net.ssh.util.Constants.*;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -35,7 +37,7 @@ import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -164,7 +166,7 @@ public class Transport implements Session
     boolean authed = false;
     
     /** Client version identification string */
-    String clientID = "SSH-2.0-" + Constants.VERSION;
+    String clientID = "SSH-2.0-" + VERSION;
     
     /** Server version identification string */
     String serverID;
@@ -189,7 +191,7 @@ public class Transport implements Session
         kex = new KexHandler(this);
     }
     
-    public Buffer createBuffer(Constants.Message cmd)
+    public Buffer createBuffer(Message cmd)
     {
         Buffer buffer = new Buffer();
         buffer.rpos(5);
@@ -200,7 +202,7 @@ public class Transport implements Session
     
     public void disconnect() throws IOException
     {
-        disconnect(Constants.SSH_DISCONNECT_BY_APPLICATION);
+        disconnect(SSH_DISCONNECT_BY_APPLICATION);
     }
     
     public void disconnect(int reason) throws IOException
@@ -212,7 +214,7 @@ public class Transport implements Session
     {
         try {
             log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
-            Buffer buffer = createBuffer(Constants.Message.SSH_MSG_DISCONNECT);
+            Buffer buffer = createBuffer(Message.SSH_MSG_DISCONNECT);
             buffer.putInt(reason);
             buffer.putString(msg);
             buffer.putString("");
@@ -249,7 +251,7 @@ public class Transport implements Session
     
     void handle(Buffer packet) throws IOException
     {
-        Constants.Message cmd = packet.getCommand();
+        Message cmd = packet.getCommand();
         log.debug("Received packet {}", cmd);
         switch (cmd)
         {
@@ -293,8 +295,8 @@ public class Transport implements Session
             }
             case SERVICE_REQ:
             {
-                if (cmd != Constants.Message.SSH_MSG_SERVICE_ACCEPT) {
-                    disconnect(Constants.SSH_DISCONNECT_PROTOCOL_ERROR,
+                if (cmd != Message.SSH_MSG_SERVICE_ACCEPT) {
+                    disconnect(SSH_DISCONNECT_PROTOCOL_ERROR,
                             "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
                     return;
                 }
@@ -303,7 +305,7 @@ public class Transport implements Session
             }
             case SERVICE:
             {
-                if (cmd != Constants.Message.SSH_MSG_KEXINIT)
+                if (cmd != Message.SSH_MSG_KEXINIT)
                     service.handle(cmd, packet);
                 else {
                     setState(State.KEX);
@@ -400,7 +402,7 @@ public class Transport implements Session
         }
         
         if (!ident.startsWith("SSH-2.0-"))
-            disconnect(Constants.SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED);
+            disconnect(SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED);
         
         return ident;
     }
@@ -420,7 +422,7 @@ public class Transport implements Session
     private void sendServiceRequest(String serviceName) throws IOException
     {
         log.debug("Sending SSH_MSG_SERVICE_REQUEST for {}", serviceName);
-        Buffer buffer = createBuffer(Constants.Message.SSH_MSG_SERVICE_REQUEST);
+        Buffer buffer = createBuffer(Message.SSH_MSG_SERVICE_REQUEST);
         buffer.putString(serviceName);
         writePacket(buffer);
     }
@@ -434,7 +436,7 @@ public class Transport implements Session
      */
     void sendUnimplemented(int num) throws IOException
     {
-        Buffer buffer = createBuffer(Constants.Message.SSH_MSG_UNIMPLEMENTED);
+        Buffer buffer = createBuffer(Message.SSH_MSG_UNIMPLEMENTED);
         buffer.putInt(num);
         writePacket(buffer);
     }

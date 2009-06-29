@@ -35,7 +35,7 @@ import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 /**
  * TODO javadocs
@@ -203,7 +203,7 @@ public interface Session
      *            the SSH command
      * @return a new buffer ready for write
      */
-    Buffer createBuffer(Constants.Message cmd);
+    Buffer createBuffer(Message cmd);
     
     /**
      * Send a disconnection packet with reason as {@link Constants#SSH_DISCONNECT_BY_APPLICATION}
@@ -288,7 +288,7 @@ public interface Session
     
     /**
      * Set the currently active service, to which handling of incoming packets is delegated by
-     * calling its {@link Service#handle(Constants.Message, Buffer)} method.
+     * calling its {@link Service#handle(Message, Buffer)} method.
      * 
      * @param service
      */

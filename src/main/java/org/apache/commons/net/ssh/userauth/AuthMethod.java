@@ -23,7 +23,7 @@ import java.util.Set;
 
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 /**
  * 
@@ -55,7 +55,7 @@ public interface AuthMethod
     
     String getUsername();
     
-    Result handle(Constants.Message cmd, Buffer buf) throws IOException;
+    Result handle(Message cmd, Buffer buf) throws IOException;
     
     void request() throws IOException;
     

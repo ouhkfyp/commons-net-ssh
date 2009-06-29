@@ -21,7 +21,7 @@ package org.apache.commons.net.ssh;
 import java.io.IOException;
 
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 public interface Service
 {
@@ -40,7 +40,7 @@ public interface Service
      * @param packet
      * @throws IOException
      */
-    void handle(Constants.Message cmd, Buffer packet) throws IOException;
+    void handle(Message cmd, Buffer packet) throws IOException;
     
     /**
      * Request this service. In case the currently active service as provided by the session is this

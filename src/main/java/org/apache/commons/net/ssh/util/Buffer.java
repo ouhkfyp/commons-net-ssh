@@ -29,6 +29,8 @@ import java.security.spec.DSAPublicKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 
 import org.apache.commons.net.ssh.SSHRuntimeException;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 /**
  * Facilitates reading and writing SSH packets
@@ -153,10 +155,10 @@ public final class Buffer
      * ====================== Read methods ======================
      */
 
-    public Constants.Message getCommand()
+    public Message getCommand()
     {
         byte b = getByte();
-        Constants.Message cmd = Constants.Message.fromByte(b);
+        Message cmd = Message.fromByte(b);
         if (cmd == null)
             throw new IllegalStateException("Unknown command code: " + b);
         return cmd;
@@ -215,7 +217,7 @@ public final class Buffer
     {
         PublicKey key = null;
         try {
-            switch (Constants.KeyType.fromString(getString()))
+            switch (KeyType.fromString(getString()))
             {
             case RSA:
             {
@@ -317,7 +319,7 @@ public final class Buffer
         wpos += len;
     }
     
-    public void putCommand(Constants.Message cmd)
+    public void putCommand(Message cmd)
     {
         putByte(cmd.toByte());
     }
@@ -350,8 +352,8 @@ public final class Buffer
     
     public void putPublicKey(PublicKey key)
     {
-        Constants.KeyType type;
-        switch (type = Constants.KeyType.fromKey(key))
+        KeyType type;
+        switch (type = KeyType.fromKey(key))
         {
         case RSA:
             putString(type.toString());

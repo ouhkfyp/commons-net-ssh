@@ -27,7 +27,8 @@ import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 public class AuthPublickey extends AbstractAuthMethod
 {
@@ -45,8 +46,7 @@ public class AuthPublickey extends AbstractAuthMethod
     @Override
     protected Buffer buildRequest()
     {
-        Buffer buf = buildRequestCommon(session
-                .createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST));
+        Buffer buf = buildRequestCommon(session.createBuffer(Message.SSH_MSG_USERAUTH_REQUEST));
         buf.putBoolean(false);
         putPublicKey(buf);
         return buf;
@@ -57,7 +57,7 @@ public class AuthPublickey extends AbstractAuthMethod
         return NAME;
     }
     
-    public Result handle(Constants.Message cmd, Buffer buf) throws IOException
+    public Result handle(Message cmd, Buffer buf) throws IOException
     {
         switch (cmd)
         {
@@ -79,7 +79,7 @@ public class AuthPublickey extends AbstractAuthMethod
     private void putPublicKey(Buffer buf)
     {
         PublicKey key = kp.getPublic();
-        buf.putString(Constants.KeyType.fromKey(key).toString());
+        buf.putString(KeyType.fromKey(key).toString());
         
         Buffer temp = new Buffer();
         temp.putPublicKey(key);
@@ -88,14 +88,13 @@ public class AuthPublickey extends AbstractAuthMethod
     
     private void sendSignedRequest() throws IOException
     {
-        Constants.KeyType type = Constants.KeyType.fromKey(kp.getPublic());
+        KeyType type = KeyType.fromKey(kp.getPublic());
         
         Signature sig = NamedFactory.Utils.create(session.getFactoryManager()
                 .getSignatureFactories(), type.toString());
         sig.init(kp.getPublic(), kp.getPrivate());
         
-        Buffer reqBuf = buildRequestCommon(session
-                .createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST));
+        Buffer reqBuf = buildRequestCommon(session.createBuffer(Message.SSH_MSG_USERAUTH_REQUEST));
         reqBuf.putBoolean(true);
         putPublicKey(reqBuf);
         
