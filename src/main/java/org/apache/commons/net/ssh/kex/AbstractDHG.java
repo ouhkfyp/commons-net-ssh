@@ -18,6 +18,8 @@
  */
 package org.apache.commons.net.ssh.kex;
 
+import static org.apache.commons.net.ssh.util.Constants.*;
+
 import java.io.IOException;
 import java.security.PublicKey;
 
@@ -28,7 +30,8 @@ import org.apache.commons.net.ssh.digest.SHA1;
 import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
+import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,7 +95,7 @@ public abstract class AbstractDHG implements KeyExchange
         e = dh.getE();
         
         log.info("Sending SSH_MSG_KEXDH_INIT");
-        Buffer buffer = session.createBuffer(Constants.Message.SSH_MSG_KEXDH_INIT);
+        Buffer buffer = session.createBuffer(Message.SSH_MSG_KEXDH_INIT);
         buffer.putMPInt(e);
         session.writePacket(buffer);
     }
@@ -101,11 +104,10 @@ public abstract class AbstractDHG implements KeyExchange
     
     public boolean next(Buffer buffer) throws SSHException
     {
-        Constants.Message cmd = buffer.getCommand();
-        if (cmd != Constants.Message.SSH_MSG_KEXDH_31)
-            throw new SSHException(Constants.SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                    "Protocol error: expected packet " + Constants.Message.SSH_MSG_KEXDH_31
-                            + ", got " + cmd);
+        Message cmd = buffer.getCommand();
+        if (cmd != Message.SSH_MSG_KEXDH_31)
+            throw new SSHException(SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                    "Protocol error: expected packet " + Message.SSH_MSG_KEXDH_31 + ", got " + cmd);
         
         log.info("Received SSH_MSG_KEXDH_REPLY");
         
@@ -131,11 +133,11 @@ public abstract class AbstractDHG implements KeyExchange
         H = sha.digest();
         
         Signature verif = NamedFactory.Utils.create(session.getFactoryManager()
-                .getSignatureFactories(), Constants.KeyType.fromKey(hostKey).toString());
+                .getSignatureFactories(), KeyType.fromKey(hostKey).toString());
         verif.init(hostKey, null);
         verif.update(H, 0, H.length);
         if (!verif.verify(sig))
-            throw new SSHException(Constants.SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+            throw new SSHException(SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                     "KeyExchange signature verification failed");
         return true;
     }

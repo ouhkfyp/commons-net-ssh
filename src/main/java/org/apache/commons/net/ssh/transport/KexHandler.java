@@ -18,6 +18,8 @@
  */
 package org.apache.commons.net.ssh.transport;
 
+import static org.apache.commons.net.ssh.util.Constants.*;
+
 import java.io.IOException;
 import java.security.PublicKey;
 
@@ -29,8 +31,9 @@ import org.apache.commons.net.ssh.digest.Digest;
 import org.apache.commons.net.ssh.kex.KeyExchange;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.SecurityUtils;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
+import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,11 +93,11 @@ class KexHandler
     
     private void extractProposal(Buffer buffer)
     {
-        serverProposal = new String[Constants.PROPOSAL_MAX];
+        serverProposal = new String[PROPOSAL_MAX];
         // recreate the packet payload which will be needed at a later time
         byte[] d = buffer.array();
         I_S = new byte[buffer.available() + 1];
-        I_S[0] = Constants.Message.SSH_MSG_KEXINIT.toByte();
+        I_S[0] = Message.SSH_MSG_KEXINIT.toByte();
         System.arraycopy(d, buffer.rpos(), I_S, 1, I_S.length - 1);
         // skip 16 bytes of random data
         buffer.rpos(buffer.rpos() + 16);
@@ -110,8 +113,8 @@ class KexHandler
     {
         extractProposal(buffer);
         negotiate();
-        kex = NamedFactory.Utils.create(fm.getKeyExchangeFactories(),
-                negotiated[Constants.PROPOSAL_KEX_ALGS]);
+        kex = NamedFactory.Utils
+                .create(fm.getKeyExchangeFactories(), negotiated[PROPOSAL_KEX_ALGS]);
         log.debug(transport.clientID);
         log.debug(transport.serverID);
         kex.init(transport, transport.serverID.getBytes(), transport.clientID.getBytes(), I_S, I_C);
@@ -180,33 +183,33 @@ class KexHandler
         MACs2c = hash.digest();
         
         s2ccipher = NamedFactory.Utils.create(fm.getCipherFactories(),
-                negotiated[Constants.PROPOSAL_ENC_ALGS_STOC]);
+                negotiated[PROPOSAL_ENC_ALGS_STOC]);
         Es2c = resizeKey(Es2c, s2ccipher.getBlockSize(), hash, K, H);
         s2ccipher.init(Cipher.Mode.Decrypt, Es2c, IVs2c);
         
-        s2cmac = NamedFactory.Utils.create(fm.getMACFactories(),
-                negotiated[Constants.PROPOSAL_MAC_ALGS_STOC]);
+        s2cmac = NamedFactory.Utils
+                .create(fm.getMACFactories(), negotiated[PROPOSAL_MAC_ALGS_STOC]);
         s2cmac.init(MACs2c);
         
         c2scipher = NamedFactory.Utils.create(fm.getCipherFactories(),
-                negotiated[Constants.PROPOSAL_ENC_ALGS_CTOS]);
+                negotiated[PROPOSAL_ENC_ALGS_CTOS]);
         Ec2s = resizeKey(Ec2s, c2scipher.getBlockSize(), hash, K, H);
         c2scipher.init(Cipher.Mode.Encrypt, Ec2s, IVc2s);
         
-        c2smac = NamedFactory.Utils.create(fm.getMACFactories(),
-                negotiated[Constants.PROPOSAL_MAC_ALGS_CTOS]);
+        c2smac = NamedFactory.Utils
+                .create(fm.getMACFactories(), negotiated[PROPOSAL_MAC_ALGS_CTOS]);
         c2smac.init(MACc2s);
         
         s2ccomp = NamedFactory.Utils.create(fm.getCompressionFactories(),
-                negotiated[Constants.PROPOSAL_COMP_ALGS_STOC]);
+                negotiated[PROPOSAL_COMP_ALGS_STOC]);
         c2scomp = NamedFactory.Utils.create(fm.getCompressionFactories(),
-                negotiated[Constants.PROPOSAL_COMP_ALGS_CTOS]);
+                negotiated[PROPOSAL_COMP_ALGS_CTOS]);
         
         transport.bin.setClientToServer(c2scipher, c2smac, c2scomp);
         transport.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
     }
     
-    boolean handle(Constants.Message cmd, Buffer buffer) throws IOException
+    boolean handle(Message cmd, Buffer buffer) throws IOException
     {
         /*
          * Thread context = Transport.inPump
@@ -214,9 +217,9 @@ class KexHandler
         switch (state)
         {
         case EXPECT_KEXINIT:
-            if (cmd != Constants.Message.SSH_MSG_KEXINIT) {
+            if (cmd != Message.SSH_MSG_KEXINIT) {
                 log.error("Ignoring command " + cmd + " while waiting for "
-                        + Constants.Message.SSH_MSG_KEXINIT);
+                        + Message.SSH_MSG_KEXINIT);
                 break;
             }
             log.info("Received SSH_MSG_KEXINIT");
@@ -239,8 +242,8 @@ class KexHandler
             }
             break;
         case EXPECT_NEWKEYS:
-            if (cmd != Constants.Message.SSH_MSG_NEWKEYS) {
-                transport.disconnect(Constants.SSH_DISCONNECT_PROTOCOL_ERROR,
+            if (cmd != Message.SSH_MSG_NEWKEYS) {
+                transport.disconnect(SSH_DISCONNECT_PROTOCOL_ERROR,
                         "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
                 break;
             }
@@ -251,7 +254,7 @@ class KexHandler
                 transport.writeLock.unlock();
             break;
         case KEX_DONE:
-            if (cmd != Constants.Message.SSH_MSG_KEXINIT)
+            if (cmd != Message.SSH_MSG_KEXINIT)
                 throw new IllegalStateException("Asked to handle " + cmd
                         + ", was expecting SSH_MSG_KEXINIT for key re-exchange");
             log.info("Received SSH_MSG_KEXINIT, initiating re-exchange");
@@ -281,8 +284,8 @@ class KexHandler
      */
     private void negotiate() throws SSHException
     {
-        String[] guess = new String[Constants.PROPOSAL_MAX];
-        for (int i = 0; i < Constants.PROPOSAL_MAX; i++) {
+        String[] guess = new String[PROPOSAL_MAX];
+        for (int i = 0; i < PROPOSAL_MAX; i++) {
             String[] c = clientProposal[i].split(",");
             String[] s = serverProposal[i].split(",");
             for (String ci : c) {
@@ -294,19 +297,16 @@ class KexHandler
                 if (guess[i] != null)
                     break;
             }
-            if (guess[i] == null && i != Constants.PROPOSAL_LANG_CTOS
-                    && i != Constants.PROPOSAL_LANG_STOC)
+            if (guess[i] == null && i != PROPOSAL_LANG_CTOS && i != PROPOSAL_LANG_STOC)
                 throw new SSHException("Unable to negotiate");
         }
         negotiated = guess;
         
-        log.info("Negotiated algorithms: client -> server = ("
-                + negotiated[Constants.PROPOSAL_ENC_ALGS_CTOS] + ", "
-                + negotiated[Constants.PROPOSAL_MAC_ALGS_CTOS] + ", "
-                + negotiated[Constants.PROPOSAL_COMP_ALGS_CTOS] + "); server -> client = ("
-                + negotiated[Constants.PROPOSAL_ENC_ALGS_STOC] + ", "
-                + negotiated[Constants.PROPOSAL_MAC_ALGS_STOC] + ", "
-                + negotiated[Constants.PROPOSAL_COMP_ALGS_STOC] + ")");
+        log.info("Negotiated algorithms: client -> server = (" + negotiated[PROPOSAL_ENC_ALGS_CTOS]
+                + ", " + negotiated[PROPOSAL_MAC_ALGS_CTOS] + ", "
+                + negotiated[PROPOSAL_COMP_ALGS_CTOS] + "); server -> client = ("
+                + negotiated[PROPOSAL_ENC_ALGS_STOC] + ", " + negotiated[PROPOSAL_MAC_ALGS_STOC]
+                + ", " + negotiated[PROPOSAL_COMP_ALGS_STOC] + ")");
     }
     
     /**
@@ -346,8 +346,8 @@ class KexHandler
     
     private void sendKexInit() throws IOException
     {
-        clientProposal = createProposal(Constants.KeyType.RSA + "," + Constants.KeyType.DSA);
-        Buffer buffer = transport.createBuffer(Constants.Message.SSH_MSG_KEXINIT);
+        clientProposal = createProposal(KeyType.RSA + "," + KeyType.DSA);
+        Buffer buffer = transport.createBuffer(Message.SSH_MSG_KEXINIT);
         int p = buffer.wpos();
         buffer.wpos(p + 16);
         transport.prng.fill(buffer.array(), p, 16);
@@ -364,7 +364,7 @@ class KexHandler
     private void sendNewKeys() throws IOException
     {
         log.info("Sending SSH_MSG_NEWKEYS");
-        transport.writePacket(transport.createBuffer(Constants.Message.SSH_MSG_NEWKEYS));
+        transport.writePacket(transport.createBuffer(Message.SSH_MSG_NEWKEYS));
     }
     
 }

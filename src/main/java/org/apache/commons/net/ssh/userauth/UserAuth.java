@@ -33,8 +33,8 @@ import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.userauth.AuthMethod.Result;
 import org.apache.commons.net.ssh.userauth.AuthPassword.ChangeRequestHandler;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.LanguageQualifiedString;
+import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -178,7 +178,7 @@ public class UserAuth implements UserAuthService
         return session;
     }
     
-    public void handle(Constants.Message cmd, Buffer buf) throws IOException
+    public void handle(Message cmd, Buffer buf) throws IOException
     {
         switch (cmd)
         {

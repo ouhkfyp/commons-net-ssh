@@ -34,6 +34,7 @@ import javax.crypto.KeyAgreement;
 import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 
+import org.apache.commons.net.ssh.util.Constants.KeyType;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,16 +101,16 @@ public class SecurityUtils
             e.printStackTrace();
         }
         Buffer buf = new Buffer();
-        switch (Constants.KeyType.fromKey(key))
+        switch (KeyType.fromKey(key))
         {
         case RSA:
             RSAPublicKey rsa = (RSAPublicKey) key;
-            buf.putString(Constants.KeyType.RSA.toString());
+            buf.putString(KeyType.RSA.toString());
             buf.putMPInt(rsa.getPublicExponent());
             buf.putMPInt(rsa.getModulus());
             break;
         case DSA:
-            buf.putString(Constants.KeyType.DSA.toString());
+            buf.putString(KeyType.DSA.toString());
             DSAPublicKey dsa = (DSAPublicKey) key;
             DSAParams params = dsa.getParams();
             buf.putMPInt(params.getP());

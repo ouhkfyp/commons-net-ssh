@@ -23,8 +23,8 @@ import java.io.IOException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.LanguageQualifiedString;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 public class AuthPassword extends AbstractAuthMethod
 {
@@ -60,8 +60,7 @@ public class AuthPassword extends AbstractAuthMethod
     @Override
     protected Buffer buildRequest()
     {
-        Buffer buf = buildRequestCommon(session
-                .createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST));
+        Buffer buf = buildRequestCommon(session.createBuffer(Message.SSH_MSG_USERAUTH_REQUEST));
         buf.putBoolean(false);
         buf.putString(pwdf.getPassword());
         return buf;
@@ -72,7 +71,7 @@ public class AuthPassword extends AbstractAuthMethod
         return NAME;
     }
     
-    public Result handle(Constants.Message cmd, Buffer buf) throws IOException
+    public Result handle(Message cmd, Buffer buf) throws IOException
     {
         switch (cmd)
         {
@@ -109,7 +108,7 @@ public class AuthPassword extends AbstractAuthMethod
     
     private void sendChangeReq(String prompt) throws IOException
     {
-        Buffer buf = buildRequestCommon(session.createBuffer(Constants.Message.SSH_MSG_USERAUTH_60));
+        Buffer buf = buildRequestCommon(session.createBuffer(Message.SSH_MSG_USERAUTH_60));
         buf.putBoolean(true);
         buf.putString(crh.getPassword());
         buf.putString(crh.getNewPassword());
