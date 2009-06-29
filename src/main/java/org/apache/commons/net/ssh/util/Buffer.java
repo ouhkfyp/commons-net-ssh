@@ -20,15 +20,15 @@ package org.apache.commons.net.ssh.util;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.PublicKey;
 import java.security.interfaces.DSAPublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.DSAPublicKeySpec;
-import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPublicKeySpec;
+
+import org.apache.commons.net.ssh.SSHRuntimeException;
 
 /**
  * Facilitates reading and writing SSH packets
@@ -211,25 +211,28 @@ public final class Buffer
         return getBytes();
     }
     
-    public PublicKey getPublicKey() throws NoSuchAlgorithmException, InvalidKeySpecException,
-            NoSuchProviderException
+    public PublicKey getPublicKey()
     {
         PublicKey key;
         String keyAlg = getString();
-        if (Constants.SSH_RSA.equals(keyAlg)) {
-            BigInteger e = getMPInt();
-            BigInteger n = getMPInt();
-            KeyFactory keyFactory = SecurityUtils.getKeyFactory("RSA");
-            key = keyFactory.generatePublic(new RSAPublicKeySpec(n, e));
-        } else if (Constants.SSH_DSS.equals(keyAlg)) {
-            BigInteger p = getMPInt();
-            BigInteger q = getMPInt();
-            BigInteger g = getMPInt();
-            BigInteger y = getMPInt();
-            KeyFactory keyFactory = SecurityUtils.getKeyFactory("DSA");
-            key = keyFactory.generatePublic(new DSAPublicKeySpec(y, p, q, g));
-        } else
-            throw new IllegalStateException("Unsupported algorithm: " + keyAlg);
+        try {
+            if (Constants.SSH_RSA.equals(keyAlg)) {
+                BigInteger e = getMPInt();
+                BigInteger n = getMPInt();
+                KeyFactory keyFactory = SecurityUtils.getKeyFactory("RSA");
+                key = keyFactory.generatePublic(new RSAPublicKeySpec(n, e));
+            } else if (Constants.SSH_DSS.equals(keyAlg)) {
+                BigInteger p = getMPInt();
+                BigInteger q = getMPInt();
+                BigInteger g = getMPInt();
+                BigInteger y = getMPInt();
+                KeyFactory keyFactory = SecurityUtils.getKeyFactory("DSA");
+                key = keyFactory.generatePublic(new DSAPublicKeySpec(y, p, q, g));
+            } else
+                throw new IllegalStateException("Unsupported algorithm: " + keyAlg);
+        } catch (GeneralSecurityException e) {
+            throw new SSHRuntimeException(e);
+        }
         return key;
     }
     

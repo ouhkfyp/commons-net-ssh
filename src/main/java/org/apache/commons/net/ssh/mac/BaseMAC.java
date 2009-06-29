@@ -23,6 +23,7 @@ import java.security.GeneralSecurityException;
 import javax.crypto.ShortBufferException;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
@@ -56,9 +57,7 @@ public class BaseMAC implements MAC
             } else
                 mac.doFinal(buf, offset);
         } catch (ShortBufferException e) {
-            throw new RuntimeException(e);
-        } catch (IllegalStateException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
     }
     

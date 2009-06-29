@@ -18,10 +18,8 @@
  */
 package org.apache.commons.net.ssh.signature;
 
-import java.security.InvalidKeyException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.SignatureException;
 
 /**
  * Signature interface for SSH used to sign or verify packets Usually wraps a javax.crypto.Signature
@@ -38,8 +36,6 @@ public interface Signature
      * 
      * @param pubkey
      * @param prvkey
-     * @throws InvalidKeyException
-     * @throws Exception
      */
     void init(PublicKey pubkey, PrivateKey prvkey);
     
@@ -47,9 +43,10 @@ public interface Signature
      * Compute the signature
      * 
      * @return
-     * @throws Exception
      */
     byte[] sign();
+    
+    void update(byte[] H);
     
     /**
      * Update the computed signature with the given data
@@ -57,8 +54,6 @@ public interface Signature
      * @param H
      * @param off
      * @param len
-     * @throws SignatureException
-     * @throws Exception
      */
     void update(byte[] H, int off, int len);
     
@@ -67,7 +62,6 @@ public interface Signature
      * 
      * @param sig
      * @return
-     * @throws Exception
      */
     boolean verify(byte[] sig);
     

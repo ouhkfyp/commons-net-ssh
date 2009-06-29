@@ -19,7 +19,6 @@
 package org.apache.commons.net.ssh.kex;
 
 import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
 
@@ -106,9 +105,8 @@ public abstract class AbstractDHG implements KeyExchange
         Constants.Message cmd = buffer.getCommand();
         if (cmd != Constants.Message.SSH_MSG_KEXDH_31)
             throw new SSHException(Constants.SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                    "Protocol error: expected packet "
-                            + Constants.Message.SSH_MSG_KEXDH_31 + ", got "
-                            + cmd);
+                    "Protocol error: expected packet " + Constants.Message.SSH_MSG_KEXDH_31
+                            + ", got " + cmd);
         
         log.info("Received SSH_MSG_KEXDH_REPLY");
         
@@ -119,11 +117,7 @@ public abstract class AbstractDHG implements KeyExchange
         K = dh.getK();
         
         buffer = new Buffer(K_S);
-        try {
-            hostKey = buffer.getPublicKey();
-        } catch (GeneralSecurityException e) {
-            throw new RuntimeException(e);
-        }
+        hostKey = buffer.getPublicKey();
         String keyAlg = hostKey instanceof RSAPublicKey ? Constants.SSH_RSA : Constants.SSH_DSS;
         
         buffer = new Buffer();

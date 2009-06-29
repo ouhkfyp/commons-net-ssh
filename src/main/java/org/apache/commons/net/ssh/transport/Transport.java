@@ -28,9 +28,9 @@ import java.security.PublicKey;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.random.Random;
@@ -88,10 +88,11 @@ public class Transport implements Session
      */
     private Exception exception;
     
-    /** Lock object for session state */
-    private final Object stateLock = new Object();
+    /** Lock for session state */
+    private final ReentrantLock stateLock = new ReentrantLock();
+    private final Condition stateChange = stateLock.newCondition();
     
-    /** Lock object supporting correct encoding and queuing of packets */
+    /** Lock supporting correct encoding and queuing of packets */
     final ReentrantLock writeLock = new ReentrantLock();
     
     private InputStream input;
@@ -209,13 +210,16 @@ public class Transport implements Session
     
     public void disconnect(int reason, String msg) throws IOException
     {
-        log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
-        Buffer buffer = createBuffer(Constants.Message.SSH_MSG_DISCONNECT);
-        buffer.putInt(reason);
-        buffer.putString(msg);
-        buffer.putString("");
-        writePacket(buffer);
-        stop();
+        try {
+            log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
+            Buffer buffer = createBuffer(Constants.Message.SSH_MSG_DISCONNECT);
+            buffer.putInt(reason);
+            buffer.putString(msg);
+            buffer.putString("");
+            writePacket(buffer);
+        } finally {
+            stop();
+        }
     }
     
     public Service getActiveService()
@@ -231,6 +235,11 @@ public class Transport implements Session
     public FactoryManager getFactoryManager()
     {
         return fm;
+    }
+    
+    public byte[] getID()
+    {
+        return kex.sessionID;
     }
     
     public String getServerVersion()
@@ -487,9 +496,12 @@ public class Transport implements Session
     void setState(State newState)
     {
         log.debug("Changing state  [ {} -> {} ]", state, newState);
-        synchronized (stateLock) {
+        stateLock.lock();
+        try {
             state = newState;
-            stateLock.notifyAll();
+            stateChange.signalAll();
+        } finally {
+            stateLock.unlock();
         }
     }
     
@@ -502,7 +514,7 @@ public class Transport implements Session
             try {
                 socket.close(); // any threads blocked on it will die, yay
             } catch (IOException e) {
-                log.debug("setError ignoring {}", e);
+                log.debug("stop() ignoring {}", e);
             }
         // can safely reset these refs
         socket = null;
@@ -528,16 +540,19 @@ public class Transport implements Session
      */
     private void waitFor(State s) throws Exception
     {
-        synchronized (stateLock) {
+        stateLock.lock();
+        try {
             while (state != s && state != State.ERROR && state != State.STOPPED)
-                stateLock.wait(0);
+                stateChange.await();
+            log.debug("Woke up to {}", state.toString());
+            if (state != s)
+                if (state == State.ERROR)
+                    throw exception;
+                else if (state == State.STOPPED)
+                    throw new SSHException("oStopped while waiting");
+        } finally {
+            stateLock.unlock();
         }
-        log.debug("Woke up to {}", state.toString());
-        if (state != s)
-            if (state == State.ERROR)
-                throw exception;
-            else if (state == State.STOPPED)
-                throw new SSHException("oStopped while waiting");
     }
     
     /*
