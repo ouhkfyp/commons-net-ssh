@@ -346,7 +346,7 @@ class KexHandler
     
     private void sendKexInit() throws IOException
     {
-        clientProposal = createProposal(Constants.SSH_RSA + "," + Constants.SSH_DSS);
+        clientProposal = createProposal(Constants.KeyType.RSA + "," + Constants.KeyType.DSA);
         Buffer buffer = transport.createBuffer(Constants.Message.SSH_MSG_KEXINIT);
         int p = buffer.wpos();
         buffer.wpos(p + 16);

@@ -100,21 +100,26 @@ public class SecurityUtils
             e.printStackTrace();
         }
         Buffer buf = new Buffer();
-        if (key.getAlgorithm() == "RSA") {
+        switch (Constants.KeyType.fromKey(key))
+        {
+        case RSA:
             RSAPublicKey rsa = (RSAPublicKey) key;
-            buf.putString(Constants.SSH_RSA);
+            buf.putString(Constants.KeyType.RSA.toString());
             buf.putMPInt(rsa.getPublicExponent());
             buf.putMPInt(rsa.getModulus());
-        } else if (key.getAlgorithm() == "DSA") {
-            buf.putString(Constants.SSH_DSS);
+            break;
+        case DSA:
+            buf.putString(Constants.KeyType.DSA.toString());
             DSAPublicKey dsa = (DSAPublicKey) key;
             DSAParams params = dsa.getParams();
             buf.putMPInt(params.getP());
             buf.putMPInt(params.getQ());
             buf.putMPInt(params.getG());
             buf.putMPInt(dsa.getY());
-        } else
+            break;
+        default:
             assert false;
+        }
         md5.update(buf.array(), 0, buf.available());
         String undelimed = BufferUtils.toHex(md5.digest());
         String fp = undelimed.substring(0, 2);

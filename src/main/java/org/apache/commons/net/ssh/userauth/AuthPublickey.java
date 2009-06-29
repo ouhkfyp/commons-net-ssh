@@ -21,8 +21,6 @@ package org.apache.commons.net.ssh.userauth;
 import java.io.IOException;
 import java.security.KeyPair;
 import java.security.PublicKey;
-import java.security.interfaces.DSAPublicKey;
-import java.security.interfaces.RSAPublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.Service;
@@ -81,12 +79,7 @@ public class AuthPublickey extends AbstractAuthMethod
     private void putPublicKey(Buffer buf)
     {
         PublicKey key = kp.getPublic();
-        if (key instanceof RSAPublicKey)
-            buf.putString(Constants.SSH_RSA);
-        else if (key instanceof DSAPublicKey)
-            buf.putString(Constants.SSH_RSA);
-        else
-            assert false;
+        buf.putString(Constants.KeyType.fromKey(key).toString());
         
         Buffer temp = new Buffer();
         temp.putPublicKey(key);
@@ -95,20 +88,28 @@ public class AuthPublickey extends AbstractAuthMethod
     
     private void sendSignedRequest() throws IOException
     {
+        Constants.KeyType type = Constants.KeyType.fromKey(kp.getPublic());
+        
         Signature sig = NamedFactory.Utils.create(session.getFactoryManager()
-                .getSignatureFactories(), "ssh-rsa");
-        sig.init(null, kp.getPrivate());
+                .getSignatureFactories(), type.toString());
+        sig.init(kp.getPublic(), kp.getPrivate());
         
-        Buffer buf = buildRequestCommon(session
+        Buffer reqBuf = buildRequestCommon(session
                 .createBuffer(Constants.Message.SSH_MSG_USERAUTH_REQUEST));
-        buf.putBoolean(true);
-        putPublicKey(buf);
+        reqBuf.putBoolean(true);
+        putPublicKey(reqBuf);
         
-        sig.update(session.getID());
-        sig.update(buf.getCompactData());
-        buf.putString(sig.sign());
+        Buffer sigSubj = new Buffer();
+        sigSubj.putString(session.getID());
+        sigSubj.putBuffer(reqBuf);
+        sig.update(sigSubj.getCompactData());
         
-        session.writePacket(buf);
+        Buffer sigBuf = new Buffer();
+        sigBuf.putString(type.toString());
+        sigBuf.putString(sig.sign());
         
+        reqBuf.putString(sigBuf.getCompactData());
+        
+        session.writePacket(reqBuf);
     }
 }

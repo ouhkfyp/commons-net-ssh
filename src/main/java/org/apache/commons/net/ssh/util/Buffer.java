@@ -213,23 +213,31 @@ public final class Buffer
     
     public PublicKey getPublicKey()
     {
-        PublicKey key;
-        String keyAlg = getString();
+        PublicKey key = null;
         try {
-            if (Constants.SSH_RSA.equals(keyAlg)) {
+            switch (Constants.KeyType.fromString(getString()))
+            {
+            case RSA:
+            {
                 BigInteger e = getMPInt();
                 BigInteger n = getMPInt();
                 KeyFactory keyFactory = SecurityUtils.getKeyFactory("RSA");
                 key = keyFactory.generatePublic(new RSAPublicKeySpec(n, e));
-            } else if (Constants.SSH_DSS.equals(keyAlg)) {
+                break;
+            }
+            case DSA:
+            {
                 BigInteger p = getMPInt();
                 BigInteger q = getMPInt();
                 BigInteger g = getMPInt();
                 BigInteger y = getMPInt();
                 KeyFactory keyFactory = SecurityUtils.getKeyFactory("DSA");
                 key = keyFactory.generatePublic(new DSAPublicKeySpec(y, p, q, g));
-            } else
-                throw new IllegalStateException("Unsupported algorithm: " + keyAlg);
+                break;
+            }
+            default:
+                assert false;
+            }
         } catch (GeneralSecurityException e) {
             throw new SSHRuntimeException(e);
         }
@@ -342,18 +350,24 @@ public final class Buffer
     
     public void putPublicKey(PublicKey key)
     {
-        if (key instanceof RSAPublicKey) {
-            putString(Constants.SSH_RSA);
+        Constants.KeyType type;
+        switch (type = Constants.KeyType.fromKey(key))
+        {
+        case RSA:
+            putString(type.toString());
             putMPInt(((RSAPublicKey) key).getPublicExponent());
             putMPInt(((RSAPublicKey) key).getModulus());
-        } else if (key instanceof DSAPublicKey) {
-            putString(Constants.SSH_DSS);
+            break;
+        case DSA:
+            putString(type.toString());
             putMPInt(((DSAPublicKey) key).getParams().getP());
             putMPInt(((DSAPublicKey) key).getParams().getQ());
             putMPInt(((DSAPublicKey) key).getParams().getG());
             putMPInt(((DSAPublicKey) key).getY());
-        } else
-            throw new IllegalStateException("Unsupported algorithm: " + key.getAlgorithm());
+            break;
+        default:
+            assert false;
+        }
     }
     
     public void putRawBytes(byte[] d)
