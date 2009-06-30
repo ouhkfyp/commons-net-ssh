@@ -18,7 +18,7 @@
  */
 package org.apache.commons.net.ssh;
 
-import static org.apache.commons.net.ssh.util.Constants.*;
+import static org.apache.commons.net.ssh.Constants.*;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -54,9 +54,8 @@ import org.apache.commons.net.ssh.signature.SignatureDSA;
 import org.apache.commons.net.ssh.signature.SignatureRSA;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.transport.Transport;
-import org.apache.commons.net.ssh.transport.Session.FactoryManager;
 import org.apache.commons.net.ssh.transport.Session.HostKeyVerifier;
-import org.apache.commons.net.ssh.userauth.UserAuth;
+import org.apache.commons.net.ssh.userauth.UserAuthBuilder;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
@@ -165,11 +164,15 @@ public class SSHClient extends SocketClient
     {
         super._connectAction_();
         try {
-            trans.setHostKeyVerifier(hostKeyVerifier);
             trans.init(_socket_);
         } catch (Exception e) {
             throw new IOException(e);
         }
+    }
+    
+    public void addHostKeyVerifier(HostKeyVerifier hostKeyVerifier)
+    {
+        trans.addHostKeyVerifier(hostKeyVerifier);
     }
     
     @Override
@@ -179,20 +182,15 @@ public class SSHClient extends SocketClient
         super.disconnect();
     }
     
-    public UserAuth.Builder getAuthBuilder()
+    public UserAuthBuilder getAuthBuilder()
     {
-        return new UserAuth.Builder(trans, System.getProperty("user.name"), conn);
+        return new UserAuthBuilder(trans, System.getProperty("user.name"), conn);
     }
     
     @Override
     public boolean isConnected()
     {
         return super.isConnected() && trans.isRunning();
-    }
-    
-    public void setHostKeyVerifier(HostKeyVerifier hostKeyVerifier)
-    {
-        this.hostKeyVerifier = hostKeyVerifier;
     }
     
 }

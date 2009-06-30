@@ -18,11 +18,10 @@
  */
 package org.apache.commons.net.ssh.transport;
 
-import static org.apache.commons.net.ssh.util.Constants.*;
-
 import java.io.IOException;
 
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
 import org.apache.commons.net.ssh.mac.MAC;
@@ -30,15 +29,6 @@ import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.BufferUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-/*
- * TODO:
- * 
- * > document
- * 
- * > unit tests
- * 
- */
 
 /**
  * 
@@ -110,7 +100,7 @@ class EncDec
                     if (decoderLength < 5 || decoderLength > 256 * 1024) {
                         log.info("Error decoding packet (invalid length) {}", decoderBuffer
                                 .printHex());
-                        throw new SSHException(SSH_DISCONNECT_PROTOCOL_ERROR,
+                        throw new SSHException(DisconnectReason.PROTOCOL_ERROR,
                                 "Invalid packet length: " + decoderLength);
                     }
                     // Ok, that's good, we can go to the next step
@@ -140,7 +130,7 @@ class EncDec
                         // Check the computed result with the received mac (just
                         // after the packet data)
                         if (!BufferUtils.equals(inMACResult, 0, data, decoderLength + 4, macSize))
-                            throw new SSHException(SSH_DISCONNECT_MAC_ERROR, "MAC Error");
+                            throw new SSHException(DisconnectReason.MAC_ERROR, "MAC Error");
                     }
                     // Increment incoming packet sequence number
                     seqi++;
@@ -252,7 +242,7 @@ class EncDec
         return seq;
     }
     
-    void gotByte(byte b) throws Exception
+    void gotByte(byte b) throws IOException
     {
         decoderBuffer.putByte(b);
         if (needed == 1)

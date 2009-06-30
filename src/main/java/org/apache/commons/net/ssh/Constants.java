@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh.util;
+package org.apache.commons.net.ssh;
 
 import java.security.Key;
 import java.security.interfaces.DSAPrivateKey;
@@ -25,13 +25,60 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 
 /**
- * This interface defines constants for the SSH protocol.
+ * This interface defines symbolic names for constants.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
 public interface Constants
 {
+    
+    //
+    // Disconnect error codes
+    //
+    enum DisconnectReason
+    {
+        
+        UNKNOWN(0),
+        HOST_NOT_ALLOWED_TO_CONNECT(1),
+        PROTOCOL_ERROR(2),
+        KEY_EXCHANGE_FAILED(3),
+        HOST_AUTHENTICATION_FAILED(4),
+        RESERVED(4),
+        MAC_ERROR(5),
+        COMPRESSION_ERROR(6),
+        SERVICE_NOT_AVAILABLE(7),
+        PROTOCOL_VERSION_NOT_SUPPORTED(8),
+        HOST_KEY_NOT_VERIFIABLE(9),
+        CONNECTION_LOST(10),
+        BY_APPLICATION(11),
+        TOO_MANY_CONNECTIONS(12),
+        AUTH_CANCELLED_BY_USER(13),
+        NO_MORE_AUTH_METHODS_AVAILABLE(14),
+        ILLEGAL_USER_NAME(15);
+        
+        public static DisconnectReason fromInt(int code)
+        {
+            for (DisconnectReason dc : values())
+                if (dc.code == code)
+                    return dc;
+            return UNKNOWN;
+        }
+        
+        private final int code;
+        
+        private DisconnectReason(int code)
+        {
+            this.code = code;
+        }
+        
+        public int toInt()
+        {
+            return code;
+        }
+        
+    }
+    
     enum KeyType
     {
         
@@ -43,7 +90,12 @@ public interface Constants
         /**
          * SSH identifier for DSA keys
          */
-        DSA("ssh-dss");
+        DSA("ssh-dss"),
+
+        /**
+         * Unrecognized
+         */
+        UNKNOWN("unknown");
         
         public static KeyType fromKey(Key key)
         {
@@ -53,15 +105,17 @@ public interface Constants
                 return DSA;
             else
                 assert false;
-            return null;
+            return UNKNOWN;
         }
         
         public static KeyType fromString(String sType)
         {
-            for (KeyType eType : KeyType.values())
-                if (eType.toString().equals(sType))
-                    return eType;
-            return null;
+            if (RSA.type.equals(sType))
+                return RSA;
+            else if (DSA.type.equals(sType))
+                return DSA;
+            else
+                return UNKNOWN;
         }
         
         private final String type;
@@ -85,54 +139,54 @@ public interface Constants
     enum Message
     {
         
-        SSH_MSG_DISCONNECT(1),
-        SSH_MSG_IGNORE(2),
-        SSH_MSG_UNIMPLEMENTED(3),
-        SSH_MSG_DEBUG(4),
-        SSH_MSG_SERVICE_REQUEST(5),
-        SSH_MSG_SERVICE_ACCEPT(6),
-        SSH_MSG_KEXINIT(20),
-        SSH_MSG_NEWKEYS(21),
+        DISCONNECT(1),
+        IGNORE(2),
+        UNIMPLEMENTED(3),
+        DEBUG(4),
+        SERVICE_REQUEST(5),
+        SERVICE_ACCEPT(6),
+        KEXINIT(20),
+        NEWKEYS(21),
         
-        SSH_MSG_KEXDH_INIT(30),
+        KEXDH_INIT(30),
         
         /**
          * { SSH_MSG_KEXDH_REPLY, SSH_MSG_KEXDH_GEX_GROUP }
          */
-        SSH_MSG_KEXDH_31(31),
+        KEXDH_31(31),
         
-        SSH_MSG_KEX_DH_GEX_INIT(32),
-        SSH_MSG_KEX_DH_GEX_REPLY(33),
-        SSH_MSG_KEX_DH_GEX_REQUEST(34),
+        KEX_DH_GEX_INIT(32),
+        KEX_DH_GEX_REPLY(33),
+        KEX_DH_GEX_REQUEST(34),
         
-        SSH_MSG_USERAUTH_REQUEST(50),
-        SSH_MSG_USERAUTH_FAILURE(51),
-        SSH_MSG_USERAUTH_SUCCESS(52),
-        SSH_MSG_USERAUTH_BANNER(53),
+        USERAUTH_REQUEST(50),
+        USERAUTH_FAILURE(51),
+        USERAUTH_SUCCESS(52),
+        USERAUTH_BANNER(53),
         
         /**
          * { SSH_MSG_USERAUTH_PASSWD_CHANGREQ, SSH_MSG_USERAUTH_PK_OK, SSH_MSG_USERAUTH_INFO_REQUEST
          * }
          */
-        SSH_MSG_USERAUTH_60(60),
+        USERAUTH_60(60),
         
-        SSH_MSG_USERAUTH_INFO_RESPONSE(61),
+        USERAUTH_INFO_RESPONSE(61),
         
-        SSH_MSG_GLOBAL_REQUEST(80),
-        SSH_MSG_REQUEST_SUCCESS(81),
-        SSH_MSG_REQUEST_FAILURE(82),
+        GLOBAL_REQUEST(80),
+        REQUEST_SUCCESS(81),
+        REQUEST_FAILURE(82),
         
-        SSH_MSG_CHANNEL_OPEN(90),
-        SSH_MSG_CHANNEL_OPEN_CONFIRMATION(91),
-        SSH_MSG_CHANNEL_OPEN_FAILURE(92),
-        SSH_MSG_CHANNEL_WINDOW_ADJUST(93),
-        SSH_MSG_CHANNEL_DATA(94),
-        SSH_MSG_CHANNEL_EXTENDED_DATA(95),
-        SSH_MSG_CHANNEL_EOF(96),
-        SSH_MSG_CHANNEL_CLOSE(97),
-        SSH_MSG_CHANNEL_REQUEST(98),
-        SSH_MSG_CHANNEL_SUCCESS(99),
-        SSH_MSG_CHANNEL_FAILURE(100);
+        CHANNEL_OPEN(90),
+        CHANNEL_OPEN_CONFIRMATION(91),
+        CHANNEL_OPEN_FAILURE(92),
+        CHANNEL_WINDOW_ADJUST(93),
+        CHANNEL_DATA(94),
+        CHANNEL_EXTENDED_DATA(95),
+        CHANNEL_EOF(96),
+        CHANNEL_CLOSE(97),
+        CHANNEL_REQUEST(98),
+        CHANNEL_SUCCESS(99),
+        CHANNEL_FAILURE(100);
         
         private final byte b;
         
@@ -161,6 +215,31 @@ public interface Constants
         }
     }
     
+    enum OpenError
+    {
+        UNKNOWN(0),
+        ADMINISTRATIVELY_PROHIBITED(1),
+        CONNECT_FAILED(2),
+        UNKNOWN_CHANNEL_TYPE(3),
+        RESOURCE_SHORTAGE(4);
+        
+        public static OpenError fromCode(int code)
+        {
+            for (OpenError c : values())
+                if (c.code == code)
+                    return c;
+            return UNKNOWN;
+        }
+        
+        private final int code;
+        
+        OpenError(int code)
+        {
+            this.code = code;
+        }
+        
+    }
+    
     /**
      * Software version; sent as part of client identification string
      */
@@ -170,49 +249,5 @@ public interface Constants
      * Default SSH port
      */
     int DEFAULT_PORT = 22;
-    
-    //
-    // Values for the algorithms negotiation
-    //
-    static final int PROPOSAL_KEX_ALGS = 0;
-    int PROPOSAL_SERVER_HOST_KEY_ALGS = 1;
-    int PROPOSAL_ENC_ALGS_CTOS = 2;
-    int PROPOSAL_ENC_ALGS_STOC = 3;
-    int PROPOSAL_MAC_ALGS_CTOS = 4;
-    int PROPOSAL_MAC_ALGS_STOC = 5;
-    int PROPOSAL_COMP_ALGS_CTOS = 6;
-    int PROPOSAL_COMP_ALGS_STOC = 7;
-    int PROPOSAL_LANG_CTOS = 8;
-    int PROPOSAL_LANG_STOC = 9;
-    int PROPOSAL_MAX = 10;
-    
-    //
-    // Disconnect error codes
-    //
-    int SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT = 1;
-    int SSH_DISCONNECT_PROTOCOL_ERROR = 2;
-    int SSH_DISCONNECT_KEY_EXCHANGE_FAILED = 3;
-    int SSH_DISCONNECT_HOST_AUTHENTICATION_FAILED = 4;
-    int SSH_DISCONNECT_RESERVED = 4;
-    int SSH_DISCONNECT_MAC_ERROR = 5;
-    int SSH_DISCONNECT_COMPRESSION_ERROR = 6;
-    int SSH_DISCONNECT_SERVICE_NOT_AVAILABLE = 7;
-    int SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED = 8;
-    int SSH_DISCONNECT_HOST_KEY_NOT_VERIFIABLE = 9;
-    int SSH_DISCONNECT_CONNECTION_LOST = 10;
-    int SSH_DISCONNECT_BY_APPLICATION = 11;
-    int SSH_DISCONNECT_TOO_MANY_CONNECTIONS = 12;
-    int SSH_DISCONNECT_AUTH_CANCELLED_BY_USER = 13;
-    int SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE = 14;
-    int SSH_DISCONNECT_ILLEGAL_USER_NAME = 15;
-    
-    //
-    // Open error codes
-    //
-    
-    int SSH_OPEN_ADMINISTRATIVELY_PROHIBITED = 1;
-    int SSH_OPEN_CONNECT_FAILED = 2;
-    int SSH_OPEN_UNKNOWN_CHANNEL_TYPE = 3;
-    int SSH_OPEN_RESOURCE_SHORTAGE = 4;
     
 }

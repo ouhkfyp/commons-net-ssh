@@ -21,9 +21,9 @@ package org.apache.commons.net.ssh.connection;
 import java.io.IOException;
 
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants.Message;
 
 /*
  * STUB!
@@ -56,7 +56,7 @@ public class Connection implements ConnectionService
         
     }
     
-    public void setError(Exception ex)
+    public void setError(SSHException ex)
     {
         // TODO Auto-generated method stub
     }

@@ -24,6 +24,7 @@ import javax.crypto.ShortBufferException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
@@ -80,7 +81,7 @@ public class BaseCipher implements Cipher
                     new IvParameterSpec(iv));
         } catch (GeneralSecurityException e) {
             cipher = null;
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
     }
     
@@ -89,7 +90,7 @@ public class BaseCipher implements Cipher
         try {
             cipher.update(input, inputOffset, inputLen, input, inputOffset);
         } catch (ShortBufferException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
     }
     

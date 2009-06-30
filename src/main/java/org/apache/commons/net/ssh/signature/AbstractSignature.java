@@ -23,6 +23,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SignatureException;
 
+import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
@@ -67,7 +68,7 @@ public abstract class AbstractSignature implements Signature
             if (prvkey != null)
                 signature.initSign(prvkey);
         } catch (GeneralSecurityException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
     }
     
@@ -81,7 +82,7 @@ public abstract class AbstractSignature implements Signature
         try {
             signature.update(foo, off, len);
         } catch (SignatureException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
     }
 }

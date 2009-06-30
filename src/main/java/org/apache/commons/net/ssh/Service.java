@@ -20,8 +20,8 @@ package org.apache.commons.net.ssh;
 
 import java.io.IOException;
 
+import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants.Message;
 
 public interface Service
 {
@@ -33,8 +33,8 @@ public interface Service
     String getName();
     
     /**
-     * Once a service has been successfully requested, SSH packets not recognized by the transport
-     * layer are passed to the service instance for handling.
+     * SSH packets not recognized by the transport layer are passed to the service instance for
+     * handling.
      * 
      * @param cmd
      * @param packet
@@ -43,20 +43,18 @@ public interface Service
     void handle(Message cmd, Buffer packet) throws IOException;
     
     /**
-     * Request this service. In case the currently active service as provided by the session is this
-     * instance, it is to be assumed that the service has already been requested successfully and
-     * this method has no effect.
+     * Request and install this service.
      * 
      * @throws IOException
      */
     void request() throws IOException;
     
     /**
-     * Notify the service that an error occured in the transport layer.
+     * Notifies this instance that an error occured in the transport layer.
      * 
      * @param ex
      *            the exception that occured in session layer
      */
-    void setError(Exception ex);
+    void setError(SSHException ex);
     
 }

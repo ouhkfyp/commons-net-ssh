@@ -29,6 +29,7 @@ import javax.crypto.KeyAgreement;
 import javax.crypto.spec.DHParameterSpec;
 import javax.crypto.spec.DHPublicKeySpec;
 
+import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
@@ -55,7 +56,7 @@ public class DH
             myKpairGen = SecurityUtils.getKeyPairGenerator("DH");
             myKeyAgree = SecurityUtils.getKeyAgreement("DH");
         } catch (GeneralSecurityException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
         
     }
@@ -70,7 +71,7 @@ public class DH
                 myKpair = myKpairGen.generateKeyPair();
                 myKeyAgree.init(myKpair.getPrivate());
             } catch (GeneralSecurityException e) {
-                throw new RuntimeException(e);
+                throw new SSHRuntimeException(e);
             }
             e = ((javax.crypto.interfaces.DHPublicKey) myKpair.getPublic()).getY();
             e_array = e.toByteArray();
@@ -87,7 +88,7 @@ public class DH
                 PublicKey yourPubKey = myKeyFac.generatePublic(keySpec);
                 myKeyAgree.doPhase(yourPubKey, true);
             } catch (GeneralSecurityException e) {
-                throw new RuntimeException(e);
+                throw new SSHRuntimeException(e);
             }
             byte[] mySharedSecret = myKeyAgree.generateSecret();
             K = new BigInteger(mySharedSecret);

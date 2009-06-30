@@ -52,7 +52,6 @@ public interface Cipher
      * @param mode
      * @param key
      * @param iv
-     * @throws Exception
      */
     void init(Mode mode, byte[] key, byte[] iv);
     

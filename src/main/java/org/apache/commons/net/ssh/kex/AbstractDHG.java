@@ -18,20 +18,19 @@
  */
 package org.apache.commons.net.ssh.kex;
 
-import static org.apache.commons.net.ssh.util.Constants.*;
-
 import java.io.IOException;
 import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.Constants.KeyType;
+import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.digest.Digest;
 import org.apache.commons.net.ssh.digest.SHA1;
 import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants.KeyType;
-import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,7 +94,7 @@ public abstract class AbstractDHG implements KeyExchange
         e = dh.getE();
         
         log.info("Sending SSH_MSG_KEXDH_INIT");
-        Buffer buffer = session.createBuffer(Message.SSH_MSG_KEXDH_INIT);
+        Buffer buffer = new Buffer(Message.KEXDH_INIT);
         buffer.putMPInt(e);
         session.writePacket(buffer);
     }
@@ -105,9 +104,9 @@ public abstract class AbstractDHG implements KeyExchange
     public boolean next(Buffer buffer) throws SSHException
     {
         Message cmd = buffer.getCommand();
-        if (cmd != Message.SSH_MSG_KEXDH_31)
-            throw new SSHException(SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                    "Protocol error: expected packet " + Message.SSH_MSG_KEXDH_31 + ", got " + cmd);
+        if (cmd != Message.KEXDH_31)
+            throw new SSHException(DisconnectReason.KEY_EXCHANGE_FAILED,
+                    "Protocol error: expected packet " + Message.KEXDH_31 + ", got " + cmd);
         
         log.info("Received SSH_MSG_KEXDH_REPLY");
         
@@ -137,7 +136,7 @@ public abstract class AbstractDHG implements KeyExchange
         verif.init(hostKey, null);
         verif.update(H, 0, H.length);
         if (!verif.verify(sig))
-            throw new SSHException(SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+            throw new SSHException(DisconnectReason.KEY_EXCHANGE_FAILED,
                     "KeyExchange signature verification failed");
         return true;
     }

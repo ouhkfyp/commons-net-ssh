@@ -18,7 +18,7 @@
  */
 package org.apache.commons.net.ssh.transport;
 
-import static org.apache.commons.net.ssh.util.Constants.*;
+import static org.apache.commons.net.ssh.Constants.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,22 +27,27 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.security.PublicKey;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Transport layer
+ * 
+ * Thread-safe {@link Session} implementation.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
@@ -120,7 +125,16 @@ public class Transport implements Session
                     bin.gotByte((byte) input.read());
                 } catch (Exception e) {
                     if (!stopPumping) {
-                        log.error("Encountered error: {}", e.toString());
+                        log.error("Encountered error: ", e.toString());
+                        if (outPump.isAlive() && e instanceof SSHException) {
+                            /*
+                             * send SSH_MSG_DISCONNECT if we have the required info in the exception
+                             * and if outPump is up for it
+                             */
+                            DisconnectReason reason = ((SSHException) e).getDisconnectReason();
+                            if (!reason.equals(DisconnectReason.UNKNOWN))
+                                disconnect(reason, ((SSHException) e).getMessage());
+                        }
                         setError(e);
                     }
                 }
@@ -150,7 +164,7 @@ public class Transport implements Session
                     output.write(outQ.take());
                 } catch (Exception e) {
                     if (!stopPumping) {
-                        log.error("Encountered error: {}", e.toString());
+                        log.error("Encountered error: ", e.toString());
                         setError(e);
                     }
                 }
@@ -175,7 +189,7 @@ public class Transport implements Session
      * {@link HostKeyVerifier#verify(InetAddress, PublicKey)} is invoked by
      * {@link #verifyHost(PublicKey)} when we are ready to verify the the server's host key.
      */
-    private HostKeyVerifier hkv;
+    private final Queue<HostKeyVerifier> hkvs = new LinkedList<HostKeyVerifier>();
     
     private Socket socket;
     
@@ -183,42 +197,39 @@ public class Transport implements Session
     
     public Transport(FactoryManager factoryManager)
     {
-        super();
-        
+        assert factoryManager != null;
         fm = factoryManager;
         prng = factoryManager.getRandomFactory().create();
         bin = new EncDec(this);
         kex = new KexHandler(this);
     }
     
-    public Buffer createBuffer(Message cmd)
+    public synchronized void addHostKeyVerifier(HostKeyVerifier hkv)
     {
-        Buffer buffer = new Buffer();
-        buffer.rpos(5);
-        buffer.wpos(5);
-        buffer.putByte(cmd.toByte());
-        return buffer;
+        hkvs.add(hkv);
     }
     
-    public void disconnect() throws IOException
+    public void disconnect()
     {
-        disconnect(SSH_DISCONNECT_BY_APPLICATION);
+        disconnect(DisconnectReason.BY_APPLICATION);
     }
     
-    public void disconnect(int reason) throws IOException
+    public void disconnect(DisconnectReason reason)
     {
         disconnect(reason, "");
     }
     
-    public void disconnect(int reason, String msg) throws IOException
+    public void disconnect(DisconnectReason reason, String msg)
     {
+        log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
         try {
-            log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
-            Buffer buffer = createBuffer(Message.SSH_MSG_DISCONNECT);
-            buffer.putInt(reason);
+            Buffer buffer = new Buffer(Message.DISCONNECT);
+            buffer.putInt(reason.toInt());
             buffer.putString(msg);
-            buffer.putString("");
+            buffer.putString(""); // langtag..?
             writePacket(buffer);
+        } catch (Exception e) {
+            log.error("Error while disconnecting: {}", e.toString());
         } finally {
             stop();
         }
@@ -255,14 +266,14 @@ public class Transport implements Session
         log.debug("Received packet {}", cmd);
         switch (cmd)
         {
-        case SSH_MSG_DISCONNECT:
+        case DISCONNECT:
         {
-            int code = packet.getInt();
+            DisconnectReason code = DisconnectReason.fromInt(packet.getInt());
             String msg = packet.getString();
             log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, msg);
             throw new SSHException(code, msg);
         }
-        case SSH_MSG_UNIMPLEMENTED:
+        case UNIMPLEMENTED:
         {
             int code = packet.getInt();
             /*
@@ -271,14 +282,14 @@ public class Transport implements Session
             log.info("Received SSH_MSG_UNIMPLEMENTED #{}", code);
             break;
         }
-        case SSH_MSG_DEBUG:
+        case DEBUG:
         {
             boolean display = packet.getBoolean();
             String msg = packet.getString();
             log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, msg);
             break;
         }
-        case SSH_MSG_IGNORE:
+        case IGNORE:
         {
             log.info("Received SSH_MSG_IGNORE");
             break;
@@ -295,8 +306,8 @@ public class Transport implements Session
             }
             case SERVICE_REQ:
             {
-                if (cmd != Message.SSH_MSG_SERVICE_ACCEPT) {
-                    disconnect(SSH_DISCONNECT_PROTOCOL_ERROR,
+                if (cmd != Message.SERVICE_ACCEPT) {
+                    disconnect(DisconnectReason.PROTOCOL_ERROR,
                             "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
                     return;
                 }
@@ -305,7 +316,7 @@ public class Transport implements Session
             }
             case SERVICE:
             {
-                if (cmd != Message.SSH_MSG_KEXINIT)
+                if (cmd != Message.KEXINIT)
                     service.handle(cmd, packet);
                 else {
                     setState(State.KEX);
@@ -347,7 +358,7 @@ public class Transport implements Session
             kex.init();
             waitFor(State.KEX_DONE);
         } catch (Exception e) {
-            SSHException.chain(e);
+            throw SSHException.chain(e);
         }
     }
     
@@ -363,7 +374,12 @@ public class Transport implements Session
     
     public boolean isRunning()
     {
-        return !(state == State.ERROR || state == State.STOPPED);
+        stateLock.lock();
+        try {
+            return !(state == State.ERROR || state == State.STOPPED);
+        } finally {
+            stateLock.unlock();
+        }
     }
     
     private String readIdentification(Buffer buffer) throws IOException
@@ -402,27 +418,27 @@ public class Transport implements Session
         }
         
         if (!ident.startsWith("SSH-2.0-"))
-            disconnect(SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED);
+            disconnect(DisconnectReason.PROTOCOL_VERSION_NOT_SUPPORTED);
         
         return ident;
     }
     
-    public void reqService(Service service) throws IOException
+    public synchronized void reqService(Service service) throws IOException
     {
         setState(State.SERVICE_REQ);
         sendServiceRequest(service.getName());
         try {
             waitFor(State.SERVICE);
-            this.service = service;
+            setService(service);
         } catch (Exception e) {
-            SSHException.chain(e);
+            throw SSHException.chain(e);
         }
     }
     
     private void sendServiceRequest(String serviceName) throws IOException
     {
         log.debug("Sending SSH_MSG_SERVICE_REQUEST for {}", serviceName);
-        Buffer buffer = createBuffer(Message.SSH_MSG_SERVICE_REQUEST);
+        Buffer buffer = new Buffer(Message.SERVICE_REQUEST);
         buffer.putString(serviceName);
         writePacket(buffer);
     }
@@ -436,12 +452,12 @@ public class Transport implements Session
      */
     void sendUnimplemented(int num) throws IOException
     {
-        Buffer buffer = createBuffer(Message.SSH_MSG_UNIMPLEMENTED);
+        Buffer buffer = new Buffer(Message.UNIMPLEMENTED);
         buffer.putInt(num);
         writePacket(buffer);
     }
     
-    synchronized public void setAuthenticated()
+    public void setAuthenticated()
     {
         authed = true;
     }
@@ -463,30 +479,25 @@ public class Transport implements Session
      * @param e
      *            Exception
      */
-    private void setError(Exception e)
+    private synchronized void setError(Exception e)
     {
-        exception = e;
+        // this method is idempotent except for state, but that should not affect anything
+        
         log.error("Encountered error: {}", e);
         
-        if (service != null)
-            service.setError(e instanceof SSHException ? (SSHException) e : new SSHException(e));
+        if (service != null) {
+            service.setError(SSHException.chain(e));
+            service = null;
+        }
         
         /*
-         * will result in exception being thrown in any thread that was waiting for state change;
-         * see waitFor()
+         * will result in the exception being thrown in any thread that was waiting for state
+         * change; see waitFor()
          */
+        exception = e;
         setState(State.ERROR);
         
-        try {
-            stop();
-        } catch (IOException e1) {
-            
-        }
-    }
-    
-    public void setHostKeyVerifier(HostKeyVerifier hkv)
-    {
-        this.hkv = hkv;
+        stop();
     }
     
     public void setService(Service service)
@@ -507,7 +518,7 @@ public class Transport implements Session
         }
     }
     
-    void stop() throws IOException
+    void stop()
     {
         // stop inPump and outPump
         stopPumping = true;
@@ -529,7 +540,13 @@ public class Transport implements Session
     
     boolean verifyHost(PublicKey key)
     {
-        return hkv.verify(socket.getInetAddress(), key);
+        HostKeyVerifier hkv;
+        while ((hkv = hkvs.poll()) != null) {
+            log.debug("Verifiying host key with [{}]", hkv);
+            if (hkv.verify(socket.getInetAddress(), key))
+                return true;
+        }
+        return false;
     }
     
     /**
@@ -540,18 +557,22 @@ public class Transport implements Session
      * @throws Exception
      *             in case of error event while waiting
      */
-    private void waitFor(State s) throws Exception
+    private void waitFor(State s) throws SSHException
     {
         stateLock.lock();
         try {
             while (state != s && state != State.ERROR && state != State.STOPPED)
-                stateChange.await();
+                try {
+                    stateChange.await();
+                } catch (InterruptedException e) {
+                    throw new SSHException(e);
+                }
             log.debug("Woke up to {}", state.toString());
             if (state != s)
                 if (state == State.ERROR)
-                    throw exception;
+                    throw SSHException.chain(exception);
                 else if (state == State.STOPPED)
-                    throw new SSHException("oStopped while waiting");
+                    throw new SSHException(DisconnectReason.BY_APPLICATION);
         } finally {
             stateLock.unlock();
         }

@@ -20,6 +20,8 @@ package org.apache.commons.net.ssh;
 
 import java.io.IOException;
 
+import org.apache.commons.net.ssh.Constants.DisconnectReason;
+
 /**
  * TODO Add javadoc
  * 
@@ -28,62 +30,67 @@ import java.io.IOException;
 public class SSHException extends IOException
 {
     
-    public static void chain(Exception e) throws SSHException
+    public static SSHException chain(Exception e)
     {
         if (e instanceof SSHException)
-            throw (SSHException) e;
+            return (SSHException) e;
         else
-            throw new SSHException(e);
+            return new SSHException(e);
     }
     
-    private final int disconnectCode;
+    private final DisconnectReason code;
     
     public SSHException()
     {
-        this(0, null, null);
+        this(DisconnectReason.UNKNOWN, null, null);
     }
     
-    public SSHException(int disconnectCode)
+    public SSHException(DisconnectReason code)
     {
-        this(disconnectCode, null, null);
+        this(code, null, null);
     }
     
-    public SSHException(int disconnectCode, String message)
+    public SSHException(DisconnectReason code, String message)
     {
-        this(disconnectCode, message, null);
+        this(code, message, null);
     }
     
-    public SSHException(int disconnectCode, String message, Throwable cause)
+    public SSHException(DisconnectReason code, String message, Throwable cause)
     {
         super(message);
-        this.disconnectCode = disconnectCode;
+        this.code = code;
         if (cause != null)
             initCause(cause);
     }
     
-    public SSHException(int disconnectCode, Throwable cause)
+    public SSHException(DisconnectReason code, Throwable cause)
     {
-        this(disconnectCode, null, cause);
+        this(code, null, cause);
     }
     
     public SSHException(String message)
     {
-        this(0, message, null);
+        this(DisconnectReason.UNKNOWN, message, null);
     }
     
     public SSHException(String message, Throwable cause)
     {
-        this(0, message, cause);
+        this(DisconnectReason.UNKNOWN, message, cause);
     }
     
     public SSHException(Throwable cause)
     {
-        this(0, null, cause);
+        this(DisconnectReason.UNKNOWN, null, cause);
     }
     
     public int getDisconnectCode()
     {
-        return disconnectCode;
+        return code.toInt();
+    }
+    
+    public DisconnectReason getDisconnectReason()
+    {
+        return code;
     }
     
 }

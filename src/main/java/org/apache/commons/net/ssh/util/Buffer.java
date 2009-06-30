@@ -29,8 +29,8 @@ import java.security.spec.DSAPublicKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 
 import org.apache.commons.net.ssh.SSHRuntimeException;
-import org.apache.commons.net.ssh.util.Constants.KeyType;
-import org.apache.commons.net.ssh.util.Constants.Message;
+import org.apache.commons.net.ssh.Constants.KeyType;
+import org.apache.commons.net.ssh.Constants.Message;
 
 /**
  * Facilitates reading and writing SSH packets
@@ -85,6 +85,20 @@ public final class Buffer
     public Buffer(int size)
     {
         this(new byte[getNextPowerOf2(size)], false);
+    }
+    
+    /**
+     * Constructs new buffer for the specified SSH packet and reserves the needed space (5 bytes)
+     * for the packet header.
+     * 
+     * @param cmd
+     *            the SSH command
+     */
+    public Buffer(Message cmd)
+    {
+        this();
+        rpos = wpos = 5;
+        putByte(cmd.toByte());
     }
     
     public byte[] array()
@@ -183,24 +197,9 @@ public final class Buffer
         return i;
     }
     
-    public LanguageQualifiedString getLanguageQualifiedField()
+    public LQString getLanguageQualifiedField()
     {
-        final String text = getString();
-        final String langTag = getString();
-        return new LanguageQualifiedString()
-        {
-            
-            public String getLanguage()
-            {
-                return text;
-            }
-            
-            public String getText()
-            {
-                return langTag;
-            }
-            
-        };
+        return new LQString(getString(), getString());
     }
     
     public BigInteger getMPInt()

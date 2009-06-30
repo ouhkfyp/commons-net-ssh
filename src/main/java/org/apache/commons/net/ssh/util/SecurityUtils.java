@@ -34,7 +34,7 @@ import javax.crypto.KeyAgreement;
 import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 
-import org.apache.commons.net.ssh.util.Constants.KeyType;
+import org.apache.commons.net.ssh.Constants.KeyType;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
