@@ -19,12 +19,11 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.transport.Session;
+import org.apache.commons.net.ssh.util.All;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,15 +31,14 @@ import org.slf4j.LoggerFactory;
 public abstract class AbstractAuthMethod implements AuthMethod
 {
     protected final Logger log = LoggerFactory.getLogger(getClass());
-    
     protected final Session session;
     protected final Service nextService;
     protected final String username;
-    protected Set<String> allowed;
+    protected volatile String[] allowed;
     
     public AbstractAuthMethod(Session session, Service nextService, String username)
     {
-        assert session != null && nextService != null && username != null;
+        All.notNull(session, nextService, username);
         this.session = session;
         this.nextService = nextService;
         this.username = username;
@@ -56,7 +54,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
         return buf;
     }
     
-    public Set<String> getAllowedMethods()
+    public String[] getAllowedMethods()
     {
         return allowed;
     }
@@ -71,6 +69,24 @@ public abstract class AbstractAuthMethod implements AuthMethod
         return username;
     }
     
+    public Result handle(Message cmd, Buffer buf) throws IOException
+    {
+        switch (cmd)
+        {
+        case USERAUTH_SUCCESS:
+            return Result.SUCCESS;
+        case USERAUTH_FAILURE:
+            setAllowedMethods(buf.getString());
+            if (buf.getBoolean())
+                return Result.PARTIAL_SUCCESS;
+            else
+                return Result.FAILURE;
+        default:
+            log.error("Unexpected packet");
+            return Result.FAILURE;
+        }
+    }
+    
     public void request() throws IOException
     {
         log.debug("Sending SSH_MSG_USERAUTH_REQUEST");
@@ -79,7 +95,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
     
     protected void setAllowedMethods(String commaDelimed)
     {
-        allowed = new LinkedHashSet<String>(Arrays.asList(commaDelimed.split(",")));
+        allowed = commaDelimed.split(",");
     }
     
 }

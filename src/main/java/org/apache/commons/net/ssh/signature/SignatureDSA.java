@@ -21,7 +21,8 @@ package org.apache.commons.net.ssh.signature;
 import java.security.SignatureException;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.util.Constants.KeyType;
+import org.apache.commons.net.ssh.SSHRuntimeException;
+import org.apache.commons.net.ssh.Constants.KeyType;
 
 /**
  * DSA <code>Signature</code>
@@ -60,7 +61,7 @@ public class SignatureDSA extends AbstractSignature
         try {
             sig = signature.sign();
         } catch (SignatureException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
         
         // sig is in ASN.1
@@ -114,7 +115,7 @@ public class SignatureDSA extends AbstractSignature
         try {
             return signature.verify(sig);
         } catch (SignatureException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
     }
     

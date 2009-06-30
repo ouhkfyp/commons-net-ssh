@@ -20,35 +20,29 @@ package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
 import java.security.KeyPair;
-import java.security.PublicKey;
 
-import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.signature.Signature;
+import org.apache.commons.net.ssh.Constants.KeyType;
+import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants.KeyType;
-import org.apache.commons.net.ssh.util.Constants.Message;
 
-public class AuthPublickey extends AbstractAuthMethod
+public class AuthPublickey extends KeyedAuthMethod
 {
     
     public static final String NAME = "publickey";
-    private final KeyPair kp;
     
     public AuthPublickey(Session session, Service nextService, String username, KeyPair kp)
     {
-        super(session, nextService, username);
-        assert kp != null;
-        this.kp = kp;
+        super(session, nextService, username, kp);
     }
     
     @Override
     protected Buffer buildRequest()
     {
-        Buffer buf = buildRequestCommon(session.createBuffer(Message.SSH_MSG_USERAUTH_REQUEST));
+        Buffer buf = buildRequestCommon(new Buffer(Message.USERAUTH_REQUEST));
         buf.putBoolean(false);
-        putPublicKey(buf);
+        putPubKey(buf);
         return buf;
     }
     
@@ -57,18 +51,22 @@ public class AuthPublickey extends AbstractAuthMethod
         return NAME;
     }
     
+    @Override
     public Result handle(Message cmd, Buffer buf) throws IOException
     {
         switch (cmd)
         {
-        case SSH_MSG_USERAUTH_SUCCESS:
+        case USERAUTH_SUCCESS:
             return Result.SUCCESS;
-        case SSH_MSG_USERAUTH_FAILURE:
+        case USERAUTH_FAILURE:
             setAllowedMethods(buf.getString());
-            return Result.FAILURE;
-        case SSH_MSG_USERAUTH_60:
+            if (buf.getBoolean())
+                return Result.PARTIAL_SUCCESS;
+            else
+                return Result.FAILURE;
+        case USERAUTH_60:
             log.debug("Key acceptable, sending signature");
-            sendSignedRequest();
+            sendSignedReq();
             return Result.CONTINUED;
         default:
             log.error("Unexpected packet");
@@ -76,39 +74,21 @@ public class AuthPublickey extends AbstractAuthMethod
         }
     }
     
-    private void putPublicKey(Buffer buf)
+    private void sendSignedReq() throws IOException
     {
-        PublicKey key = kp.getPublic();
-        buf.putString(KeyType.fromKey(key).toString());
+        KeyType.fromKey(kPair.getPublic());
         
-        Buffer temp = new Buffer();
-        temp.putPublicKey(key);
-        buf.putString(temp.getCompactData());
-    }
-    
-    private void sendSignedRequest() throws IOException
-    {
-        KeyType type = KeyType.fromKey(kp.getPublic());
-        
-        Signature sig = NamedFactory.Utils.create(session.getFactoryManager()
-                .getSignatureFactories(), type.toString());
-        sig.init(kp.getPublic(), kp.getPrivate());
-        
-        Buffer reqBuf = buildRequestCommon(session.createBuffer(Message.SSH_MSG_USERAUTH_REQUEST));
+        // this is the request buffer, to which we will add the signature in a bit
+        Buffer reqBuf = buildRequestCommon(new Buffer(Message.USERAUTH_REQUEST));
         reqBuf.putBoolean(true);
-        putPublicKey(reqBuf);
+        putPubKey(reqBuf);
         
+        // the subject for the signature: consists of sessionID string + above data
         Buffer sigSubj = new Buffer();
         sigSubj.putString(session.getID());
         sigSubj.putBuffer(reqBuf);
-        sig.update(sigSubj.getCompactData());
         
-        Buffer sigBuf = new Buffer();
-        sigBuf.putString(type.toString());
-        sigBuf.putString(sig.sign());
-        
-        reqBuf.putString(sigBuf.getCompactData());
-        
-        session.writePacket(reqBuf);
+        // ready to go
+        session.writePacket(putSig(sigSubj, reqBuf));
     }
 }

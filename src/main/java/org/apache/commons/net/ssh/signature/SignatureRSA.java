@@ -21,7 +21,8 @@ package org.apache.commons.net.ssh.signature;
 import java.security.SignatureException;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.util.Constants.KeyType;
+import org.apache.commons.net.ssh.SSHRuntimeException;
+import org.apache.commons.net.ssh.Constants.KeyType;
 
 /**
  * RSA <code>Signature</code>
@@ -59,7 +60,7 @@ public class SignatureRSA extends AbstractSignature
         try {
             return signature.sign();
         } catch (SignatureException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
     }
     
@@ -69,7 +70,7 @@ public class SignatureRSA extends AbstractSignature
         try {
             return signature.verify(sig);
         } catch (SignatureException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
     }
     

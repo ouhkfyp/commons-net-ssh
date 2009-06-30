@@ -22,153 +22,21 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.security.PublicKey;
-import java.util.List;
 
-import org.apache.commons.net.ssh.NamedFactory;
+import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.cipher.Cipher;
-import org.apache.commons.net.ssh.compression.Compression;
-import org.apache.commons.net.ssh.kex.KeyExchange;
-import org.apache.commons.net.ssh.keyprovider.KeyPairProvider;
-import org.apache.commons.net.ssh.mac.MAC;
-import org.apache.commons.net.ssh.random.Random;
-import org.apache.commons.net.ssh.signature.Signature;
+import org.apache.commons.net.ssh.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants.Message;
 
 /**
- * TODO javadocs
+ * Transport layer of the SSH protocol.
  * 
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
 public interface Session
 {
-    
-    /**
-     * Allows retrieving all the <code>NamedFactory</code> for Cipher, MAC, etc.
-     * 
-     * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
-     * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
-     */
-    class FactoryManager
-    {
-        
-        private List<NamedFactory<KeyExchange>> keyExchangeFactories;
-        private List<NamedFactory<Cipher>> cipherFactories;
-        private List<NamedFactory<Compression>> compressionFactories;
-        private List<NamedFactory<MAC>> macFactories;
-        private List<NamedFactory<Signature>> signatureFactories;
-        private NamedFactory<Random> randomFactory;
-        private KeyPairProvider keyPairProvider;
-        
-        /**
-         * Retrieve the list of named factories for <code>Cipher</code>.
-         * 
-         * @return a list of named <code>Cipher</code> factories, never <code>null</code>
-         */
-        public List<NamedFactory<Cipher>> getCipherFactories()
-        {
-            return cipherFactories;
-        }
-        
-        /**
-         * Retrieve the list of named factories for <code>Compression</code>.
-         * 
-         * @return a list of named <code>Compression</code> factories, never <code>null</code>
-         */
-        public List<NamedFactory<Compression>> getCompressionFactories()
-        {
-            return compressionFactories;
-        }
-        
-        /**
-         * Retrieve the list of named factories for <code>KeyExchange</code>.
-         * 
-         * @return a list of named <code>KeyExchange</code> factories, never <code>null</code>
-         */
-        public List<NamedFactory<KeyExchange>> getKeyExchangeFactories()
-        {
-            return keyExchangeFactories;
-        }
-        
-        /**
-         * Retrieve the <code>KeyPairProvider</code> that will be used to find the host key to use
-         * on the server side or the user key on the client side.
-         * 
-         * @return the <code>KeyPairProvider</code>, never <code>null</code>
-         */
-        public KeyPairProvider getKeyPairProvider()
-        {
-            return keyPairProvider;
-        }
-        
-        /**
-         * Retrieve the list of named factories for <code>MAC</code>.
-         * 
-         * @return a list of named <code>Mac</code> factories, never <code>null</code>
-         */
-        public List<NamedFactory<MAC>> getMACFactories()
-        {
-            return macFactories;
-        }
-        
-        /**
-         * Retrieve the <code>Random</code> factory to be used.
-         * 
-         * @return the <code>Random</code> factory, never <code>null</code>
-         */
-        public NamedFactory<Random> getRandomFactory()
-        {
-            return randomFactory;
-        }
-        
-        /**
-         * Retrieve the list of named factories for <code>Signature</code>.
-         * 
-         * @return a list of named <code>Signature</code> factories, never <code>null</code>
-         */
-        public List<NamedFactory<Signature>> getSignatureFactories()
-        {
-            return signatureFactories;
-        }
-        
-        public void setCipherFactories(List<NamedFactory<Cipher>> cipherFactories)
-        {
-            this.cipherFactories = cipherFactories;
-        }
-        
-        public void setCompressionFactories(List<NamedFactory<Compression>> compressionFactories)
-        {
-            this.compressionFactories = compressionFactories;
-        }
-        
-        public void setKeyExchangeFactories(List<NamedFactory<KeyExchange>> keyExchangeFactories)
-        {
-            this.keyExchangeFactories = keyExchangeFactories;
-        }
-        
-        public void setKeyPairProvider(KeyPairProvider keyPairProvider)
-        {
-            this.keyPairProvider = keyPairProvider;
-        }
-        
-        public void setMACFactories(List<NamedFactory<MAC>> macFactories)
-        {
-            this.macFactories = macFactories;
-        }
-        
-        public void setRandomFactory(NamedFactory<Random> randomFactory)
-        {
-            this.randomFactory = randomFactory;
-        }
-        
-        public void setSignatureFactories(List<NamedFactory<Signature>> signatureFactories)
-        {
-            this.signatureFactories = signatureFactories;
-        }
-        
-    }
     
     /**
      * Interface for host key verification.
@@ -196,33 +64,31 @@ public interface Session
     }
     
     /**
-     * Create a new buffer for the specified SSH packet and reserve the needed space (5 bytes) for
-     * the packet header.
+     * Specify a callback for host key verification.
      * 
-     * @param cmd
-     *            the SSH command
-     * @return a new buffer ready for write
+     * @param hkv
+     * @see HostKeyVerifier#verify(java.net.InetAddress, java.security.PublicKey)
      */
-    Buffer createBuffer(Message cmd);
+    void addHostKeyVerifier(HostKeyVerifier hkv);
     
     /**
-     * Send a disconnection packet with reason as {@link Constants#SSH_DISCONNECT_BY_APPLICATION}
-     * and closoe the session.
+     * Send a disconnection packet with reason as {@link Constants#SSH_DISCONNECT_BY_APPLICATION},
+     * and close the session.
      * 
      * @throws IOException
      */
-    void disconnect() throws IOException;
+    void disconnect();
     
     /**
-     * Send a disconnect packet with the given reason and close the session.
+     * Send a disconnect packet with the given reason, and close this session.
      * 
      * @param reason
      * @throws IOException
      */
-    void disconnect(int reason) throws IOException;
+    void disconnect(DisconnectReason reason);
     
     /**
-     * Send a disconnect packet with the given reason and message, and close the session.
+     * Send a disconnect packet with the given reason and message, and close this session.
      * 
      * @param reason
      *            the reason code for this disconnect
@@ -231,78 +97,93 @@ public interface Session
      * @throws IOException
      *             if an error occured sending the packet
      */
-    void disconnect(int reason, String msg) throws IOException;
+    void disconnect(DisconnectReason reason, String msg);
     
     Service getActiveService();
     
+    /**
+     * Returns the version string used by this client to identify itself to an SSH server.
+     * 
+     * @return client's version string
+     */
     String getClientVersion();
     
     /**
-     * Retrieve the factory manager
+     * Retrieves the {@link FactoryManager} associated with this session.
      * 
-     * @return the factory manager for this session
+     * @return factory manager for this session
      */
     FactoryManager getFactoryManager();
     
     /**
-     * Session ID
+     * Returns the session identifier computed during key exchange.
+     * 
+     * @return session identifier as a byte array
      */
-    public byte[] getID();
+    byte[] getID();
     
+    /**
+     * Returns the version string as sent by the SSH server for identification purposes.
+     * 
+     * If the session has not been initialized, will be {@code null}.
+     * 
+     * @return server's version string
+     */
     String getServerVersion();
     
     /**
-     * Do kex
+     * Initializes this session by exchanging identification information and performing key exchange
+     * with the SSH server.
+     * <p>
+     * When this method returns, it is ready for requesting a SSH service (typically,
+     * authentication).
      * 
      * @param socket
+     *            the socket on which connection to SSH server has been already established
      * @throws SSHException
+     *             if there is an error during session initialization or key exchange
      */
     void init(Socket socket) throws IOException;
     
-    boolean isRunning();
+    boolean isRunning(); // threadsafe
     
     /**
-     * Request a service. Implicitly sets the active service instance, so a call to
+     * Request a SSH service represented by a {@link Service} instance.
+     * <p>
+     * If the request was successful, the active service is set implicitly and a call to
      * {@link #setService(Service)} is not needed.
      * 
      * @param service
-     * @throws Exception
+     * @throws IOException
+     *             if the request failed for any reason
      */
     void reqService(Service service) throws IOException;
     
     /**
-     * Must be called after the session has been authenticated, so that delayed compression may
-     * become effective if applicable.
-     * 
-     * @param authed
+     * This method <b>must</b> be called after the session has been authenticated, so that delayed
+     * compression may become effective if applicable.
      */
     void setAuthenticated();
     
     /**
-     * Specify the callback for host key verification.
-     * 
-     * @param hkv
-     * @see HostKeyVerifier#verify(java.net.InetAddress, java.security.PublicKey)
-     */
-    void setHostKeyVerifier(HostKeyVerifier hkv);
-    
-    /**
-     * Set the currently active service, to which handling of incoming packets is delegated by
-     * calling its {@link Service#handle(Message, Buffer)} method.
+     * Sets the currently active service, to which handling of packets not understood by the
+     * transport layer is delegated.
+     * <p>
+     * Delegation of message-handling is done by calling the {@link Service#handle(Message, Buffer)}
+     * method.
      * 
      * @param service
      */
-    void setService(Service service);
+    void setService(Service service); // threadsafe
     
     /**
-     * Encode <code>payload</code> as an SSH packet and send it over the output stream for this
-     * session. It is guaranteed that packets are sent according to the order of invocation.
-     * 
-     * Implementation required to be thread-safe.
+     * Encodes and sends an SSH packet over the output stream for this session.
      * 
      * @param payload
+     *            the {@link Buffer} with the payload
      * @throws IOException
-     * @return the sequence no. of the packet written
+     *             if the packet could not be sent
+     * @return the sequence no. of the sent packet
      */
     int writePacket(Buffer payload) throws IOException;
     

@@ -19,82 +19,24 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
-import java.security.KeyPair;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.userauth.AuthMethod.Result;
-import org.apache.commons.net.ssh.userauth.AuthPassword.ChangeRequestHandler;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.LanguageQualifiedString;
-import org.apache.commons.net.ssh.util.Constants.Message;
+import org.apache.commons.net.ssh.util.LQString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class UserAuth implements UserAuthService
 {
-    public static class Builder implements UserAuthService.Builder
-    {
-        private final Session session;
-        private final LinkedList<AuthMethod> methods = new LinkedList<AuthMethod>();
-        private String username;
-        private Service nextService;
-        
-        public Builder(Session session, String username, Service nextService)
-        {
-            this.session = session;
-            this.username = username;
-            this.nextService = nextService;
-        }
-        
-        public Builder authMethod(AuthMethod method)
-        {
-            methods.add(method);
-            return this;
-        }
-        
-        public Builder authPassword(PasswordFinder pwdf)
-        {
-            return authPassword(pwdf, null);
-        }
-        
-        public Builder authPassword(PasswordFinder pwdf, ChangeRequestHandler crh)
-        {
-            methods.add(new AuthPassword(session, nextService, username, pwdf, crh));
-            return this;
-        }
-        
-        public Builder authPublickey(KeyPair kp)
-        {
-            methods.add(new AuthPublickey(session, nextService, username, kp));
-            return this;
-        }
-        
-        public UserAuthService build()
-        {
-            return new UserAuth(session, methods);
-        }
-        
-        public Builder withNextService(Service nextService)
-        {
-            this.nextService = nextService;
-            return this;
-        }
-        
-        public Builder withUsername(String username)
-        {
-            this.username = username;
-            return this;
-        }
-        
-    }
     
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
@@ -104,7 +46,7 @@ public class UserAuth implements UserAuthService
     
     protected Queue<AuthMethod> methods;
     
-    protected LanguageQualifiedString banner; // auth banner
+    protected LQString banner; // auth banner
     
     protected AuthMethod method; // currently active method
     protected AuthMethod.Result res; // its result
@@ -112,11 +54,11 @@ public class UserAuth implements UserAuthService
     protected Condition resCond = resLock.newCondition(); // signifies a conclusive resukt
     
     protected volatile Thread currentThread;
-    protected volatile Exception exception;
+    protected volatile SSHException exception;
     
     protected boolean active;
     
-    private UserAuth(Session session, Queue<AuthMethod> methods)
+    UserAuth(Session session, Queue<AuthMethod> methods)
     {
         this.session = session;
         this.methods = methods;
@@ -137,9 +79,13 @@ public class UserAuth implements UserAuthService
             if (!("composite@apache.org".equals(name) || allowed.contains(name)))
                 continue;
             resLock.lock();
+            res = Result.CONTINUED;
             try {
-                res = Result.CONTINUED;
-                method.request();
+                try {
+                    method.request();
+                } catch (Exception e) {
+                    continue;
+                }
                 while (res == Result.CONTINUED)
                     resCond.await();
                 switch (res)
@@ -154,7 +100,7 @@ public class UserAuth implements UserAuthService
                 }
             } catch (InterruptedException e) {
                 if (exception != null)
-                    SSHException.chain(exception);
+                    throw exception;
                 else
                     throw new SSHException(e);
             } finally {
@@ -163,7 +109,7 @@ public class UserAuth implements UserAuthService
         }
     }
     
-    public LanguageQualifiedString getBanner()
+    public LQString getBanner()
     {
         return banner;
     }
@@ -182,7 +128,7 @@ public class UserAuth implements UserAuthService
     {
         switch (cmd)
         {
-        case SSH_MSG_USERAUTH_BANNER:
+        case USERAUTH_BANNER:
             banner = buf.getLanguageQualifiedField();
             break;
         default:
@@ -196,8 +142,7 @@ public class UserAuth implements UserAuthService
                     resCond.signal();
                     break;
                 case FAILURE:
-                    allowed = method.getAllowedMethods();
-                    assert allowed != null;
+                    allowed = new LinkedHashSet<String>(Arrays.asList(method.getAllowedMethods()));
                     resCond.signal();
                     break;
                 case PARTIAL_SUCCESS:
@@ -209,6 +154,8 @@ public class UserAuth implements UserAuthService
                 default:
                     assert false;
                 }
+            } catch (Exception e) {
+                log.error("{} auth encountered error: {}", method.getName(), e.toString());
             } finally {
                 resLock.unlock();
             }
@@ -225,7 +172,7 @@ public class UserAuth implements UserAuthService
         }
     }
     
-    public void setError(Exception ex)
+    public void setError(SSHException ex)
     {
         exception = ex;
         resLock.lock();

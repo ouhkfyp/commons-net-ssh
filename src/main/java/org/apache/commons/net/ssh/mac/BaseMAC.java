@@ -79,7 +79,7 @@ public class BaseMAC implements MAC
             mac = SecurityUtils.getMAC(algorithm);
             mac.init(skey);
         } catch (GeneralSecurityException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
     }
     

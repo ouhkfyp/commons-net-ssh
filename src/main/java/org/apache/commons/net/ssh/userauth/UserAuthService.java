@@ -21,7 +21,7 @@ package org.apache.commons.net.ssh.userauth;
 import java.io.IOException;
 
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.util.LanguageQualifiedString;
+import org.apache.commons.net.ssh.util.LQString;
 
 public interface UserAuthService extends Service
 {
@@ -47,6 +47,6 @@ public interface UserAuthService extends Service
     
     void authenticate() throws IOException;
     
-    LanguageQualifiedString getBanner();
+    LQString getBanner();
     
 }

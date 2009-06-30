@@ -83,7 +83,6 @@ public interface KeyExchange
      * @return a boolean indicating if the processing is complete or if more packets are to be
      *         received
      * @throws SSHException
-     * @throws Exception
      *             if an error occurs
      */
     boolean next(Buffer buffer) throws SSHException;

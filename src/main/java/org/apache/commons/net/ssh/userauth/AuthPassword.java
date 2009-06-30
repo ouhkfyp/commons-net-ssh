@@ -21,10 +21,10 @@ package org.apache.commons.net.ssh.userauth;
 import java.io.IOException;
 
 import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.LanguageQualifiedString;
-import org.apache.commons.net.ssh.util.Constants.Message;
+import org.apache.commons.net.ssh.util.LQString;
 
 public class AuthPassword extends AbstractAuthMethod
 {
@@ -38,7 +38,7 @@ public class AuthPassword extends AbstractAuthMethod
         
         ChangeRequestHandler notifyUnacceptable();
         
-        void setPrompt(LanguageQualifiedString prompt);
+        void setPrompt(LQString prompt);
     }
     
     public static final String NAME = "password";
@@ -60,7 +60,7 @@ public class AuthPassword extends AbstractAuthMethod
     @Override
     protected Buffer buildRequest()
     {
-        Buffer buf = buildRequestCommon(session.createBuffer(Message.SSH_MSG_USERAUTH_REQUEST));
+        Buffer buf = buildRequestCommon(new Buffer(Message.USERAUTH_REQUEST));
         buf.putBoolean(false);
         buf.putString(pwdf.getPassword());
         return buf;
@@ -71,15 +71,16 @@ public class AuthPassword extends AbstractAuthMethod
         return NAME;
     }
     
+    @Override
     public Result handle(Message cmd, Buffer buf) throws IOException
     {
         switch (cmd)
         {
-        case SSH_MSG_USERAUTH_SUCCESS:
+        case USERAUTH_SUCCESS:
             if (changeRequested)
                 crh.notifySuccess();
             return Result.SUCCESS;
-        case SSH_MSG_USERAUTH_FAILURE:
+        case USERAUTH_FAILURE:
             setAllowedMethods(buf.getString());
             if (buf.getBoolean()) {
                 if (changeRequested)
@@ -90,7 +91,7 @@ public class AuthPassword extends AbstractAuthMethod
                     crh.notifyFailure();
                 return Result.FAILURE;
             }
-        case SSH_MSG_USERAUTH_60: // SSH_MSG_USERAUTH_PASSWD_CHANGEREQ
+        case USERAUTH_60: // SSH_MSG_USERAUTH_PASSWD_CHANGEREQ
             if (changeRequested)
                 crh = crh.notifyUnacceptable();
             if (crh != null) {
@@ -108,7 +109,7 @@ public class AuthPassword extends AbstractAuthMethod
     
     private void sendChangeReq(String prompt) throws IOException
     {
-        Buffer buf = buildRequestCommon(session.createBuffer(Message.SSH_MSG_USERAUTH_60));
+        Buffer buf = buildRequestCommon(new Buffer(Message.USERAUTH_60));
         buf.putBoolean(true);
         buf.putString(crh.getPassword());
         buf.putString(crh.getNewPassword());

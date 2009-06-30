@@ -18,13 +18,15 @@
  */
 package org.apache.commons.net.ssh.transport;
 
-import static org.apache.commons.net.ssh.util.Constants.*;
-
 import java.io.IOException;
 import java.security.PublicKey;
 
+import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.Constants.KeyType;
+import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
 import org.apache.commons.net.ssh.digest.Digest;
@@ -32,8 +34,6 @@ import org.apache.commons.net.ssh.kex.KeyExchange;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.SecurityUtils;
-import org.apache.commons.net.ssh.util.Constants.KeyType;
-import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,11 +47,27 @@ class KexHandler
     private enum State
     {
         EXPECT_KEXINIT, EXPECT_FOLLOWUP, EXPECT_NEWKEYS, KEX_DONE
-    };
+    }
+    
+    //
+    // Values for the algorithm negotiation
+    //
+    private static final int PROPOSAL_KEX_ALGS = 0;
+    // private static final int PROPOSAL_SERVER_HOST_KEY_ALGS = 1;
+    private static final int PROPOSAL_ENC_ALGS_CTOS = 2;
+    private static final int PROPOSAL_ENC_ALGS_STOC = 3;
+    private static final int PROPOSAL_MAC_ALGS_CTOS = 4;
+    private static final int PROPOSAL_MAC_ALGS_STOC = 5;
+    private static final int PROPOSAL_COMP_ALGS_CTOS = 6;
+    private static final int PROPOSAL_COMP_ALGS_STOC = 7;
+    private static final int PROPOSAL_LANG_CTOS = 8;
+    private static final int PROPOSAL_LANG_STOC = 9;
+    
+    private static final int PROPOSAL_MAX = 10;;
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final Transport transport;
-    private final Session.FactoryManager fm;
+    private final FactoryManager fm;
     
     //
     // Key exchange support
@@ -97,7 +113,7 @@ class KexHandler
         // recreate the packet payload which will be needed at a later time
         byte[] d = buffer.array();
         I_S = new byte[buffer.available() + 1];
-        I_S[0] = Message.SSH_MSG_KEXINIT.toByte();
+        I_S[0] = Message.KEXINIT.toByte();
         System.arraycopy(d, buffer.rpos(), I_S, 1, I_S.length - 1);
         // skip 16 bytes of random data
         buffer.rpos(buffer.rpos() + 16);
@@ -123,9 +139,6 @@ class KexHandler
     /**
      * Put new keys into use. This method will intialize the ciphers, digests, MACs and compression
      * according to the negotiated server and client proposals.
-     * 
-     * @throws Exception
-     *             if an error occurs
      */
     private void gotNewKeys()
     {
@@ -217,9 +230,8 @@ class KexHandler
         switch (state)
         {
         case EXPECT_KEXINIT:
-            if (cmd != Message.SSH_MSG_KEXINIT) {
-                log.error("Ignoring command " + cmd + " while waiting for "
-                        + Message.SSH_MSG_KEXINIT);
+            if (cmd != Message.KEXINIT) {
+                log.error("Ignoring command " + cmd + " while waiting for " + Message.KEXINIT);
                 break;
             }
             log.info("Received SSH_MSG_KEXINIT");
@@ -235,15 +247,16 @@ class KexHandler
             if (kex.next(buffer)) {
                 PublicKey hostKey = kex.getHostKey();
                 if (!transport.verifyHost(hostKey))
-                    throw new SSHException("Could not verify host key with fingerprint ["
+                    throw new SSHException("Could not verify [" + KeyType.fromKey(hostKey)
+                            + "] host key with fingerprint ["
                             + SecurityUtils.getFingerprint(hostKey) + "]");
                 sendNewKeys();
                 state = State.EXPECT_NEWKEYS;
             }
             break;
         case EXPECT_NEWKEYS:
-            if (cmd != Message.SSH_MSG_NEWKEYS) {
-                transport.disconnect(SSH_DISCONNECT_PROTOCOL_ERROR,
+            if (cmd != Message.NEWKEYS) {
+                transport.disconnect(DisconnectReason.PROTOCOL_ERROR,
                         "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
                 break;
             }
@@ -254,7 +267,7 @@ class KexHandler
                 transport.writeLock.unlock();
             break;
         case KEX_DONE:
-            if (cmd != Message.SSH_MSG_KEXINIT)
+            if (cmd != Message.KEXINIT)
                 throw new IllegalStateException("Asked to handle " + cmd
                         + ", was expecting SSH_MSG_KEXINIT for key re-exchange");
             log.info("Received SSH_MSG_KEXINIT, initiating re-exchange");
@@ -324,8 +337,6 @@ class KexHandler
      * @param H
      *            the key exchange H parameter
      * @return the resized key
-     * @throws Exception
-     *             if a problem occur while resizing the key
      */
     private byte[] resizeKey(byte[] E, int blockSize, Digest hash, byte[] K, byte[] H)
     {
@@ -347,7 +358,7 @@ class KexHandler
     private void sendKexInit() throws IOException
     {
         clientProposal = createProposal(KeyType.RSA + "," + KeyType.DSA);
-        Buffer buffer = transport.createBuffer(Message.SSH_MSG_KEXINIT);
+        Buffer buffer = new Buffer(Message.KEXINIT);
         int p = buffer.wpos();
         buffer.wpos(p + 16);
         transport.prng.fill(buffer.array(), p, 16);
@@ -364,7 +375,7 @@ class KexHandler
     private void sendNewKeys() throws IOException
     {
         log.info("Sending SSH_MSG_NEWKEYS");
-        transport.writePacket(transport.createBuffer(Message.SSH_MSG_NEWKEYS));
+        transport.writePacket(new Buffer(Message.NEWKEYS));
     }
     
 }

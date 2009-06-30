@@ -21,6 +21,7 @@ package org.apache.commons.net.ssh.digest;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 
+import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
@@ -65,7 +66,7 @@ public class BaseDigest implements Digest
         try {
             md = SecurityUtils.getMessageDigest(algorithm);
         } catch (GeneralSecurityException e) {
-            throw new RuntimeException(e);
+            throw new SSHRuntimeException(e);
         }
     }
     

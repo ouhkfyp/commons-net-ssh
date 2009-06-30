@@ -18,9 +18,48 @@
  */
 package org.apache.commons.net.ssh.util;
 
-public interface LanguageQualifiedString
+/**
+ * This class represents a "language-qualified" user-visible string in the SSH protocol; which are
+ * qualified with an RFC 3066 language tag.
+ * 
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ */
+public class LQString
 {
-    String getLanguage();
     
-    String getText();
+    private final String text;
+    private final String langTag;
+    
+    public LQString(String text, String langTag)
+    {
+        this.text = text;
+        this.langTag = langTag;
+    }
+    
+    /**
+     * Returns the RFC 3066 language tag.
+     * 
+     * @return langauge tag
+     */
+    public String getLanguage()
+    {
+        return langTag;
+    }
+    
+    /**
+     * The content for this string.
+     * 
+     * @return content
+     */
+    public String getText()
+    {
+        return text;
+    }
+    
+    @Override
+    public String toString()
+    {
+        return text;
+    }
+    
 }
