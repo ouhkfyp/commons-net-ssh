@@ -33,7 +33,6 @@ import org.apache.commons.net.ssh.Constants.KeyType;
 import org.apache.commons.net.ssh.mac.HMACSHA1;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.transport.Session.HostKeyVerifier;
-import org.apache.log4j.BasicConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,7 +61,7 @@ public class KnownHosts implements HostKeyVerifier
             sKey = parts[2];
         }
         
-        boolean appliesTo(Set<String> possibilities)
+        String appliesTo(Set<String> possibilities)
         {
             if (hosts[0].startsWith("|1|")) { // hashed
                 String[] splitted = hosts[0].split("\\|");
@@ -78,12 +77,12 @@ public class KnownHosts implements HostKeyVerifier
                 sha1.init(salt);
                 for (String possi : possibilities)
                     if (BufferUtils.equals(host, sha1.doFinal(possi.getBytes())))
-                        return true;
+                        return possi;
             } else
                 for (String host : hosts)
                     if (possibilities.contains(host))
-                        return true;
-            return false;
+                        return host;
+            return null;
         }
         
         PublicKey getKey()
@@ -97,17 +96,6 @@ public class KnownHosts implements HostKeyVerifier
             return new Buffer(decoded).getPublicKey();
         }
         
-    }
-    
-    public static void main(String[] args)
-    {
-        BasicConfigurator.configure();
-        KnownHosts kh = new KnownHosts();
-        Set<String> possibilities = new HashSet<String>();
-        possibilities.add("localhost");
-        possibilities.add("127.0.0.1");
-        for (Entry e : kh.entries)
-            System.out.println(e.appliesTo(possibilities));
     }
     
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -132,28 +120,23 @@ public class KnownHosts implements HostKeyVerifier
             }
     }
     
-    private Set<String> makePossibilities(InetAddress host)
-    {
-        Set<String> possibilities = new HashSet<String>();
-        possibilities.add(host.getHostName());
-        possibilities.add(host.getCanonicalHostName());
-        possibilities.add(host.getHostAddress());
-        return possibilities;
-    }
-    
     public boolean verify(InetAddress host, PublicKey key)
     {
         KeyType type = KeyType.fromKey(key);
         if (type == KeyType.UNKNOWN)
             return false;
         
-        Set<String> possibilities = makePossibilities(host);
+        Set<String> possibilities = new HashSet<String>();
+        possibilities.add(host.getHostName());
+        possibilities.add(host.getCanonicalHostName());
         
+        String match;
         for (Entry e : entries)
-            if (e.type == type && e.appliesTo(possibilities))
-                if (key.equals(e.getKey()))
+            if (e.type == type && (match = e.appliesTo(possibilities)) != null)
+                if (key.equals(e.getKey())) {
+                    log.info("Found a valid match against [{}]", match);
                     return true;
+                }
         return false;
     }
-    
 }

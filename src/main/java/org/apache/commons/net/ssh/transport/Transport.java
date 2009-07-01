@@ -125,7 +125,6 @@ public class Transport implements Session
                     bin.gotByte((byte) input.read());
                 } catch (Exception e) {
                     if (!stopPumping) {
-                        log.error("Encountered error: ", e.toString());
                         if (outPump.isAlive() && e instanceof SSHException) {
                             /*
                              * send SSH_MSG_DISCONNECT if we have the required info in the exception
@@ -163,10 +162,8 @@ public class Transport implements Session
                 try {
                     output.write(outQ.take());
                 } catch (Exception e) {
-                    if (!stopPumping) {
-                        log.error("Encountered error: ", e.toString());
+                    if (!stopPumping)
                         setError(e);
-                    }
                 }
             log.debug("Stopping");
         }
@@ -473,7 +470,7 @@ public class Transport implements Session
     {
         // this method is idempotent except for state, but that should not affect anything
         
-        log.error("Encountered error: {}", e);
+        log.error("Encountered error: {}", e.toString());
         
         if (service != null) {
             service.setError(SSHException.chain(e));
