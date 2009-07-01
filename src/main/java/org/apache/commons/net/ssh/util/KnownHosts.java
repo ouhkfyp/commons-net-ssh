@@ -19,7 +19,6 @@
 package org.apache.commons.net.ssh.util;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -38,6 +37,11 @@ import org.apache.log4j.BasicConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A HostKeyVerifier implementation for OpenSSH-known_hosts-style files
+ * 
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ */
 public class KnownHosts implements HostKeyVerifier
 {
     
@@ -95,13 +99,6 @@ public class KnownHosts implements HostKeyVerifier
         
     }
     
-    public static String[] guessLocations()
-    {
-        String kh = System.getProperty("user.home") + File.separator + ".ssh" + File.separator
-                + "known_hosts";
-        return new String[] { kh, kh + "2" };
-    }
-    
     public static void main(String[] args)
     {
         BasicConfigurator.configure();
@@ -117,12 +114,7 @@ public class KnownHosts implements HostKeyVerifier
     
     private final List<Entry> entries = new LinkedList<Entry>();
     
-    KnownHosts()
-    {
-        this(guessLocations());
-    }
-    
-    KnownHosts(String... locations)
+    public KnownHosts(String... locations)
     {
         for (String l : locations)
             try {
