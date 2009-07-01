@@ -362,16 +362,6 @@ public class Transport implements Session
         }
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.apache.commons.net.ssh.transport.Session#isAuthenticated()
-     */
-    synchronized public boolean isAuthenticated()
-    {
-        return authed;
-    }
-    
     public boolean isRunning()
     {
         stateLock.lock();
@@ -405,20 +395,20 @@ public class Transport implements Session
                 if (b == '\n')
                     break;
                 if (needLf)
-                    throw new IllegalStateException("Incorrect identification: bad line ending");
+                    throw new SSHException("Incorrect identification: bad line ending");
                 if (pos >= data.length)
-                    throw new IllegalStateException("Incorrect identification: line too long");
+                    throw new SSHException("Incorrect identification: line too long");
                 data[pos++] = b;
             }
             ident = new String(data, 0, pos);
             if (ident.startsWith("SSH-"))
                 break;
             if (buffer.rpos() > 16 * 1024)
-                throw new IllegalStateException("Incorrect identification: too many header lines");
+                throw new SSHException("Incorrect identification: too many header lines");
         }
         
-        if (!ident.startsWith("SSH-2.0-"))
-            disconnect(DisconnectReason.PROTOCOL_VERSION_NOT_SUPPORTED);
+        if (!ident.startsWith("SSH-2.0-") && !ident.startsWith("SSH-1.99-"))
+            throw new SSHException("Server does not support SSHv2, identified as: " + ident);
         
         return ident;
     }

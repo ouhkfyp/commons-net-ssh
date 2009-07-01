@@ -48,6 +48,16 @@ public class BaseMAC implements MAC
         tmp = new byte[defbsize];
     }
     
+    public byte[] doFinal()
+    {
+        return mac.doFinal();
+    }
+    
+    public byte[] doFinal(byte[] input)
+    {
+        return mac.doFinal(input);
+    }
+    
     public void doFinal(byte[] buf, int offset)
     {
         try {
@@ -86,6 +96,11 @@ public class BaseMAC implements MAC
     public void update(byte foo[], int s, int l)
     {
         mac.update(foo, s, l);
+    }
+    
+    public void update(byte[] foo)
+    {
+        mac.update(foo, 0, foo.length);
     }
     
     public void update(int i)
