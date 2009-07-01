@@ -32,6 +32,8 @@ public interface Digest
     
     void init();
     
+    void update(byte[] foo);
+    
     void update(byte[] foo, int start, int len);
     
 }

@@ -26,11 +26,17 @@ package org.apache.commons.net.ssh.mac;
 public interface MAC
 {
     
+    byte[] doFinal();
+    
+    byte[] doFinal(byte[] input);
+    
     void doFinal(byte[] buf, int offset);
     
     int getBlockSize();
     
     void init(byte[] key);
+    
+    void update(byte[] foo);
     
     void update(byte[] foo, int start, int len);
     

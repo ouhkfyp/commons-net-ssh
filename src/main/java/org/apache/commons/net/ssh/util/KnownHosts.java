@@ -26,26 +26,25 @@ import java.net.InetAddress;
 import java.security.PublicKey;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Queue;
+import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.Constants.KeyType;
+import org.apache.commons.net.ssh.mac.HMACSHA1;
+import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.transport.Session.HostKeyVerifier;
 import org.apache.log4j.BasicConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/*
- * STUB!
- * 
- */
 public class KnownHosts implements HostKeyVerifier
 {
     
     private static class Entry
     {
         
-        final String host; // may be hashed
+        final String[] hosts;
         final KeyType type;
         final String sKey;
         
@@ -53,10 +52,34 @@ public class KnownHosts implements HostKeyVerifier
         {
             String[] parts = line.split(" ");
             assert parts.length == 3;
-            host = parts[0];
+            hosts = parts[0].split(",");
             type = KeyType.fromString(parts[1]);
             assert type != KeyType.UNKNOWN;
             sKey = parts[2];
+        }
+        
+        boolean appliesTo(Set<String> possibilities)
+        {
+            if (hosts[0].startsWith("|1|")) { // hashed
+                String[] splitted = hosts[0].split("\\|");
+                byte[] salt, host;
+                try {
+                    salt = Base64.decode(splitted[2]);
+                    host = Base64.decode(splitted[3]);
+                } catch (IOException e) {
+                    throw new SSHRuntimeException(e);
+                }
+                assert salt.length == 20;
+                MAC sha1 = new HMACSHA1();
+                sha1.init(salt);
+                for (String possi : possibilities)
+                    if (BufferUtils.equals(host, sha1.doFinal(possi.getBytes())))
+                        return true;
+            } else
+                for (String host : hosts)
+                    if (possibilities.contains(host))
+                        return true;
+            return false;
         }
         
         PublicKey getKey()
@@ -74,9 +97,8 @@ public class KnownHosts implements HostKeyVerifier
     
     public static String[] guessLocations()
     {
-        String kh = System.getProperty("user.home") + File.separator
-                + (System.getProperty("os.name").startsWith("Windows") ? "ssh" : ".ssh")
-                + File.separator + "known_hosts";
+        String kh = System.getProperty("user.home") + File.separator + ".ssh" + File.separator
+                + "known_hosts";
         return new String[] { kh, kh + "2" };
     }
     
@@ -84,13 +106,16 @@ public class KnownHosts implements HostKeyVerifier
     {
         BasicConfigurator.configure();
         KnownHosts kh = new KnownHosts();
+        Set<String> possibilities = new HashSet<String>();
+        possibilities.add("localhost");
+        possibilities.add("127.0.0.1");
         for (Entry e : kh.entries)
-            System.out.println(e.host + " " + e.type + " " + e.getKey());
+            System.out.println(e.appliesTo(possibilities));
     }
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
-    private final Queue<Entry> entries = new LinkedList<Entry>();
+    private final List<Entry> entries = new LinkedList<Entry>();
     
     KnownHosts()
     {
@@ -100,42 +125,28 @@ public class KnownHosts implements HostKeyVerifier
     KnownHosts(String... locations)
     {
         for (String l : locations)
-            readIn(l);
+            try {
+                BufferedReader br = new BufferedReader(new FileReader(l));
+                String line;
+                while ((line = br.readLine()) != null)
+                    try {
+                        entries.add(new Entry(line));
+                    } catch (AssertionError e) {
+                        log.warn("unrecognized line: {}", line);
+                        continue;
+                    }
+            } catch (Exception e) {
+                log.error("Error loading {}: {}", l, e);
+            }
     }
     
-    // TODO!!!!
     private Set<String> makePossibilities(InetAddress host)
     {
-        // e.g. i gues "localhost" possibilities could be:
-        //            
-        // "localhost"
-        // "localhost,127.0.0.1"
-        // "localhost.localdomain,127.0.0.1"
-        // HASHED(each of above)
-        // localhost,* (ip addresses with wildcards!)
-        // 
         Set<String> possibilities = new HashSet<String>();
-        // host.getHostAddress();
-        // host.getCanonicalHostName();
-        // host.getHostAddress();
+        possibilities.add(host.getHostName());
+        possibilities.add(host.getCanonicalHostName());
+        possibilities.add(host.getHostAddress());
         return possibilities;
-    }
-    
-    private void readIn(String l)
-    {
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(l));
-            String line;
-            while ((line = br.readLine()) != null)
-                try {
-                    entries.add(new Entry(line));
-                } catch (AssertionError e) {
-                    log.warn("unrecognized line: {}", line);
-                    continue;
-                }
-        } catch (Exception e) {
-            log.error("Error loading {}: {}", l, e);
-        }
     }
     
     public boolean verify(InetAddress host, PublicKey key)
@@ -147,7 +158,7 @@ public class KnownHosts implements HostKeyVerifier
         Set<String> possibilities = makePossibilities(host);
         
         for (Entry e : entries)
-            if (e.type == type && possibilities.contains(e.host))
+            if (e.type == type && e.appliesTo(possibilities))
                 if (key.equals(e.getKey()))
                     return true;
         return false;

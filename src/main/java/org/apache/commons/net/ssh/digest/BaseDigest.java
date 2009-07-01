@@ -70,6 +70,11 @@ public class BaseDigest implements Digest
         }
     }
     
+    public void update(byte[] foo)
+    {
+        update(foo, 0, foo.length);
+    }
+    
     public void update(byte[] foo, int start, int len)
     {
         md.update(foo, start, len);
