@@ -20,6 +20,7 @@ package org.apache.commons.net.ssh;
 
 import static org.apache.commons.net.ssh.Constants.*;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -56,6 +57,7 @@ import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.Session.HostKeyVerifier;
 import org.apache.commons.net.ssh.userauth.UserAuthBuilder;
+import org.apache.commons.net.ssh.util.KnownHosts;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
 /**
@@ -191,6 +193,16 @@ public class SSHClient extends SocketClient
     public boolean isConnected()
     {
         return super.isConnected() && trans.isRunning();
+    }
+    
+    public void loadKnownHosts(String... locations)
+    {
+        if (locations.length == 0) {
+            String kh = System.getProperty("user.home") + File.separator + ".ssh" + File.separator
+                    + "known_hosts";
+            trans.addHostKeyVerifier(new KnownHosts(kh, kh + "2"));
+        } else
+            trans.addHostKeyVerifier(new KnownHosts(locations));
     }
     
 }
