@@ -19,11 +19,11 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
-import java.security.KeyPair;
+import java.util.Iterator;
 
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.Constants.KeyType;
 import org.apache.commons.net.ssh.Constants.Message;
+import org.apache.commons.net.ssh.keyprovider.KeyProvider;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
@@ -32,13 +32,18 @@ public class AuthPublickey extends KeyedAuthMethod
     
     public static final String NAME = "publickey";
     
-    public AuthPublickey(Session session, Service nextService, String username, KeyPair kp)
+    private final Iterator<KeyProvider> keys;
+    
+    public AuthPublickey(Session session, Service nextService, String username,
+            Iterator<KeyProvider> keys)
     {
-        super(session, nextService, username, kp);
+        super(session, nextService, username);
+        assert keys != null;
+        this.keys = keys;
     }
     
     @Override
-    protected Buffer buildRequest()
+    protected Buffer buildRequest() throws IOException
     {
         Buffer buf = buildRequestCommon(new Buffer(Message.USERAUTH_REQUEST));
         buf.putBoolean(false);
@@ -60,24 +65,52 @@ public class AuthPublickey extends KeyedAuthMethod
             return Result.SUCCESS;
         case USERAUTH_FAILURE:
             setAllowedMethods(buf.getString());
-            if (buf.getBoolean())
-                return Result.PARTIAL_SUCCESS;
+            if (allowed.contains(NAME) && reqLoop())
+                return Result.CONTINUED;
             else
-                return Result.FAILURE;
+                return buf.getBoolean() ? Result.PARTIAL_SUCCESS : Result.FAILURE;
         case USERAUTH_60:
-            log.debug("Key acceptable, sending signature");
-            sendSignedReq();
+            log.debug("key acceptable, sending signature");
+            try {
+                sendSignedReq();
+            } catch (IOException e) {
+                if (keys.hasNext())
+                    log.debug("error sending signing req, trying next: {}", e.toString());
+                if (!reqLoop())
+                    return Result.FAILURE;
+            }
             return Result.CONTINUED;
         default:
-            log.error("Unexpected packet");
-            return Result.FAILURE;
+            return Result.UNKNOWN;
         }
+    }
+    
+    private boolean reqLoop() throws IOException // returns true if managed to send request
+    {
+        while (keys.hasNext()) {
+            kProv = keys.next();
+            try {
+                session.writePacket(buildRequest());
+            } catch (IOException e) {
+                if (keys.hasNext()) {
+                    log.debug("had error with last key, trying next: {}", e.toString());
+                    continue;
+                } else
+                    throw e;
+            }
+            return true;
+        }
+        return false;
+    }
+    
+    @Override
+    public void request() throws IOException
+    {
+        reqLoop();
     }
     
     private void sendSignedReq() throws IOException
     {
-        KeyType.fromKey(kPair.getPublic());
-        
         // this is the request buffer, to which we will add the signature in a bit
         Buffer reqBuf = buildRequestCommon(new Buffer(Message.USERAUTH_REQUEST));
         reqBuf.putBoolean(true);
@@ -91,4 +124,5 @@ public class AuthPublickey extends KeyedAuthMethod
         // ready to go
         session.writePacket(putSig(sigSubj, reqBuf));
     }
+    
 }

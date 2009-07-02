@@ -1,64 +1,56 @@
 package org.apache.commons.net.ssh.userauth;
 
-import java.security.KeyPair;
+import java.io.IOException;
 import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.Constants.KeyType;
+import org.apache.commons.net.ssh.keyprovider.KeyProvider;
 import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
 public abstract class KeyedAuthMethod extends AbstractAuthMethod
 {
-    protected final KeyPair kPair;
-    protected final String kType;
+    protected KeyProvider kProv;
     
-    public KeyedAuthMethod(Session session, Service nextService, String username, KeyPair kp)
+    public KeyedAuthMethod(Session session, Service nextService, String username)
     {
         super(session, nextService, username);
-        assert kp != null;
-        kPair = kp;
-        kType = KeyType.fromKey(kp.getPrivate()).toString();
     }
     
-    /**
-     * 
-     * @param into
-     * @return
-     */
-    protected Buffer putPubKey(Buffer into)
+    public KeyedAuthMethod(Session session, Service nextService, String username, KeyProvider kPair)
     {
-        PublicKey key = kPair.getPublic();
-        into.putString(kType);
+        this(session, nextService, username);
+        assert kPair != null;
+        kProv = kPair;
+    }
+    
+    protected Buffer putPubKey(Buffer target) throws IOException
+    {
+        PublicKey key = kProv.getPublic();
+        target.putString(kProv.getType().toString());
         Buffer temp = new Buffer();
         temp.putPublicKey(key);
-        into.putString(temp.getCompactData());
-        return into;
+        target.putString(temp.getCompactData());
+        return target;
     }
     
-    /**
-     * 
-     * @param over
-     * @param into
-     * @return
-     */
-    protected Buffer putSig(Buffer over, Buffer into)
+    protected Buffer putSig(Buffer subject, Buffer target) throws IOException
     {
         Signature sig = NamedFactory.Utils.create(session.getFactoryManager()
-                .getSignatureFactories(), kType);
-        sig.init(null, kPair.getPrivate());
-        sig.update(over.getCompactData());
+                .getSignatureFactories(), kProv.getType().toString());
+        sig.init(null, kProv.getPrivate());
+        sig.update(subject.getCompactData());
         
         // buffer containing signature
         Buffer sigBuf = new Buffer();
-        sigBuf.putString(kType.toString());
+        sigBuf.putString(kProv.getType().toString());
         sigBuf.putString(sig.sign());
         
-        into.putString(sigBuf.getCompactData());
+        target.putString(sigBuf.getCompactData());
         
-        return into;
+        return target;
     }
     
 }

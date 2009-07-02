@@ -27,6 +27,7 @@ import java.security.interfaces.DSAPublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.DSAPublicKeySpec;
 import java.security.spec.RSAPublicKeySpec;
+import java.util.Arrays;
 
 import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.Constants.KeyType;
@@ -349,6 +350,15 @@ public final class Buffer
         putRawBytes(foo);
     }
     
+    public void putPassword(char[] passwd)
+    {
+        putInt(passwd.length);
+        ensureCapacity(passwd.length);
+        for (char x : passwd)
+            data[wpos++] = (byte) x;
+        Arrays.fill(passwd, ' ');
+    }
+    
     public void putPublicKey(PublicKey key)
     {
         KeyType type;
@@ -387,14 +397,6 @@ public final class Buffer
     {
         putInt(str.length);
         putRawBytes(str);
-    }
-    
-    public void putString(char[] str)
-    {
-        byte[] asBytes = new byte[str.length];
-        for (int i = 0; i < str.length; i++)
-            asBytes[i] = (byte) str[i];
-        putString(asBytes);
     }
     
     public void putString(String string)

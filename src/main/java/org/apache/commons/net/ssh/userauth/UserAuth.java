@@ -19,8 +19,7 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.locks.Condition;
@@ -38,45 +37,42 @@ import org.slf4j.LoggerFactory;
 public class UserAuth implements UserAuthService
 {
     
-    protected final Logger log = LoggerFactory.getLogger(getClass());
+    private final Logger log = LoggerFactory.getLogger(getClass());
     
-    protected final Session session;
+    private final Session session;
     
-    protected Set<String> allowed = new LinkedHashSet<String>();
+    private Set<String> allowed = new HashSet<String>();
     
-    protected Queue<AuthMethod> methods;
+    private final Queue<AuthMethod> methods;
     
-    protected LQString banner; // auth banner
+    private LQString banner; // auth banner
     
-    protected AuthMethod method; // currently active method
-    protected AuthMethod.Result res; // its result
-    protected ReentrantLock resLock = new ReentrantLock(); // lock for res
-    protected Condition resCond = resLock.newCondition(); // signifies a conclusive resukt
+    private AuthMethod method; // currently active method
+    private AuthMethod.Result res; // its result
+    private final ReentrantLock resLock = new ReentrantLock(); // lock for res
+    private final Condition resCond = resLock.newCondition(); // signifies a conclusive resukt
     
-    protected volatile Thread currentThread;
-    protected volatile SSHException exception;
-    
-    protected boolean active;
+    private volatile Thread currentThread;
+    private volatile SSHException exception;
     
     UserAuth(Session session, Queue<AuthMethod> methods)
     {
         this.session = session;
         this.methods = methods;
         for (AuthMethod m : methods)
-            // initially assume all available are allowed
+            // initially assume all are allowed
             allowed.add(m.getName());
     }
     
     public void authenticate() throws IOException
     {
-        request();
+        request(); // service request
         currentThread = Thread.currentThread();
-        while (true) {
+        for (;;) {
             if ((method = methods.poll()) == null)
                 throw new SSHException("Exhausted available authentication methods");
-            String name = method.getName();
-            log.debug("Trying [{}] auth, allowed={}", name, allowed);
-            if (!("composite@apache.org".equals(name) || allowed.contains(name)))
+            log.debug("Trying [{}] auth...", method.getName());
+            if (!allowed.contains(method.getName()))
                 continue;
             resLock.lock();
             res = Result.CONTINUED;
@@ -84,6 +80,7 @@ public class UserAuth implements UserAuthService
                 try {
                     method.request();
                 } catch (Exception e) {
+                    log.debug("error requesting:: " + e.toString());
                     continue;
                 }
                 while (res == Result.CONTINUED)
@@ -124,6 +121,11 @@ public class UserAuth implements UserAuthService
         return session;
     }
     
+    public void gotUnimplemented(int seqNum)
+    {
+        // TODO Auto-generated method stub
+    }
+    
     public void handle(Message cmd, Buffer buf) throws IOException
     {
         switch (cmd)
@@ -142,7 +144,7 @@ public class UserAuth implements UserAuthService
                     resCond.signal();
                     break;
                 case FAILURE:
-                    allowed = new LinkedHashSet<String>(Arrays.asList(method.getAllowedMethods()));
+                    allowed = method.getAllowedMethods();
                     resCond.signal();
                     break;
                 case PARTIAL_SUCCESS:
@@ -155,7 +157,10 @@ public class UserAuth implements UserAuthService
                     assert false;
                 }
             } catch (Exception e) {
-                log.error("{} auth encountered error: {}", method.getName(), e.toString());
+                log.error("error while handling response in {} auth: {}", method.getName(), e
+                        .toString());
+                res = Result.FAILURE;
+                resCond.signal();
             } finally {
                 resLock.unlock();
             }

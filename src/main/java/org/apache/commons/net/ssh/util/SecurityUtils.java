@@ -18,6 +18,10 @@
  */
 package org.apache.commons.net.ssh.util;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.security.KeyFactory;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
@@ -34,6 +38,7 @@ import javax.crypto.KeyAgreement;
 import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 
+import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.Constants.KeyType;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
@@ -71,6 +76,18 @@ public class SecurityUtils
     
     private static boolean registrationDone;
     
+    public static String detectKeyFileFormat(String location) throws IOException
+    {
+        BufferedReader br = new BufferedReader(new FileReader(location));
+        String firstLine = br.readLine();
+        if (firstLine.startsWith("-----BEGIN") && firstLine.endsWith("PRIVATE KEY-----"))
+            if (new File(location + ".pub").exists())
+                return "OpenSSH"; // can delay asking for password since have unencrypted pubkey
+            else
+                return "PKCS8"; // more general
+        return "unknown";
+    }
+    
     public static synchronized Cipher getCipher(String transformation)
             throws NoSuchAlgorithmException, NoSuchPaddingException, NoSuchProviderException
     {
@@ -96,9 +113,9 @@ public class SecurityUtils
         try {
             md5 = getMessageDigest("MD5");
         } catch (NoSuchAlgorithmException e) { // can't happen.
-            e.printStackTrace();
+            throw new SSHRuntimeException(e);
         } catch (NoSuchProviderException e) { // can't happen.
-            e.printStackTrace();
+            throw new SSHRuntimeException(e);
         }
         Buffer buf = new Buffer();
         switch (KeyType.fromKey(key))

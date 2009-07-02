@@ -19,11 +19,13 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.transport.Session;
-import org.apache.commons.net.ssh.util.All;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,17 +36,17 @@ public abstract class AbstractAuthMethod implements AuthMethod
     protected final Session session;
     protected final Service nextService;
     protected final String username;
-    protected volatile String[] allowed;
+    protected volatile Set<String> allowed;
     
     public AbstractAuthMethod(Session session, Service nextService, String username)
     {
-        All.notNull(session, nextService, username);
+        assert session != null && nextService != null && username != null;
         this.session = session;
         this.nextService = nextService;
         this.username = username;
     }
     
-    abstract protected Buffer buildRequest();
+    abstract protected Buffer buildRequest() throws IOException;
     
     public Buffer buildRequestCommon(Buffer buf)
     {
@@ -54,7 +56,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
         return buf;
     }
     
-    public String[] getAllowedMethods()
+    public Set<String> getAllowedMethods()
     {
         return allowed;
     }
@@ -77,13 +79,9 @@ public abstract class AbstractAuthMethod implements AuthMethod
             return Result.SUCCESS;
         case USERAUTH_FAILURE:
             setAllowedMethods(buf.getString());
-            if (buf.getBoolean())
-                return Result.PARTIAL_SUCCESS;
-            else
-                return Result.FAILURE;
+            return buf.getBoolean() ? Result.PARTIAL_SUCCESS : Result.FAILURE;
         default:
-            log.error("Unexpected packet");
-            return Result.FAILURE;
+            return Result.UNKNOWN;
         }
     }
     
@@ -95,7 +93,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
     
     protected void setAllowedMethods(String commaDelimed)
     {
-        allowed = commaDelimed.split(",");
+        allowed = new HashSet<String>(Arrays.asList(commaDelimed.split(",")));
+        log.debug("Allowed = {}", allowed.toString());
     }
-    
 }

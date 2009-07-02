@@ -42,6 +42,9 @@ import org.apache.commons.net.ssh.connection.ConnectionService;
 import org.apache.commons.net.ssh.kex.DHG1;
 import org.apache.commons.net.ssh.kex.DHG14;
 import org.apache.commons.net.ssh.kex.KeyExchange;
+import org.apache.commons.net.ssh.keyprovider.FileKeyProvider;
+import org.apache.commons.net.ssh.keyprovider.OpenSSHKeyFile;
+import org.apache.commons.net.ssh.keyprovider.PKCS8KeyFile;
 import org.apache.commons.net.ssh.mac.HMACMD5;
 import org.apache.commons.net.ssh.mac.HMACMD596;
 import org.apache.commons.net.ssh.mac.HMACSHA1;
@@ -71,8 +74,8 @@ public class SSHClient extends SocketClient
     {
         FactoryManager fm = new FactoryManager();
         
-        // DHG14 uses 2048 bits key which are not supported by the default JCE provider
         if (SecurityUtils.isBouncyCastleRegistered()) {
+            
             fm.setKeyExchangeFactories(new LinkedList<NamedFactory<KeyExchange>>()
             {
                 {
@@ -80,15 +83,29 @@ public class SSHClient extends SocketClient
                     add(new DHG1.Factory());
                 }
             });
+            
             fm.setRandomFactory(new SingletonRandomFactory(new BouncyCastleRandom.Factory()));
+            
+            fm.setFileKeyProviderFactories(new LinkedList<NamedFactory<FileKeyProvider>>()
+            {
+                {
+                    add(new PKCS8KeyFile.Factory());
+                    add(new OpenSSHKeyFile.Factory());
+                }
+            });
+            
         } else {
+            
             fm.setKeyExchangeFactories(new LinkedList<NamedFactory<KeyExchange>>()
             {
                 {
                     add(new DHG1.Factory());
                 }
             });
+            
             fm.setRandomFactory(new SingletonRandomFactory(new JCERandom.Factory()));
+            
+            fm.setFileKeyProviderFactories(new LinkedList<NamedFactory<FileKeyProvider>>()); // empty
         }
         
         List<NamedFactory<Cipher>> avail = new LinkedList<NamedFactory<Cipher>>()
@@ -108,7 +125,7 @@ public class SSHClient extends SocketClient
                 final byte[] key = new byte[c.getBlockSize()];
                 final byte[] iv = new byte[c.getIVSize()];
                 c.init(Cipher.Mode.Encrypt, key, iv);
-            } catch (RuntimeException e) {
+            } catch (Exception e) {
                 i.remove();
             }
         }

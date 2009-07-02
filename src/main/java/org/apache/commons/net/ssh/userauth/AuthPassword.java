@@ -20,41 +20,27 @@ package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
 
+import org.apache.commons.net.ssh.PasswordFinder;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Constants.Message;
+import org.apache.commons.net.ssh.PasswordFinder.Resource;
 import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.LQString;
 
 public class AuthPassword extends AbstractAuthMethod
 {
-    public interface ChangeRequestHandler extends UserAuthService.PasswordFinder
-    {
-        char[] getNewPassword();
-        
-        void notifyFailure();
-        
-        void notifySuccess();
-        
-        ChangeRequestHandler notifyUnacceptable();
-        
-        void setPrompt(LQString prompt);
-    }
     
     public static final String NAME = "password";
     
-    private final UserAuthService.PasswordFinder pwdf;
-    private ChangeRequestHandler crh;
-    private boolean changeRequested = false;
+    private final PasswordFinder pwdf;
+    private final Resource resource;
     
-    // crh may be null
-    public AuthPassword(Session session, Service nextService, String username,
-            UserAuthService.PasswordFinder pwdf, ChangeRequestHandler crh)
+    public AuthPassword(Session session, Service nextService, String username, PasswordFinder pwdf)
     {
         super(session, nextService, username);
         assert pwdf != null;
         this.pwdf = pwdf;
-        this.crh = crh;
+        resource = new Resource(Resource.Type.ACCOUNT, username);
     }
     
     @Override
@@ -62,7 +48,7 @@ public class AuthPassword extends AbstractAuthMethod
     {
         Buffer buf = buildRequestCommon(new Buffer(Message.USERAUTH_REQUEST));
         buf.putBoolean(false);
-        buf.putString(pwdf.getPassword());
+        buf.putPassword(pwdf.getPassword(resource));
         return buf;
     }
     
@@ -77,43 +63,47 @@ public class AuthPassword extends AbstractAuthMethod
         switch (cmd)
         {
         case USERAUTH_SUCCESS:
-            if (changeRequested)
-                crh.notifySuccess();
             return Result.SUCCESS;
         case USERAUTH_FAILURE:
             setAllowedMethods(buf.getString());
-            if (buf.getBoolean()) {
-                if (changeRequested)
-                    crh.notifySuccess();
+            if (buf.getBoolean())
                 return Result.PARTIAL_SUCCESS;
-            } else {
-                if (changeRequested)
-                    crh.notifyFailure();
-                return Result.FAILURE;
-            }
-        case USERAUTH_60: // SSH_MSG_USERAUTH_PASSWD_CHANGEREQ
-            if (changeRequested)
-                crh = crh.notifyUnacceptable();
-            if (crh != null) {
-                crh.setPrompt(buf.getLanguageQualifiedField());
-                sendChangeReq(buf.getString());
-                changeRequested = true;
+            else if (allowed.contains(NAME) && pwdf.retry()) {
+                request();
                 return Result.CONTINUED;
             } else
                 return Result.FAILURE;
+        case USERAUTH_60: // SSH_MSG_USERAUTH_PASSWD_CHANGEREQ
+            log.info("Password change request received, ignoring");
+            return Result.FAILURE; // throw an exception here instead??
         default:
-            log.error("Unexpected packet");
-            return Result.FAILURE;
+            return Result.UNKNOWN;
         }
     }
     
-    private void sendChangeReq(String prompt) throws IOException
-    {
-        Buffer buf = buildRequestCommon(new Buffer(Message.USERAUTH_60));
-        buf.putBoolean(true);
-        buf.putString(crh.getPassword());
-        buf.putString(crh.getNewPassword());
-        log.debug("Sending SSH_MSG_USERAUTH_PASSWD_CHANGEREQ");
-        session.writePacket(buf);
-    }
 }
+
+// COMMENTED out bellow (password change handling as part of the password auth method) because
+// introduced complexity without any proof of real world usage, kinda impossible to test :-)
+
+// public interface ChangeRequestHandler extends PasswordFinder
+// {
+// char[] getNewPassword(Resource resource, String info);
+//    
+// void notifyFailure();
+//    
+// void notifySuccess();
+//    
+// ChangeRequestHandler notifyUnacceptable();
+//    
+// void setPrompt(LQString prompt);
+// }
+// private void sendChangeReq(String prompt) throws IOException
+// {
+// Buffer buf = buildRequestCommon(new Buffer(Message.USERAUTH_60));
+// buf.putBoolean(true);
+// buf.putString(crh.getPassword(Resource.USER, username));
+// buf.putString(crh.getNewPassword(Resource.USER, username));
+// log.debug("Sending SSH_MSG_USERAUTH_PASSWD_CHANGEREQ");
+// session.writePacket(buf);
+// }
