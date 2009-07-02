@@ -18,31 +18,46 @@
  */
 package org.apache.commons.net.ssh.keyprovider;
 
-import java.security.KeyPair;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+
+import org.apache.commons.net.ssh.Constants.KeyType;
 
 /**
- * Provider for key pairs used to provide the user key.
  * 
- * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ * Just a wrapper around java.security.KeyPair
+ * 
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-public interface KeyPairProvider
+public class KeyPairWrapper implements KeyProvider
 {
+    private final java.security.KeyPair kp;
+    private final KeyType type;
     
-    /**
-     * Return a comma separated list of the key types available
-     * 
-     * @return the list of key availables
-     */
-    String getKeyTypes();
+    public KeyPairWrapper(java.security.KeyPair kp)
+    {
+        this.kp = kp;
+        type = KeyType.fromKey(kp.getPublic());
+    }
     
-    /**
-     * Load a key of the specified type which can be "ssh-rsa" or "ssh-dss". If there is no key of
-     * this type, return <code>null</code>
-     * 
-     * @param type
-     *            the type of key to load
-     * @return a valid key pair or <code>null</code>
-     */
-    KeyPair loadKey(String type);
+    public KeyPairWrapper(PublicKey publicKey, PrivateKey privateKey)
+    {
+        this(new java.security.KeyPair(publicKey, privateKey));
+    }
+    
+    public PrivateKey getPrivate()
+    {
+        return kp.getPrivate();
+    }
+    
+    public PublicKey getPublic()
+    {
+        return kp.getPublic();
+    }
+    
+    public KeyType getType()
+    {
+        return type;
+    }
     
 }

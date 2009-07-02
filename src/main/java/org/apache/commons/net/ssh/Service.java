@@ -33,6 +33,14 @@ public interface Service
     String getName();
     
     /**
+     * Transport layer notifying that a SSH_MSG_UNIMPLEMENTED was received for packet with given
+     * sequence number
+     * 
+     * @param seqNum
+     */
+    void gotUnimplemented(int seqNum);
+    
+    /**
      * SSH packets not recognized by the transport layer are passed to the service instance for
      * handling.
      * 

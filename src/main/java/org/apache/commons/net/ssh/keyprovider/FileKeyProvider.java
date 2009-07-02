@@ -16,31 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh.userauth;
+package org.apache.commons.net.ssh.keyprovider;
 
-import java.io.IOException;
+import org.apache.commons.net.ssh.PasswordFinder;
 
-import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.util.LQString;
-
-public interface UserAuthService extends Service
+/**
+ * 
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ */
+public interface FileKeyProvider extends KeyProvider
 {
     
-    interface Builder
-    {
-        
-        UserAuthService build();
-        
-        Builder withNextService(Service nextService);
-        
-        Builder withUsername(String username);
-        
-    }
+    void init(String location);
     
-    String NAME = "ssh-userauth";
-    
-    void authenticate() throws IOException;
-    
-    LQString getBanner();
+    void init(String location, PasswordFinder pwdf);
     
 }

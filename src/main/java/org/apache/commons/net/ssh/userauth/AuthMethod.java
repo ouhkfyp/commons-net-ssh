@@ -19,6 +19,7 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
+import java.util.Set;
 
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Constants.Message;
@@ -46,7 +47,7 @@ public interface AuthMethod
      * 
      * @return array of strings e.g. {"publickey", "password", "keyboard-interactive"}
      */
-    String[] getAllowedMethods();
+    Set<String> getAllowedMethods();
     
     String getName();
     

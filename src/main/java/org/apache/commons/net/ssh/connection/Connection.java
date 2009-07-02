@@ -60,5 +60,11 @@ public class Connection implements ConnectionService
     {
         // TODO Auto-generated method stub
     }
+
+    public void gotUnimplemented(int seqNum)
+    {
+        // TODO Auto-generated method stub
+        
+    }
     
 }

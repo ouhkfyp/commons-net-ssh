@@ -125,10 +125,11 @@ public class Transport implements Session
                     bin.gotByte((byte) input.read());
                 } catch (Exception e) {
                     if (!stopPumping) {
-                        if (outPump.isAlive() && e instanceof SSHException) {
+                        if (e instanceof SSHException && !(cmd == Message.DISCONNECT)) {
                             /*
                              * send SSH_MSG_DISCONNECT if we have the required info in the exception
-                             * and if outPump is up for it
+                             * (and the exception didn't arise from receiving a SSH_MSG_DISCONNECT
+                             * ourself! :P)
                              */
                             DisconnectReason reason = ((SSHException) e).getDisconnectReason();
                             if (!reason.equals(DisconnectReason.UNKNOWN))
@@ -171,6 +172,8 @@ public class Transport implements Session
     
     /** True value tells inPump and outPump to stop */
     private volatile boolean stopPumping = false;
+    
+    private Message cmd; // message ident for last packet received
     
     private Service service; // currently active service i.e. ssh-userauth, ssh-connection
     
@@ -257,52 +260,45 @@ public class Transport implements Session
         return serverID == null ? serverID : serverID.substring(8);
     }
     
+    private void gotUnimplemented(int seqNum)
+    {
+        if (service != null)
+            service.gotUnimplemented(seqNum);
+    }
+    
     void handle(Buffer packet) throws IOException
     {
-        Message cmd = packet.getCommand();
+        cmd = packet.getCommand();
         log.debug("Received packet {}", cmd);
         switch (cmd)
         {
         case DISCONNECT:
-        {
             DisconnectReason code = DisconnectReason.fromInt(packet.getInt());
-            String msg = packet.getString();
-            log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, msg);
-            throw new SSHException(code, msg);
-        }
+            String message = packet.getString();
+            log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, message);
+            throw new SSHException(code, message);
         case UNIMPLEMENTED:
-        {
-            int code = packet.getInt();
-            /*
-             * If this packet ever becomes relevant, could notify interested observers.
-             */
-            log.info("Received SSH_MSG_UNIMPLEMENTED #{}", code);
+            int seqNum = packet.getInt();
+            log.info("Received SSH_MSG_UNIMPLEMENTED #{}", seqNum);
+            gotUnimplemented(seqNum);
             break;
-        }
         case DEBUG:
-        {
             boolean display = packet.getBoolean();
             String msg = packet.getString();
             log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, msg);
             break;
-        }
         case IGNORE:
-        {
             log.info("Received SSH_MSG_IGNORE");
             break;
-        }
         default:
         {
             switch (state)
             {
             case KEX:
-            {
                 if (kex.handle(cmd, packet)) // key exchange completed
                     setState(State.KEX_DONE);
                 break;
-            }
             case SERVICE_REQ:
-            {
                 if (cmd != Message.SERVICE_ACCEPT) {
                     disconnect(DisconnectReason.PROTOCOL_ERROR,
                             "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
@@ -310,9 +306,7 @@ public class Transport implements Session
                 }
                 setState(State.SERVICE);
                 break;
-            }
             case SERVICE:
-            {
                 if (cmd != Message.KEXINIT)
                     service.handle(cmd, packet);
                 else {
@@ -321,7 +315,6 @@ public class Transport implements Session
                     kex.handle(cmd, packet);
                 }
                 break;
-            }
             case KEX_DONE:
                 log.debug("Hmm? Unknown command received while in KEX_DONE");
                 break;
@@ -487,6 +480,9 @@ public class Transport implements Session
         stop();
     }
     
+    /**
+     * null-ok
+     */
     public void setService(Service service)
     {
         log.info("Setting active service to {}", service.getName());

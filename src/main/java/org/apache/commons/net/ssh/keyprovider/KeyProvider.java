@@ -16,31 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh.userauth;
+package org.apache.commons.net.ssh.keyprovider;
 
 import java.io.IOException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 
-import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.util.LQString;
+import org.apache.commons.net.ssh.Constants.KeyType;
 
-public interface UserAuthService extends Service
+/*
+ * SSHAgentKeyProvider using JUDS <http://code.google.com/p/juds/> ??
+ */
+
+/**
+ * 
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ */
+public interface KeyProvider
 {
     
-    interface Builder
-    {
-        
-        UserAuthService build();
-        
-        Builder withNextService(Service nextService);
-        
-        Builder withUsername(String username);
-        
-    }
+    PrivateKey getPrivate() throws IOException;
     
-    String NAME = "ssh-userauth";
+    PublicKey getPublic() throws IOException;
     
-    void authenticate() throws IOException;
-    
-    LQString getBanner();
+    KeyType getType() throws IOException;
     
 }

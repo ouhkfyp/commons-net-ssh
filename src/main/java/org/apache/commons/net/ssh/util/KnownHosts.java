@@ -47,9 +47,9 @@ public class KnownHosts implements HostKeyVerifier
     private static class Entry
     {
         
-        final String[] hosts;
-        final KeyType type;
-        final String sKey;
+        private final String[] hosts;
+        private final KeyType type;
+        private final String sKey;
         
         Entry(String line) throws AssertionError
         {
@@ -112,11 +112,11 @@ public class KnownHosts implements HostKeyVerifier
                     try {
                         entries.add(new Entry(line));
                     } catch (AssertionError e) {
-                        log.warn("unrecognized line: {}", line);
+                        log.debug("{} - unrecognized line: {}", l, line);
                         continue;
                     }
             } catch (Exception e) {
-                log.error("Error loading {}: {}", l, e);
+                log.info("Error loading {}: {}", l, e);
             }
     }
     
@@ -139,4 +139,5 @@ public class KnownHosts implements HostKeyVerifier
                 }
         return false;
     }
+    
 }
