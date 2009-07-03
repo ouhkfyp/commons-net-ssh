@@ -243,7 +243,7 @@ public interface Constants
     /**
      * Software version; sent as part of client identification string
      */
-    String VERSION = "NET_3_0";
+    String VERSION = "NET_3.0";
     
     /**
      * Default SSH port

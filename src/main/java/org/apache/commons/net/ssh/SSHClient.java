@@ -22,6 +22,7 @@ import static org.apache.commons.net.ssh.Constants.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -37,7 +38,7 @@ import org.apache.commons.net.ssh.compression.Compression;
 import org.apache.commons.net.ssh.compression.CompressionDelayedZlib;
 import org.apache.commons.net.ssh.compression.CompressionNone;
 import org.apache.commons.net.ssh.compression.CompressionZlib;
-import org.apache.commons.net.ssh.connection.Connection;
+import org.apache.commons.net.ssh.connection.ConnectionProtocol;
 import org.apache.commons.net.ssh.connection.ConnectionService;
 import org.apache.commons.net.ssh.kex.DHG1;
 import org.apache.commons.net.ssh.kex.DHG14;
@@ -56,10 +57,8 @@ import org.apache.commons.net.ssh.random.SingletonRandomFactory;
 import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.signature.SignatureDSA;
 import org.apache.commons.net.ssh.signature.SignatureRSA;
-import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.transport.Transport;
-import org.apache.commons.net.ssh.transport.Session.HostKeyVerifier;
-import org.apache.commons.net.ssh.userauth.UserAuthBuilder;
+import org.apache.commons.net.ssh.userauth.AuthBuilder;
 import org.apache.commons.net.ssh.util.KnownHosts;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 
@@ -70,54 +69,36 @@ import org.apache.commons.net.ssh.util.SecurityUtils;
  */
 public class SSHClient extends SocketClient
 {
+    @SuppressWarnings("unchecked")
     protected static FactoryManager getDefaultFactoryManager()
     {
         FactoryManager fm = new FactoryManager();
         
         if (SecurityUtils.isBouncyCastleRegistered()) {
             
-            fm.setKeyExchangeFactories(new LinkedList<NamedFactory<KeyExchange>>()
-            {
-                {
-                    add(new DHG14.Factory());
-                    add(new DHG1.Factory());
-                }
-            });
+            fm.setKeyExchangeFactories(Arrays.<NamedFactory<KeyExchange>> asList(
+                    new DHG14.Factory(), new DHG1.Factory()));
             
             fm.setRandomFactory(new SingletonRandomFactory(new BouncyCastleRandom.Factory()));
             
-            fm.setFileKeyProviderFactories(new LinkedList<NamedFactory<FileKeyProvider>>()
-            {
-                {
-                    add(new PKCS8KeyFile.Factory());
-                    add(new OpenSSHKeyFile.Factory());
-                }
-            });
+            fm.setFileKeyProviderFactories(Arrays.<NamedFactory<FileKeyProvider>> asList(
+                    new PKCS8KeyFile.Factory(), new OpenSSHKeyFile.Factory()));
             
         } else {
             
-            fm.setKeyExchangeFactories(new LinkedList<NamedFactory<KeyExchange>>()
-            {
-                {
-                    add(new DHG1.Factory());
-                }
-            });
+            fm.setKeyExchangeFactories(Arrays
+                    .<NamedFactory<KeyExchange>> asList(new DHG1.Factory()));
             
             fm.setRandomFactory(new SingletonRandomFactory(new JCERandom.Factory()));
             
-            fm.setFileKeyProviderFactories(new LinkedList<NamedFactory<FileKeyProvider>>()); // empty
+            fm.setFileKeyProviderFactories(Arrays.<NamedFactory<FileKeyProvider>> asList()); // empty
         }
         
-        List<NamedFactory<Cipher>> avail = new LinkedList<NamedFactory<Cipher>>()
-        {
-            {
-                add(new AES256CBC.Factory());
-                add(new AES192CBC.Factory());
-                add(new AES128CBC.Factory());
-                add(new BlowfishCBC.Factory());
-                add(new TripleDESCBC.Factory());
-            }
-        };
+        List<NamedFactory<Cipher>> avail = new LinkedList<NamedFactory<Cipher>>(Arrays
+                .<NamedFactory<Cipher>> asList(new AES256CBC.Factory(), new AES192CBC.Factory(),
+                        new AES128CBC.Factory(), new BlowfishCBC.Factory(),
+                        new TripleDESCBC.Factory()));
+        
         for (Iterator<NamedFactory<Cipher>> i = avail.iterator(); i.hasNext();) {
             final NamedFactory<Cipher> f = i.next();
             try {
@@ -129,34 +110,18 @@ public class SSHClient extends SocketClient
                 i.remove();
             }
         }
+        
         fm.setCipherFactories(avail);
         
-        fm.setCompressionFactories(new LinkedList<NamedFactory<Compression>>()
-        {
-            {
-                add(new CompressionNone.Factory());
-                add(new CompressionDelayedZlib.Factory());
-                add(new CompressionZlib.Factory());
-            }
-        });
+        fm.setCompressionFactories(Arrays.<NamedFactory<Compression>> asList(
+                new CompressionNone.Factory(), new CompressionDelayedZlib.Factory(),
+                new CompressionZlib.Factory()));
         
-        fm.setMACFactories(new LinkedList<NamedFactory<MAC>>()
-        {
-            {
-                add(new HMACSHA1.Factory());
-                add(new HMACSHA196.Factory());
-                add(new HMACMD5.Factory());
-                add(new HMACMD596.Factory());
-            }
-        });
+        fm.setMACFactories(Arrays.<NamedFactory<MAC>> asList(new HMACSHA1.Factory(),
+                new HMACSHA196.Factory(), new HMACMD5.Factory(), new HMACMD596.Factory()));
         
-        fm.setSignatureFactories(new LinkedList<NamedFactory<Signature>>()
-        {
-            {
-                add(new SignatureDSA.Factory());
-                add(new SignatureRSA.Factory());
-            }
-        });
+        fm.setSignatureFactories(Arrays.<NamedFactory<Signature>> asList(
+                new SignatureDSA.Factory(), new SignatureRSA.Factory()));
         
         return fm;
     }
@@ -175,18 +140,7 @@ public class SSHClient extends SocketClient
     {
         setDefaultPort(DEFAULT_PORT);
         trans = new Transport(fm);
-        conn = new Connection(trans);
-    }
-    
-    @Override
-    protected void _connectAction_() throws IOException
-    {
-        super._connectAction_();
-        try {
-            trans.init(_socket_);
-        } catch (Exception e) {
-            throw new IOException(e);
-        }
+        conn = new ConnectionProtocol(trans);
     }
     
     public void addHostKeyVerifier(HostKeyVerifier hostKeyVerifier)
@@ -201,9 +155,9 @@ public class SSHClient extends SocketClient
         super.disconnect();
     }
     
-    public UserAuthBuilder getAuthBuilder()
+    public AuthBuilder getAuthBuilder()
     {
-        return new UserAuthBuilder(trans, System.getProperty("user.name"), conn);
+        return new AuthBuilder(trans, System.getProperty("user.name"), conn);
     }
     
     @Override
@@ -220,6 +174,13 @@ public class SSHClient extends SocketClient
             trans.addHostKeyVerifier(new KnownHosts(kh, kh + "2"));
         } else
             trans.addHostKeyVerifier(new KnownHosts(locations));
+    }
+    
+    @Override
+    protected void _connectAction_() throws IOException
+    {
+        super._connectAction_();
+        trans.init(_socket_);
     }
     
 }

@@ -19,8 +19,7 @@
 package org.apache.commons.net.ssh.userauth;
 
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.Constants.Message;
-import org.apache.commons.net.ssh.transport.Session;
+import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
 public class AuthNone extends AbstractAuthMethod
@@ -33,15 +32,15 @@ public class AuthNone extends AbstractAuthMethod
         super(session, nextService, username);
     }
     
-    @Override
-    protected Buffer buildRequest()
-    {
-        return buildRequestCommon(new Buffer(Message.USERAUTH_REQUEST));
-    }
-    
     public String getName()
     {
         return NAME;
+    }
+    
+    @Override
+    protected Buffer buildReq()
+    {
+        return buildReqCommon();
     }
     
 }

@@ -103,7 +103,7 @@ public class BaseMAC implements MAC
         mac.update(foo, 0, foo.length);
     }
     
-    public void update(int i)
+    public void update(long i)
     {
         tmp[0] = (byte) (i >>> 24);
         tmp[1] = (byte) (i >>> 16);

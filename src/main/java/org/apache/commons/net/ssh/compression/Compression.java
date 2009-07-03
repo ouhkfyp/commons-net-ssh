@@ -20,6 +20,7 @@ package org.apache.commons.net.ssh.compression;
 
 import java.io.IOException;
 
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -46,7 +47,7 @@ public interface Compression
      * @throws IOException
      *             if an error occurs
      */
-    void compress(Buffer buffer) throws IOException;
+    void compress(Buffer buffer) throws TransportException;
     
     /**
      * Initialize this object to either compress or uncompress data. This method must be called
@@ -77,6 +78,6 @@ public interface Compression
      * @throws IOException
      *             if an error occurs
      */
-    void uncompress(Buffer from, Buffer to) throws IOException;
+    void uncompress(Buffer from, Buffer to) throws TransportException;
     
 }

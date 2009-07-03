@@ -16,18 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.commons.net.ssh.transport;
+package org.apache.commons.net.ssh;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.Socket;
-import java.security.PublicKey;
 
-import org.apache.commons.net.ssh.FactoryManager;
-import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Constants.DisconnectReason;
-import org.apache.commons.net.ssh.Constants.Message;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -37,31 +32,6 @@ import org.apache.commons.net.ssh.util.Buffer;
  */
 public interface Session
 {
-    
-    /**
-     * Interface for host key verification.
-     * 
-     * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
-     */
-    interface HostKeyVerifier
-    {
-        
-        /**
-         * This is the callback that is called when the server's host key needs to be verified, and
-         * its return value indicates whether the SSH connection should proceed.
-         * <p>
-         * <b>Note</b>: host key verification is the basis for security in SSH, therefore exercise
-         * due caution in implementing!
-         * 
-         * @param address
-         *            remote address we are connected to
-         * @param key
-         *            public key provided server
-         * @return <code>true</code> if key acceptable, <code>false</code> otherwise
-         */
-        boolean verify(InetAddress address, PublicKey key);
-        
-    }
     
     /**
      * Specify a callback for host key verification.
@@ -74,18 +44,13 @@ public interface Session
     /**
      * Send a disconnection packet with reason as {@link Constants#SSH_DISCONNECT_BY_APPLICATION},
      * and close the session.
-     * 
-     * @throws IOException
      */
-    void disconnect();
+    boolean disconnect();
     
     /**
      * Send a disconnect packet with the given reason, and close this session.
-     * 
-     * @param reason
-     * @throws IOException
      */
-    void disconnect(DisconnectReason reason);
+    boolean disconnect(DisconnectReason reason);
     
     /**
      * Send a disconnect packet with the given reason and message, and close this session.
@@ -94,12 +59,10 @@ public interface Session
      *            the reason code for this disconnect
      * @param msg
      *            the text message
-     * @throws IOException
-     *             if an error occured sending the packet
      */
-    void disconnect(DisconnectReason reason, String msg);
+    boolean disconnect(DisconnectReason reason, String msg);
     
-    Service getActiveService();
+    Service getService();
     
     /**
      * Returns the version string used by this client to identify itself to an SSH server.
@@ -121,6 +84,8 @@ public interface Session
      * @return session identifier as a byte array
      */
     byte[] getID();
+    
+    long getLastSeqNum();
     
     /**
      * Returns the version string as sent by the SSH server for identification purposes.
@@ -145,7 +110,7 @@ public interface Session
      */
     void init(Socket socket) throws IOException;
     
-    boolean isRunning(); // threadsafe
+    boolean isRunning();
     
     /**
      * Request a SSH service represented by a {@link Service} instance.
@@ -157,7 +122,7 @@ public interface Session
      * @throws IOException
      *             if the request failed for any reason
      */
-    void reqService(Service service) throws IOException;
+    void reqService(Service service) throws TransportException;
     
     /**
      * This method <b>must</b> be called after the session has been authenticated, so that delayed
@@ -174,7 +139,7 @@ public interface Session
      * 
      * @param service
      */
-    void setService(Service service); // threadsafe
+    void setService(Service service);
     
     /**
      * Encodes and sends an SSH packet over the output stream for this session.
@@ -185,6 +150,6 @@ public interface Session
      *             if the packet could not be sent
      * @return the sequence no. of the sent packet
      */
-    int writePacket(Buffer payload) throws IOException;
+    long writePacket(Buffer payload) throws TransportException;
     
 }

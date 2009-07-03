@@ -18,18 +18,17 @@
  */
 package org.apache.commons.net.ssh.kex;
 
-import java.io.IOException;
 import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.Constants.KeyType;
 import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.digest.Digest;
 import org.apache.commons.net.ssh.digest.SHA1;
 import org.apache.commons.net.ssh.signature.Signature;
-import org.apache.commons.net.ssh.transport.Session;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,7 +79,7 @@ public abstract class AbstractDHG implements KeyExchange
     }
     
     public void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C)
-            throws IOException
+            throws TransportException
     {
         this.session = session;
         this.V_S = V_S;
@@ -94,40 +93,34 @@ public abstract class AbstractDHG implements KeyExchange
         e = dh.getE();
         
         log.info("Sending SSH_MSG_KEXDH_INIT");
-        Buffer buffer = new Buffer(Message.KEXDH_INIT);
-        buffer.putMPInt(e);
-        session.writePacket(buffer);
+        session.writePacket(new Buffer(Message.KEXDH_INIT).putMPInt(e));
     }
     
-    protected abstract void initDH(DH dh);
-    
-    public boolean next(Buffer buffer) throws SSHException
+    public boolean next(Buffer buffer) throws TransportException
     {
         Message cmd = buffer.getCommand();
         if (cmd != Message.KEXDH_31)
-            throw new SSHException(DisconnectReason.KEY_EXCHANGE_FAILED,
+            throw new TransportException(DisconnectReason.KEY_EXCHANGE_FAILED,
                     "Protocol error: expected packet " + Message.KEXDH_31 + ", got " + cmd);
         
         log.info("Received SSH_MSG_KEXDH_REPLY");
-        
         byte[] K_S = buffer.getBytes();
         f = buffer.getMPIntAsBytes();
-        byte[] sig = buffer.getBytes();
+        byte[] sig = buffer.getBytes(); // signature sent by server
         dh.setF(f);
         K = dh.getK();
         
-        buffer = new Buffer(K_S);
-        hostKey = buffer.getPublicKey();
+        hostKey = new Buffer(K_S).getPublicKey();
         
-        buffer = new Buffer();
-        buffer.putString(V_C);
-        buffer.putString(V_S);
-        buffer.putString(I_C);
-        buffer.putString(I_S);
-        buffer.putString(K_S);
-        buffer.putMPInt(e);
-        buffer.putMPInt(f);
-        buffer.putMPInt(K);
+        buffer = new Buffer() // our hash
+                .putString(V_C) // ...
+                .putString(V_S) // ...
+                .putString(I_C) // ...
+                .putString(I_S) // ...
+                .putString(K_S) // ...
+                .putMPInt(e) // ...
+                .putMPInt(f) // ...
+                .putMPInt(K); // ...
         sha.update(buffer.array(), 0, buffer.available());
         H = sha.digest();
         
@@ -136,9 +129,11 @@ public abstract class AbstractDHG implements KeyExchange
         verif.init(hostKey, null);
         verif.update(H, 0, H.length);
         if (!verif.verify(sig))
-            throw new SSHException(DisconnectReason.KEY_EXCHANGE_FAILED,
+            throw new TransportException(DisconnectReason.KEY_EXCHANGE_FAILED,
                     "KeyExchange signature verification failed");
         return true;
     }
+    
+    protected abstract void initDH(DH dh);
     
 }

@@ -68,12 +68,11 @@ public class SecurityUtils
         }
     }
     
+    private static final Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);
     public static final String BOUNCY_CASTLE = "BC";
     
-    private static final Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);
     private static String securityProvider = null;
     private static Boolean registerBouncyCastle;
-    
     private static boolean registrationDone;
     
     public static String detectKeyFileFormat(String location) throws IOException
@@ -218,6 +217,18 @@ public class SecurityUtils
         return BOUNCY_CASTLE.equals(securityProvider);
     }
     
+    public static synchronized void setRegisterBouncyCastle(boolean registerBouncyCastle)
+    {
+        SecurityUtils.registerBouncyCastle = registerBouncyCastle;
+        registrationDone = false;
+    }
+    
+    public static synchronized void setSecurityProvider(String securityProvider)
+    {
+        SecurityUtils.securityProvider = securityProvider;
+        registrationDone = false;
+    }
+    
     private static void register()
     {
         if (!registrationDone) {
@@ -230,24 +241,12 @@ public class SecurityUtils
                         LOG.info("BouncyCastle not registered, using the default JCE provider");
                     else {
                         LOG.error("Failed to register BouncyCastle as the defaut JCE provider");
-                        throw new RuntimeException(
+                        throw new SSHRuntimeException(
                                 "Failed to register BouncyCastle as the defaut JCE provider", t);
                     }
                 }
             registrationDone = true;
         }
-    }
-    
-    public static synchronized void setRegisterBouncyCastle(boolean registerBouncyCastle)
-    {
-        SecurityUtils.registerBouncyCastle = registerBouncyCastle;
-        registrationDone = false;
-    }
-    
-    public static synchronized void setSecurityProvider(String securityProvider)
-    {
-        SecurityUtils.securityProvider = securityProvider;
-        registrationDone = false;
     }
     
 }

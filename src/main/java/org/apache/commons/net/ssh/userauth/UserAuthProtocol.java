@@ -18,28 +18,22 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.AbstractService;
+import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.Constants.Message;
-import org.apache.commons.net.ssh.transport.Session;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.userauth.AuthMethod.Result;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.LQString;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public class UserAuth implements UserAuthService
+public class UserAuthProtocol extends AbstractService implements UserAuthService
 {
-    
-    private final Logger log = LoggerFactory.getLogger(getClass());
-    
-    private final Session session;
     
     private Set<String> allowed = new HashSet<String>();
     
@@ -50,28 +44,29 @@ public class UserAuth implements UserAuthService
     private AuthMethod method; // currently active method
     private AuthMethod.Result res; // its result
     private final ReentrantLock resLock = new ReentrantLock(); // lock for res
-    private final Condition resCond = resLock.newCondition(); // signifies a conclusive resukt
+    private final Condition resCond = resLock.newCondition(); // signifies a conclusive result
     
-    private volatile Thread currentThread;
-    private volatile SSHException exception;
-    
-    UserAuth(Session session, Queue<AuthMethod> methods)
+    public UserAuthProtocol(Session session, Queue<AuthMethod> methods)
     {
-        this.session = session;
+        super(session);
         this.methods = methods;
         for (AuthMethod m : methods)
             // initially assume all are allowed
             allowed.add(m.getName());
     }
     
-    public void authenticate() throws IOException
+    public void authenticate() throws UserAuthException
     {
-        request(); // service request
-        currentThread = Thread.currentThread();
+        try { // service request
+            request();
+        } catch (TransportException e) {
+            throw new UserAuthException(e);
+        }
+        enterInterruptibleContext();
         for (;;) {
             if ((method = methods.poll()) == null)
-                throw new SSHException("Exhausted available authentication methods");
-            log.debug("Trying [{}] auth...", method.getName());
+                throw new UserAuthException("Exhausted available authentication methods");
+            log.info("Trying {} auth...", method.getName());
             if (!allowed.contains(method.getName()))
                 continue;
             resLock.lock();
@@ -80,7 +75,7 @@ public class UserAuth implements UserAuthService
                 try {
                     method.request();
                 } catch (Exception e) {
-                    log.debug("error requesting:: " + e.toString());
+                    log.error("... but it spewed - {}", e.toString());
                     continue;
                 }
                 while (res == Result.CONTINUED)
@@ -96,11 +91,13 @@ public class UserAuth implements UserAuthService
                     assert false;
                 }
             } catch (InterruptedException e) {
+                log.debug("Got interrupted");
                 if (exception != null)
-                    throw exception;
+                    throw UserAuthException.chain(exception);
                 else
-                    throw new SSHException(e);
+                    throw new UserAuthException(e);
             } finally {
+                leaveInterruptibleContext();
                 resLock.unlock();
             }
         }
@@ -116,6 +113,7 @@ public class UserAuth implements UserAuthService
         return NAME;
     }
     
+    @Override
     public Session getSession()
     {
         return session;
@@ -126,17 +124,20 @@ public class UserAuth implements UserAuthService
         // TODO Auto-generated method stub
     }
     
-    public void handle(Message cmd, Buffer buf) throws IOException
+    public void handle(Message cmd, Buffer buf) throws UserAuthException
     {
         switch (cmd)
         {
         case USERAUTH_BANNER:
-            banner = buf.getLanguageQualifiedField();
+            banner = buf.getLQString();
+            log.info("Auth banner - lang=[{}], text=[{}]", banner.getLanguage(), banner.getText());
             break;
         default:
             resLock.lock();
             try {
-                switch (res = method.handle(cmd, buf))
+                res = method.handle(cmd, buf);
+                log.info("... Result={}", res);
+                switch (res)
                 {
                 case SUCCESS:
                     session.setAuthenticated();
@@ -148,7 +149,6 @@ public class UserAuth implements UserAuthService
                     resCond.signal();
                     break;
                 case PARTIAL_SUCCESS:
-                    log.info("partial success");
                     resCond.signal();
                     break;
                 case CONTINUED:
@@ -157,8 +157,7 @@ public class UserAuth implements UserAuthService
                     assert false;
                 }
             } catch (Exception e) {
-                log.error("error while handling response in {} auth: {}", method.getName(), e
-                        .toString());
+                log.error("... {} method spewed - {}", method.getName(), e.toString());
                 res = Result.FAILURE;
                 resCond.signal();
             } finally {
@@ -167,26 +166,12 @@ public class UserAuth implements UserAuthService
         }
     }
     
-    public void request() throws IOException
+    @Override
+    protected boolean shouldInterrupt()
     {
-        try {
-            if (!equals(session.getActiveService()))
-                session.reqService(this);
-        } catch (Exception e) {
-            throw new IOException(e);
-        }
-    }
-    
-    public void setError(SSHException ex)
-    {
-        exception = ex;
         resLock.lock();
         try {
-            if (resLock.hasWaiters(resCond)) {
-                assert currentThread != null;
-                log.debug("interrupting {}", currentThread);
-                currentThread.interrupt();
-            }
+            return resLock.hasWaiters(resCond);
         } finally {
             resLock.unlock();
         }

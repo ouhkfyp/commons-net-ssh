@@ -33,6 +33,11 @@ public interface Service
     String getName();
     
     /**
+     * @return the {@link Session} associated with this service
+     */
+    Session getSession();
+    
+    /**
      * Transport layer notifying that a SSH_MSG_UNIMPLEMENTED was received for packet with given
      * sequence number
      * 
@@ -48,14 +53,7 @@ public interface Service
      * @param packet
      * @throws IOException
      */
-    void handle(Message cmd, Buffer packet) throws IOException;
-    
-    /**
-     * Request and install this service.
-     * 
-     * @throws IOException
-     */
-    void request() throws IOException;
+    void handle(Message cmd, Buffer packet) throws SSHException;
     
     /**
      * Notifies this instance that an error occured in the transport layer.
@@ -63,6 +61,13 @@ public interface Service
      * @param ex
      *            the exception that occured in session layer
      */
-    void setError(SSHException ex);
+    void notifyError(SSHException ex);
+    
+    /**
+     * Request and install this service.
+     * 
+     * @throws IOException
+     */
+    void request() throws SSHException;
     
 }

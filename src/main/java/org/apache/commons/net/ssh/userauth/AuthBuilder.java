@@ -1,7 +1,6 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -9,15 +8,15 @@ import java.util.List;
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.PasswordFinder;
 import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.keyprovider.FileKeyProvider;
 import org.apache.commons.net.ssh.keyprovider.KeyPairWrapper;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
-import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class UserAuthBuilder implements UserAuthService.Builder
+public class AuthBuilder
 {
     
     private final Session session;
@@ -29,71 +28,63 @@ public class UserAuthBuilder implements UserAuthService.Builder
     private Service nextService;
     private PasswordFinder pwdf;
     
-    public UserAuthBuilder(Session session, String username, Service nextService)
+    public AuthBuilder(Session session, String username, Service nextService)
     {
         this.session = session;
         this.username = username;
         this.nextService = nextService;
     }
     
-    public UserAuthBuilder authMethod(AuthMethod method)
+    public AuthBuilder authMethod(AuthMethod method)
     {
         methods.add(method);
         return this;
     }
     
-    public UserAuthBuilder authPassword()
+    public AuthBuilder authPassword()
     {
         methods.add(new AuthPassword(session, nextService, username, pwdf));
         return this;
     }
     
-    public UserAuthBuilder authPassword(char[] password)
+    public AuthBuilder authPassword(char[] password)
     {
         methods.add(new AuthPassword(session, nextService, username, PasswordFinder.Util
                 .createOneOff(password)));
         return this;
     }
     
-    public UserAuthBuilder authPassword(String password)
+    public AuthBuilder authPassword(String password)
     {
         methods.add(new AuthPassword(session, nextService, username, PasswordFinder.Util
                 .createOneOff(password)));
         return this;
     }
     
-    public UserAuthBuilder authPublickey(Iterable<KeyProvider> keys)
+    public AuthBuilder authPublickey(Iterable<KeyProvider> keys)
     {
         return authPublickey(keys.iterator());
     }
     
-    public UserAuthBuilder authPublickey(Iterator<KeyProvider> keys)
+    public AuthBuilder authPublickey(Iterator<KeyProvider> keys)
     {
         methods.add(new AuthPublickey(session, nextService, username, keys));
         return this;
     }
     
-    public UserAuthBuilder authPublickey(java.security.KeyPair kp)
+    public AuthBuilder authPublickey(java.security.KeyPair kp)
     {
         return authPublickey(new KeyPairWrapper(kp));
     }
     
-    public UserAuthBuilder authPublickey(KeyProvider... keys)
-    {
-        if (keys.length > 0)
-            return authPublickey(Arrays.asList(keys));
-        else
-            return this;
-    }
-    
-    public UserAuthBuilder authPublickey(KeyProvider key)
+    public AuthBuilder authPublickey(KeyProvider key)
     {
         List<KeyProvider> keys = new LinkedList<KeyProvider>();
         keys.add(key);
         return authPublickey(keys.iterator());
     }
     
-    public UserAuthBuilder authPublickey(String... locations)
+    public AuthBuilder authPublickey(String... locations)
     { // convenience method, but swallows up errors for API consistency
         List<NamedFactory<FileKeyProvider>> factories = session.getFactoryManager()
                 .getFileKeyProviderFactories();
@@ -111,42 +102,42 @@ public class UserAuthBuilder implements UserAuthService.Builder
             } catch (IOException e) {
                 log.error("Could not add key file at [{}]: {}", location, e.toString());
             }
-        if (fkps.size() > 0)
-            return authPublickey(fkps);
-        else
-            return this;
+        // if (fkps.size() > 0)
+        return authPublickey(fkps);
+        // else
+        // return this;
     }
     
     public UserAuthService build()
     {
-        return new UserAuth(session, methods);
+        return new UserAuthProtocol(session, methods);
     }
     
-    public UserAuthBuilder withNextService(Service nextService)
+    public AuthBuilder withNextService(Service nextService)
     {
         this.nextService = nextService;
         return this;
     }
     
-    public UserAuthBuilder withPassword(char[] password)
+    public AuthBuilder withPassword(char[] password)
     {
         pwdf = PasswordFinder.Util.createOneOff(password);
         return this;
     }
     
-    public UserAuthBuilder withPassword(PasswordFinder pwdf)
+    public AuthBuilder withPassword(PasswordFinder pwdf)
     {
         this.pwdf = pwdf;
         return this;
     }
     
-    public UserAuthBuilder withPassword(String password)
+    public AuthBuilder withPassword(String password)
     {
         pwdf = PasswordFinder.Util.createOneOff(password);
         return this;
     }
     
-    public UserAuthBuilder withUsername(String username)
+    public AuthBuilder withUsername(String username)
     {
         this.username = username;
         return this;

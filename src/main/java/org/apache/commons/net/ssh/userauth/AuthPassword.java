@@ -22,9 +22,9 @@ import java.io.IOException;
 
 import org.apache.commons.net.ssh.PasswordFinder;
 import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.PasswordFinder.Resource;
-import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
 public class AuthPassword extends AbstractAuthMethod
@@ -41,15 +41,6 @@ public class AuthPassword extends AbstractAuthMethod
         assert pwdf != null;
         this.pwdf = pwdf;
         resource = new Resource(Resource.Type.ACCOUNT, username);
-    }
-    
-    @Override
-    protected Buffer buildRequest()
-    {
-        Buffer buf = buildRequestCommon(new Buffer(Message.USERAUTH_REQUEST));
-        buf.putBoolean(false);
-        buf.putPassword(pwdf.getPassword(resource));
-        return buf;
     }
     
     public String getName()
@@ -73,14 +64,21 @@ public class AuthPassword extends AbstractAuthMethod
                 return Result.CONTINUED;
             } else
                 return Result.FAILURE;
-        case USERAUTH_60: // SSH_MSG_USERAUTH_PASSWD_CHANGEREQ
-            log.info("Password change request received, ignoring");
-            return Result.FAILURE; // throw an exception here instead??
+        case USERAUTH_60:
+            log.error("Received SSH_MSG_USERAUTH_CHANGERQ; password needs changing");
+            return Result.FAILURE;
         default:
             return Result.UNKNOWN;
         }
     }
     
+    @Override
+    protected Buffer buildReq()
+    {
+        return buildReqCommon() // the generic stuff
+                .putBoolean(false) // no, we are not interested in changing an old password
+                .putPassword(pwdf.getPassword(resource)); // putPassword blanks char[]
+    }
 }
 
 // COMMENTED out bellow (password change handling as part of the password auth method) because

@@ -22,18 +22,44 @@ import java.io.IOException;
 import java.util.Iterator;
 
 import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
-import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
+/**
+ * Implements the "publickey" SSH authentication method.
+ * <p>
+ * It is initialised with an {@code Iterator<KeyProvider>}. It sends "feeler" requests using just
+ * the public key from the key provider, until the server responds with {@code
+ * SSH_MSG_USERAUTH_PK_OK} indicating that the key is acceptable. Then it proceeds to send a request
+ * signed with the private key.
+ * <p>
+ * At any point if there is an error and there are more key providers available in the iterator, it
+ * silently logs the error and continues.
+ * 
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ */
 public class AuthPublickey extends KeyedAuthMethod
 {
     
+    /**
+     * Assigned name of this authentication method
+     */
     public static final String NAME = "publickey";
     
+    /**
+     * KeyProvider's that we shall try
+     */
     private final Iterator<KeyProvider> keys;
     
+    /**
+     * 
+     * @param session
+     * @param nextService
+     * @param username
+     * @param keys
+     */
     public AuthPublickey(Session session, Service nextService, String username,
             Iterator<KeyProvider> keys)
     {
@@ -42,20 +68,23 @@ public class AuthPublickey extends KeyedAuthMethod
         this.keys = keys;
     }
     
-    @Override
-    protected Buffer buildRequest() throws IOException
-    {
-        Buffer buf = buildRequestCommon(new Buffer(Message.USERAUTH_REQUEST));
-        buf.putBoolean(false);
-        putPubKey(buf);
-        return buf;
-    }
-    
+    /*
+     * (non-Javadoc)
+     * 
+     * @see org.apache.commons.net.ssh.userauth.AuthMethod#getName()
+     */
     public String getName()
     {
         return NAME;
     }
     
+    /*
+     * (non-Javadoc)
+     * 
+     * @see
+     * org.apache.commons.net.ssh.userauth.AbstractAuthMethod#handle(org.apache.commons.net.ssh.
+     * Constants.Message, org.apache.commons.net.ssh.util.Buffer)
+     */
     @Override
     public Result handle(Message cmd, Buffer buf) throws IOException
     {
@@ -66,16 +95,17 @@ public class AuthPublickey extends KeyedAuthMethod
         case USERAUTH_FAILURE:
             setAllowedMethods(buf.getString());
             if (allowed.contains(NAME) && reqLoop())
+                // publickey auth still available, and managed to send another feeler
                 return Result.CONTINUED;
             else
+                // a true value here indicates "partial success" (more auths needed)
                 return buf.getBoolean() ? Result.PARTIAL_SUCCESS : Result.FAILURE;
         case USERAUTH_60:
-            log.debug("key acceptable, sending signature");
+            log.info("Key acceptable, sending signature");
             try {
                 sendSignedReq();
             } catch (IOException e) {
-                if (keys.hasNext())
-                    log.debug("error sending signing req, trying next: {}", e.toString());
+                log.debug("Error sending signed req: {}", e.toString());
                 if (!reqLoop())
                     return Result.FAILURE;
             }
@@ -85,15 +115,43 @@ public class AuthPublickey extends KeyedAuthMethod
         }
     }
     
-    private boolean reqLoop() throws IOException // returns true if managed to send request
+    /*
+     * (non-Javadoc)
+     * 
+     * @see org.apache.commons.net.ssh.userauth.AbstractAuthMethod#request()
+     */
+    @Override
+    public void request() throws IOException // initially invoked by UserAuthProtocol
+    {
+        if (!reqLoop())
+            throw new UserAuthException("Got no keys to try");
+    }
+    
+    @Override
+    protected Buffer buildReq() throws IOException
+    {
+        // the false indicates that this is not a signed request just yet
+        // putPubKey puts < key ident | key blob > and returns back buffer
+        return putPubKey(buildReqCommon().putBoolean(false));
+    }
+    
+    /**
+     * Send a feeler request, and don't give up till out of keys
+     * 
+     * @return {@code true} indicates a request was sent, {@code false} that no more keys
+     * @throws IOException
+     *             out of keys + an error occured in the last request
+     */
+    private boolean reqLoop() throws IOException
     {
         while (keys.hasNext()) {
             kProv = keys.next();
             try {
-                session.writePacket(buildRequest());
+                log.debug("Sending request for {} key", kProv.getType());
+                session.writePacket(buildReq());
             } catch (IOException e) {
                 if (keys.hasNext()) {
-                    log.debug("had error with last key, trying next: {}", e.toString());
+                    log.debug("Had error with last key, trying next: {}", e.toString());
                     continue;
                 } else
                     throw e;
@@ -103,25 +161,21 @@ public class AuthPublickey extends KeyedAuthMethod
         return false;
     }
     
-    @Override
-    public void request() throws IOException
-    {
-        reqLoop();
-    }
-    
+    /**
+     * Send signed userauth request
+     * 
+     * @throws IOException
+     */
     private void sendSignedReq() throws IOException
     {
         // this is the request buffer, to which we will add the signature in a bit
-        Buffer reqBuf = buildRequestCommon(new Buffer(Message.USERAUTH_REQUEST));
-        reqBuf.putBoolean(true);
+        Buffer reqBuf = buildReqCommon().putBoolean(true);
         putPubKey(reqBuf);
         
         // the subject for the signature: consists of sessionID string + above data
-        Buffer sigSubj = new Buffer();
-        sigSubj.putString(session.getID());
-        sigSubj.putBuffer(reqBuf);
+        Buffer sigSubj = new Buffer().putString(session.getID()).putBuffer(reqBuf);
         
-        // ready to go
+        // putSig returns reqBuf back after adding signature
         session.writePacket(putSig(sigSubj, reqBuf));
     }
     

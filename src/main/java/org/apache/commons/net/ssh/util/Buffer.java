@@ -42,7 +42,7 @@ import org.apache.commons.net.ssh.Constants.Message;
 public final class Buffer
 {
     
-    public static class BufferException extends RuntimeException
+    public static class BufferException extends SSHRuntimeException
     {
         public BufferException(String message)
         {
@@ -61,9 +61,7 @@ public final class Buffer
     }
     
     private byte[] data;
-    
     private int rpos;
-    
     private int wpos;
     
     public Buffer()
@@ -129,22 +127,10 @@ public final class Buffer
         rpos = 0;
     }
     
-    private void ensureAvailable(int a)
-    {
-        if (available() < a)
-            throw new BufferException("Underflow");
-    }
-    
-    private void ensureCapacity(int capacity)
-    {
-        if (data.length - wpos < capacity) {
-            int cw = wpos + capacity;
-            byte[] tmp = new byte[getNextPowerOf2(cw)];
-            System.arraycopy(data, 0, tmp, 0, data.length);
-            data = tmp;
-        }
-    }
-    
+    /*
+     * ====================== Read methods ======================
+     */
+
     public boolean getBoolean()
     {
         return getByte() != 0;
@@ -166,10 +152,6 @@ public final class Buffer
         return b;
     }
     
-    /*
-     * ====================== Read methods ======================
-     */
-
     public Message getCommand()
     {
         byte b = getByte();
@@ -198,7 +180,7 @@ public final class Buffer
         return i;
     }
     
-    public LQString getLanguageQualifiedField()
+    public LQString getLQString()
     {
         return new LQString(getString(), getString());
     }
@@ -278,67 +260,73 @@ public final class Buffer
         return getBytes();
     }
     
+    // ////////////////////////////////////////////////////////////
+    
     public String printHex()
     {
         return BufferUtils.printHex(array(), rpos(), available());
-    }
-    
-    public void putBoolean(boolean b)
-    {
-        putByte(b ? (byte) 1 : (byte) 0);
-    }
-    
-    public void putBuffer(Buffer buffer)
-    {
-        int r = buffer.available();
-        ensureCapacity(r);
-        System.arraycopy(buffer.data, buffer.rpos, data, wpos, r);
-        wpos += r;
     }
     
     /*
      * ====================== Write methods ======================
      */
 
-    public void putByte(byte b)
+    public Buffer putBoolean(boolean b)
+    {
+        return putByte(b ? (byte) 1 : (byte) 0);
+    }
+    
+    public Buffer putBuffer(Buffer buffer)
+    {
+        int r = buffer.available();
+        ensureCapacity(r);
+        System.arraycopy(buffer.data, buffer.rpos, data, wpos, r);
+        wpos += r;
+        return this;
+    }
+    
+    public Buffer putByte(byte b)
     {
         ensureCapacity(1);
         data[wpos++] = b;
+        return this;
     }
     
-    public void putBytes(byte[] b)
+    public Buffer putBytes(byte[] b)
     {
-        putBytes(b, 0, b.length);
+        return putBytes(b, 0, b.length);
     }
     
-    public void putBytes(byte[] b, int off, int len)
+    public Buffer putBytes(byte[] b, int off, int len)
     {
         putInt(len);
         ensureCapacity(len);
         System.arraycopy(b, off, data, wpos, len);
         wpos += len;
+        return this;
     }
     
-    public void putCommand(Message cmd)
+    public Buffer putCommand(Message cmd)
     {
-        putByte(cmd.toByte());
+        return putByte(cmd.toByte());
     }
     
-    public void putInt(int i)
+    public Buffer putInt(int i)
     {
         ensureCapacity(4);
         data[wpos++] = (byte) (i >> 24);
         data[wpos++] = (byte) (i >> 16);
         data[wpos++] = (byte) (i >> 8);
         data[wpos++] = (byte) i;
+        return this;
     }
     
-    public void putMPInt(BigInteger bi)
+    public Buffer putMPInt(BigInteger bi)
     {
-        putMPInt(bi.toByteArray());
+        return putMPInt(bi.toByteArray());
     }
     
-    public void putMPInt(byte[] foo)
+    public Buffer putMPInt(byte[] foo)
     {
         int i = foo.length;
         if ((foo[0] & 0x80) != 0) {
@@ -347,62 +335,67 @@ public final class Buffer
             putByte((byte) 0);
         } else
             putInt(i);
-        putRawBytes(foo);
+        return putRawBytes(foo);
     }
     
-    public void putPassword(char[] passwd)
+    public Buffer putPassword(char[] passwd)
     {
         putInt(passwd.length);
         ensureCapacity(passwd.length);
-        for (char x : passwd)
-            data[wpos++] = (byte) x;
+        for (char c : passwd)
+            data[wpos++] = (byte) c;
         Arrays.fill(passwd, ' ');
+        return this;
     }
     
-    public void putPublicKey(PublicKey key)
+    public Buffer putPublicKey(PublicKey key)
     {
         KeyType type;
         switch (type = KeyType.fromKey(key))
         {
         case RSA:
-            putString(type.toString());
-            putMPInt(((RSAPublicKey) key).getPublicExponent());
-            putMPInt(((RSAPublicKey) key).getModulus());
+            putString(type.toString()). // ssh-rsa
+                    putMPInt(((RSAPublicKey) key).getPublicExponent()). // e
+                    putMPInt(((RSAPublicKey) key).getModulus()); // n
             break;
         case DSA:
-            putString(type.toString());
-            putMPInt(((DSAPublicKey) key).getParams().getP());
-            putMPInt(((DSAPublicKey) key).getParams().getQ());
-            putMPInt(((DSAPublicKey) key).getParams().getG());
-            putMPInt(((DSAPublicKey) key).getY());
+            putString(type.toString()) // ssh-dss
+                    .putMPInt(((DSAPublicKey) key).getParams().getP()) // p
+                    .putMPInt(((DSAPublicKey) key).getParams().getQ()) // q
+                    .putMPInt(((DSAPublicKey) key).getParams().getG()) // g
+                    .putMPInt(((DSAPublicKey) key).getY()); // y
             break;
         default:
             assert false;
         }
+        return this;
     }
     
-    public void putRawBytes(byte[] d)
+    public Buffer putRawBytes(byte[] d)
     {
-        putRawBytes(d, 0, d.length);
+        return putRawBytes(d, 0, d.length);
     }
     
-    public void putRawBytes(byte[] d, int off, int len)
+    public Buffer putRawBytes(byte[] d, int off, int len)
     {
         ensureCapacity(len);
         System.arraycopy(d, off, data, wpos, len);
         wpos += len;
+        return this;
     }
     
-    public void putString(byte[] str)
+    public Buffer putString(byte[] str)
     {
         putInt(str.length);
-        putRawBytes(str);
+        return putRawBytes(str);
     }
     
-    public void putString(String string)
+    public Buffer putString(String string)
     {
-        putString(string.getBytes());
+        return putString(string.getBytes());
     }
+    
+    // ////////////////////////////////////////////////////////////
     
     public int rpos()
     {
@@ -414,11 +407,15 @@ public final class Buffer
         this.rpos = rpos;
     }
     
+    // ////////////////////////////////////////////////////////////
+    
     @Override
     public String toString()
     {
         return "Buffer [rpos=" + rpos + ", wpos=" + wpos + ", size=" + data.length + "]";
     }
+    
+    // ////////////////////////////////////////////////////////////
     
     public int wpos()
     {
@@ -429,6 +426,24 @@ public final class Buffer
     {
         ensureCapacity(wpos - this.wpos);
         this.wpos = wpos;
+    }
+    
+    // ////////////////////////////////////////////////////////////
+    
+    private void ensureAvailable(int a)
+    {
+        if (available() < a)
+            throw new BufferException("Underflow");
+    }
+    
+    private void ensureCapacity(int capacity)
+    {
+        if (data.length - wpos < capacity) {
+            int cw = wpos + capacity;
+            byte[] tmp = new byte[getNextPowerOf2(cw)];
+            System.arraycopy(data, 0, tmp, 0, data.length);
+            data = tmp;
+        }
     }
     
 }
