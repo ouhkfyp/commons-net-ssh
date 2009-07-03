@@ -20,7 +20,6 @@ package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
@@ -53,8 +52,8 @@ class EncDec
     private byte[] inMACResult;
     private Compression outCompression;
     private Compression inCompression;
-    private int seqi; // server -> client seq. no.
-    private int seqo; // client -> server seq. no.
+    long seqi; // server -> client seq. no.
+    long seqo; // client -> server seq. no.
     private final Buffer decoderBuffer = new Buffer(); // buffer where as-yet undecoded data lives
     private Buffer uncompressBuffer;
     private int decoderState;
@@ -62,7 +61,6 @@ class EncDec
     
     // how many bytes do we need, before a call to decode() can succeed at decoding packet length /
     // the whole packet?
-    // see decode()
     private int needed = inCipherSize;
     
     EncDec(Transport transport)
@@ -75,8 +73,6 @@ class EncDec
      * <p>
      * Returns advised number of bytes that should be made available in decoderBuffer before the
      * method should be called again.
-     * 
-     * @throws IOException
      */
     private int decode() throws IOException
     {
@@ -100,8 +96,8 @@ class EncDec
                     if (decoderLength < 5 || decoderLength > 256 * 1024) {
                         log.info("Error decoding packet (invalid length) {}", decoderBuffer
                                 .printHex());
-                        throw new SSHException(DisconnectReason.PROTOCOL_ERROR,
-                                "Invalid packet length: " + decoderLength);
+                        throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
+                                "invalid packet length: " + decoderLength);
                     }
                     // Ok, that's good, we can go to the next step
                     decoderState = 1;
@@ -130,10 +126,14 @@ class EncDec
                         // Check the computed result with the received mac (just
                         // after the packet data)
                         if (!BufferUtils.equals(inMACResult, 0, data, decoderLength + 4, macSize))
-                            throw new SSHException(DisconnectReason.MAC_ERROR, "MAC Error");
+                            throw new TransportException(DisconnectReason.MAC_ERROR, "MAC Error");
                     }
-                    // Increment incoming packet sequence number
-                    seqi++;
+                    // Increment incoming packet sequence number (i.e. applicable to next packet)
+                    if (seqi == 4294967296L) {
+                        log.debug("Wrapping incoming sequence number to 0");
+                        seqi = 0;
+                    } else
+                        seqi++;
                     // Get padding
                     byte pad = decoderBuffer.getByte();
                     Buffer buf;
@@ -175,13 +175,13 @@ class EncDec
      * 
      * @param buffer
      *            the buffer to encode
-     * @throws IOException
+     * @throws TransportException
      *             if an exception occurs during the encoding process
      * @return the sequence no. of encoded packet
      */
-    int encode(Buffer buffer) throws IOException
+    long encode(Buffer buffer) throws TransportException
     {
-        int seq = seqo;
+        long seq = seqo;
         try {
             // Check that the packet has some free space for the header
             if (buffer.rpos() < 5) {
@@ -230,19 +230,20 @@ class EncDec
             // Encrypt packet, excluding mac
             if (outCipher != null)
                 outCipher.update(buffer.array(), off, len + 4);
-            // Increment packet id
-            seqo++;
-            // Make buffer ready to be read
-            buffer.rpos(off);
-        } catch (SSHException e) {
-            throw e;
+            // Increment outgoing packet sequence number (i.e. applicable to next packet)
+            if (seqo == 4294967296L) {
+                log.debug("Wrapping outgoing sequence number to 0");
+                seqo = 0;
+            } else
+                seqo++;
+            buffer.rpos(off); // Make buffer ready to be read
         } catch (Exception e) {
-            throw new SSHException(e);
+            throw TransportException.chain(e);
         }
         return seq;
     }
     
-    void gotByte(byte b) throws IOException
+    void munch(byte b) throws IOException
     {
         decoderBuffer.putByte(b);
         if (needed == 1)

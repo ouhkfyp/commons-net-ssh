@@ -18,11 +18,9 @@
  */
 package org.apache.commons.net.ssh.compression;
 
-import java.io.IOException;
-
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 import com.jcraft.jzlib.JZlib;
@@ -64,7 +62,7 @@ public class CompressionZlib implements Compression
     {
     }
     
-    public void compress(Buffer buffer) throws IOException
+    public void compress(Buffer buffer) throws TransportException
     {
         stream.next_in = buffer.array();
         stream.next_in_index = buffer.rpos();
@@ -81,7 +79,7 @@ public class CompressionZlib implements Compression
                 buffer.putRawBytes(tmpbuf, 0, BUF_SIZE - stream.avail_out);
                 break;
             default:
-                throw new SSHException(DisconnectReason.COMPRESSION_ERROR,
+                throw new TransportException(DisconnectReason.COMPRESSION_ERROR,
                         "compress: deflate returned " + status);
             }
         } while (stream.avail_out == 0);
@@ -101,7 +99,7 @@ public class CompressionZlib implements Compression
         return false;
     }
     
-    public void uncompress(Buffer from, Buffer to) throws IOException
+    public void uncompress(Buffer from, Buffer to) throws TransportException
     {
         stream.next_in = from.array();
         stream.next_in_index = from.rpos();
@@ -120,7 +118,7 @@ public class CompressionZlib implements Compression
             case JZlib.Z_BUF_ERROR:
                 return;
             default:
-                throw new SSHException(DisconnectReason.COMPRESSION_ERROR,
+                throw new TransportException(DisconnectReason.COMPRESSION_ERROR,
                         "uncompress: inflate returned " + status);
             }
         }

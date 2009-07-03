@@ -23,7 +23,6 @@ import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.Constants.KeyType;
 import org.apache.commons.net.ssh.Constants.Message;
@@ -53,7 +52,7 @@ class KexHandler
     // Values for the algorithm negotiation
     //
     private static final int PROPOSAL_KEX_ALGS = 0;
-    // private static final int PROPOSAL_SERVER_HOST_KEY_ALGS = 1;
+    // private static final int PROPOSAL_SERVER_HOST_KEY_ALGS = 1; --- UNUSED
     private static final int PROPOSAL_ENC_ALGS_CTOS = 2;
     private static final int PROPOSAL_ENC_ALGS_STOC = 3;
     private static final int PROPOSAL_MAC_ALGS_CTOS = 4;
@@ -125,15 +124,18 @@ class KexHandler
         buffer.getInt();
     }
     
-    private void gotKexInit(Buffer buffer) throws IOException
+    private void gotKexInit(Buffer buffer) throws TransportException
     {
         extractProposal(buffer);
         negotiate();
         kex = NamedFactory.Utils
                 .create(fm.getKeyExchangeFactories(), negotiated[PROPOSAL_KEX_ALGS]);
-        log.debug(transport.clientID);
-        log.debug(transport.serverID);
-        kex.init(transport, transport.serverID.getBytes(), transport.clientID.getBytes(), I_S, I_C);
+        try {
+            kex.init(transport, transport.serverID.getBytes(), transport.clientID.getBytes(), I_S,
+                    I_C);
+        } catch (IOException e) {
+            throw new TransportException(e);
+        }
     }
     
     /**
@@ -222,80 +224,11 @@ class KexHandler
         transport.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
     }
     
-    boolean handle(Message cmd, Buffer buffer) throws IOException
-    {
-        /*
-         * Thread context = Transport.inPump
-         */
-        switch (state)
-        {
-        case EXPECT_KEXINIT:
-            if (cmd != Message.KEXINIT) {
-                log.error("Ignoring command " + cmd + " while waiting for " + Message.KEXINIT);
-                break;
-            }
-            log.info("Received SSH_MSG_KEXINIT");
-            // make sure init() has been called; its a pre-requisite for negotiating
-            while (!sentKexInit)
-                ;
-            gotKexInit(buffer);
-            state = State.EXPECT_FOLLOWUP;
-            break;
-        case EXPECT_FOLLOWUP:
-            log.info("Received kex followup data");
-            buffer.rpos(buffer.rpos() - 1);
-            if (kex.next(buffer)) {
-                PublicKey hostKey = kex.getHostKey();
-                if (!transport.verifyHost(hostKey))
-                    throw new SSHException("Could not verify [" + KeyType.fromKey(hostKey)
-                            + "] host key with fingerprint ["
-                            + SecurityUtils.getFingerprint(hostKey) + "]");
-                sendNewKeys();
-                state = State.EXPECT_NEWKEYS;
-            }
-            break;
-        case EXPECT_NEWKEYS:
-            if (cmd != Message.NEWKEYS) {
-                transport.disconnect(DisconnectReason.PROTOCOL_ERROR,
-                        "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
-                break;
-            }
-            log.info("Received SSH_MSG_NEWKEYS");
-            gotNewKeys();
-            state = State.KEX_DONE;
-            if (transport.writeLock.isHeldByCurrentThread()) // for key re-ex, see below
-                transport.writeLock.unlock();
-            break;
-        case KEX_DONE:
-            if (cmd != Message.KEXINIT)
-                throw new IllegalStateException("Asked to handle " + cmd
-                        + ", was expecting SSH_MSG_KEXINIT for key re-exchange");
-            log.info("Received SSH_MSG_KEXINIT, initiating re-exchange");
-            transport.writeLock.lock(); // prevent other packets being sent while re-ex is ongoing
-            sendKexInit();
-            gotKexInit(buffer);
-            state = State.EXPECT_FOLLOWUP;
-            break;
-        default:
-            assert false;
-        }
-        return state == State.KEX_DONE ? true : false;
-    }
-    
-    void init() throws IOException
-    {
-        /*
-         * Thread context: API client, via Transport.init()
-         */
-        sendKexInit();
-        sentKexInit = true;
-    }
-    
     /**
      * Compute the negotiated proposals by merging the client and server proposal. The negotiated
      * proposal will be stored in the {@link #negotiated} property.
      */
-    private void negotiate() throws SSHException
+    private void negotiate() throws TransportException
     {
         String[] guess = new String[PROPOSAL_MAX];
         for (int i = 0; i < PROPOSAL_MAX; i++) {
@@ -311,7 +244,7 @@ class KexHandler
                     break;
             }
             if (guess[i] == null && i != PROPOSAL_LANG_CTOS && i != PROPOSAL_LANG_STOC)
-                throw new SSHException("Unable to negotiate");
+                throw new TransportException("Unable to negotiate");
         }
         negotiated = guess;
         
@@ -376,6 +309,75 @@ class KexHandler
     {
         log.info("Sending SSH_MSG_NEWKEYS");
         transport.writePacket(new Buffer(Message.NEWKEYS));
+    }
+    
+    boolean handle(Message cmd, Buffer buffer) throws IOException
+    {
+        /*
+         * Thread context = Transport.inPump
+         */
+        switch (state)
+        {
+        case EXPECT_KEXINIT:
+            if (cmd != Message.KEXINIT) {
+                log.error("Ignoring command " + cmd + " while waiting for " + Message.KEXINIT);
+                break;
+            }
+            log.info("Received SSH_MSG_KEXINIT");
+            // make sure init() has been called; its a pre-requisite for negotiating
+            while (!sentKexInit)
+                ;
+            gotKexInit(buffer);
+            state = State.EXPECT_FOLLOWUP;
+            break;
+        case EXPECT_FOLLOWUP:
+            log.info("Received kex followup data");
+            buffer.rpos(buffer.rpos() - 1);
+            if (kex.next(buffer)) {
+                PublicKey hostKey = kex.getHostKey();
+                if (!transport.verifyHost(hostKey))
+                    throw new TransportException("Could not verify [" + KeyType.fromKey(hostKey)
+                            + "] host key with fingerprint ["
+                            + SecurityUtils.getFingerprint(hostKey) + "]");
+                sendNewKeys();
+                state = State.EXPECT_NEWKEYS;
+            }
+            break;
+        case EXPECT_NEWKEYS:
+            if (cmd != Message.NEWKEYS) {
+                transport.disconnect(DisconnectReason.PROTOCOL_ERROR,
+                        "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
+                break;
+            }
+            log.info("Received SSH_MSG_NEWKEYS");
+            gotNewKeys();
+            state = State.KEX_DONE;
+            if (transport.writeLock.isHeldByCurrentThread()) // for key re-ex, see below
+                transport.writeLock.unlock();
+            break;
+        case KEX_DONE:
+            if (cmd != Message.KEXINIT)
+                throw new IllegalStateException("Asked to handle " + cmd
+                        + ", was expecting SSH_MSG_KEXINIT for key re-exchange");
+            log.info("Received SSH_MSG_KEXINIT, initiating re-exchange");
+            transport.writeLock.lock(); // prevent other packets being sent while re-ex is ongoing
+            sendKexInit();
+            gotKexInit(buffer);
+            state = State.EXPECT_FOLLOWUP;
+            break;
+        default:
+            assert false;
+        }
+        return state == State.KEX_DONE ? true : false;
+    }
+    
+    void init() throws IOException
+    {
+        /*
+         * Thread context: API client, via Transport.init()
+         */
+        sendKexInit();
+        sentKexInit = true;
     }
     
 }

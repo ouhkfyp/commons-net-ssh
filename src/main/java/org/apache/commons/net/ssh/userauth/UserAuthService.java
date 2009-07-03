@@ -26,17 +26,6 @@ import org.apache.commons.net.ssh.util.LQString;
 public interface UserAuthService extends Service
 {
     
-    interface Builder
-    {
-        
-        UserAuthService build();
-        
-        Builder withNextService(Service nextService);
-        
-        Builder withUsername(String username);
-        
-    }
-    
     String NAME = "ssh-userauth";
     
     void authenticate() throws IOException;

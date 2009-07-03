@@ -26,19 +26,32 @@ import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
+ * Represents an SSH authentication method for the SSH Authentication Protocol
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
 public interface AuthMethod
 {
     
+    /**
+     * The result of this method
+     */
     enum Result
     {
-        SUCCESS, // authentication successful
-        CONTINUED, // no conclusion yet, wants next packet directed to it
-        PARTIAL_SUCCESS, // multiple authentications required - one step down, continue trying
-        FAILURE, // failed to authenticate using this method
-        UNKNOWN, // indeterminable
+        /** Succesfully authenticated */
+        SUCCESS,
+
+        /** Not concluded yet, wants next packet directed to this method */
+        CONTINUED,
+
+        /** Multiple authentications were required - one hurdle down, continue trying */
+        PARTIAL_SUCCESS,
+
+        /** Failed to authenticate using this method */
+        FAILURE,
+
+        /** Indeterminable */
+        UNKNOWN,
     }
     
     /**
@@ -49,14 +62,41 @@ public interface AuthMethod
      */
     Set<String> getAllowedMethods();
     
+    /**
+     * The assigned name for this authentication method.
+     * 
+     * @return
+     */
     String getName();
     
+    /**
+     * 
+     * @return
+     */
     Service getNextService();
     
+    /**
+     * The user this method is trying to authenticate / has authenticated.
+     * 
+     * @return
+     */
     String getUsername();
     
+    /**
+     * Ask this method to handle the received packet
+     * 
+     * @param cmd
+     * @param buf
+     * @return the determined {@link Result}
+     * @throws IOException
+     */
     Result handle(Message cmd, Buffer buf) throws IOException;
     
+    /**
+     * Request this method
+     * 
+     * @throws IOException
+     */
     void request() throws IOException;
     
 }

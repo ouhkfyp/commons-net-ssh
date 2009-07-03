@@ -40,5 +40,5 @@ public interface MAC
     
     void update(byte[] foo, int start, int len);
     
-    void update(int foo);
+    void update(long foo);
 }

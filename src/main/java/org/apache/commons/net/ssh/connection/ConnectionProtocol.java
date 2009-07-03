@@ -18,30 +18,36 @@
  */
 package org.apache.commons.net.ssh.connection;
 
-import java.io.IOException;
-
+import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.Constants.Message;
-import org.apache.commons.net.ssh.transport.Session;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /*
  * STUB!
  * 
  */
-public class Connection implements ConnectionService
+public class ConnectionProtocol extends AbstractService implements ConnectionService
 {
     
-    private final Session session;
+    public static final String NAME = "ssh-connection";
     
-    public Connection(Session session)
+    public ConnectionProtocol(Session session)
     {
-        this.session = session;
+        super(session);
+        // TODO Auto-generated constructor stub
     }
     
     public String getName()
     {
         return NAME;
+    }
+    
+    public void gotUnimplemented(int seqNum)
+    {
+        // TODO Auto-generated method stub
+        
     }
     
     public void handle(Message cmd, Buffer packet) throws SSHException
@@ -50,21 +56,11 @@ public class Connection implements ConnectionService
         
     }
     
-    public void request() throws IOException
+    @Override
+    protected boolean shouldInterrupt()
     {
         // TODO Auto-generated method stub
-        
-    }
-    
-    public void setError(SSHException ex)
-    {
-        // TODO Auto-generated method stub
-    }
-
-    public void gotUnimplemented(int seqNum)
-    {
-        // TODO Auto-generated method stub
-        
+        return false;
     }
     
 }

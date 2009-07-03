@@ -22,22 +22,22 @@ import static org.apache.commons.net.ssh.Constants.*;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.security.PublicKey;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.FactoryManager;
+import org.apache.commons.net.ssh.HostKeyVerifier;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.random.Random;
@@ -69,20 +69,40 @@ public class Transport implements Session
         STOPPED, // indicates this session has been stopped
     }
     
-    private State state;
-    
     private final Logger log = LoggerFactory.getLogger(getClass());
     
     private final FactoryManager fm;
     
-    /** Psuedo-random number generator as retrieved from the factory manager */
-    final Random prng;
+    private State state;
+    private final ReentrantLock stateLock = new ReentrantLock();
+    private final Condition stateChange = stateLock.newCondition();
+    
+    private Socket socket;
+    private InputStream input;
+    private OutputStream output;
+    
+    /**
+     * {@link HostKeyVerifier#verify(InetAddress, PublicKey)} is invoked by
+     * {@link #verifyHost(PublicKey)} when we are ready to verify the the server's host key.
+     */
+    private final Queue<HostKeyVerifier> hkvs = new LinkedList<HostKeyVerifier>();
     
     /** For key (re)exchange */
     private final KexHandler kex;
     
-    /** For encoding and decoding SSH packets */
-    final EncDec bin;
+    /** Message identifier for last packet received */
+    private Message cmd;
+    
+    /** Currently active service i.e. ssh-userauth, ssh-connection */
+    private Service service;
+    
+    /** True value tells inPump and outPump to stop */
+    private volatile boolean stopPumping = false;
+    
+    /**
+     * If an error occurs in one of the threads spawned by this class, it is set in this field.
+     */
+    private SSHException exception;
     
     /**
      * Outgoing data is put here. Since it is a SynchronousQueue, until {@link #outPump} is
@@ -91,24 +111,9 @@ public class Transport implements Session
     private final SynchronousQueue<byte[]> outQ = new SynchronousQueue<byte[]>();
     
     /**
-     * If an error occurs in one of the threads spawned by this class, it is set in this field.
-     */
-    private Exception exception;
-    
-    /** Lock for session state */
-    private final ReentrantLock stateLock = new ReentrantLock();
-    private final Condition stateChange = stateLock.newCondition();
-    
-    /** Lock supporting correct encoding and queuing of packets */
-    final ReentrantLock writeLock = new ReentrantLock();
-    
-    private InputStream input;
-    private OutputStream output;
-    
-    /**
      * This thread reads data byte-by-byte from the input stream, passing it on to
-     * {@link EncDec#gotByte(byte)} and this may result in a callback to {@link #handle(Buffer)}
-     * when a full packet has been decoded. Thus a lot happens in this thread's context.
+     * {@link EncDec#munch(byte)} and this may result in a callback to {@link #handle(Buffer)} when
+     * a full packet has been decoded. Thus a lot happens in this thread's context.
      */
     private final Thread inPump = new Thread()
     {
@@ -122,7 +127,7 @@ public class Transport implements Session
         {
             while (!stopPumping)
                 try {
-                    bin.gotByte((byte) input.read());
+                    bin.munch((byte) input.read());
                 } catch (Exception e) {
                     if (!stopPumping) {
                         if (e instanceof SSHException && !(cmd == Message.DISCONNECT)) {
@@ -170,13 +175,16 @@ public class Transport implements Session
         }
     };
     
-    /** True value tells inPump and outPump to stop */
-    private volatile boolean stopPumping = false;
+    /** Lock supporting correct encoding and queuing of packets */
+    final ReentrantLock writeLock = new ReentrantLock();
     
-    private Message cmd; // message ident for last packet received
+    /** For encoding and decoding SSH packets */
+    final EncDec bin;
     
-    private Service service; // currently active service i.e. ssh-userauth, ssh-connection
+    /** Psuedo-random number generator as retrieved from the factory manager */
+    final Random prng;
     
+    /** Whether this session has been authenticated */
     boolean authed = false;
     
     /** Client version identification string */
@@ -184,16 +192,6 @@ public class Transport implements Session
     
     /** Server version identification string */
     String serverID;
-    
-    /**
-     * {@link HostKeyVerifier#verify(InetAddress, PublicKey)} is invoked by
-     * {@link #verifyHost(PublicKey)} when we are ready to verify the the server's host key.
-     */
-    private final Queue<HostKeyVerifier> hkvs = new LinkedList<HostKeyVerifier>();
-    
-    private Socket socket;
-    
-    Semaphore kexSem = new Semaphore(1);
     
     public Transport(FactoryManager factoryManager)
     {
@@ -209,17 +207,17 @@ public class Transport implements Session
         hkvs.add(hkv);
     }
     
-    public void disconnect()
+    public boolean disconnect()
     {
-        disconnect(DisconnectReason.BY_APPLICATION);
+        return disconnect(DisconnectReason.BY_APPLICATION);
     }
     
-    public void disconnect(DisconnectReason reason)
+    public boolean disconnect(DisconnectReason reason)
     {
-        disconnect(reason, "");
+        return disconnect(reason, "");
     }
     
-    public void disconnect(DisconnectReason reason, String msg)
+    public boolean disconnect(DisconnectReason reason, String msg)
     {
         log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
         try {
@@ -228,16 +226,13 @@ public class Transport implements Session
             buffer.putString(msg);
             buffer.putString(""); // langtag..?
             writePacket(buffer);
+            return true;
         } catch (Exception e) {
-            log.error("Error while disconnecting: {}", e.toString());
+            log.error("disconnect() - {}", e.toString());
+            return false;
         } finally {
             stop();
         }
-    }
-    
-    public Service getActiveService()
-    {
-        return service;
     }
     
     public String getClientVersion()
@@ -255,17 +250,305 @@ public class Transport implements Session
         return kex.sessionID;
     }
     
+    public long getLastSeqNum()
+    {
+        return bin.seqi - 1;
+    }
+    
     public String getServerVersion()
     {
         return serverID == null ? serverID : serverID.substring(8);
     }
     
-    private void gotUnimplemented(int seqNum)
+    public Service getService()
     {
-        if (service != null)
-            service.gotUnimplemented(seqNum);
+        return service;
     }
     
+    public void init(Socket socket) throws TransportException
+    {
+        try {
+            this.socket = socket;
+            input = socket.getInputStream();
+            output = socket.getOutputStream();
+            
+            log.info("Client identity string: {}", clientID);
+            output.write((clientID + "\r\n").getBytes());
+            
+            Buffer buf = new Buffer();
+            while ((serverID = readIdentification(buf)) == null)
+                buf.putByte((byte) input.read());
+            log.info("Server identity string: {}", serverID);
+            
+            setState(State.KEX);
+            
+            outPump.start();
+            inPump.start();
+            
+            kex.init();
+            waitFor(State.KEX_DONE);
+        } catch (Exception e) {
+            log.debug("init() had {}", e.toString());
+            try {
+                socket.close();
+            } catch (IOException x) {
+            }
+            throw TransportException.chain(e);
+        }
+    }
+    
+    public boolean isRunning()
+    {
+        stateLock.lock();
+        try {
+            return !(state == State.ERROR || state == State.STOPPED);
+        } finally {
+            stateLock.unlock();
+        }
+    }
+    
+    public synchronized void reqService(Service service) throws TransportException
+    {
+        setState(State.SERVICE_REQ);
+        sendServiceRequest(service.getName());
+        try {
+            waitFor(State.SERVICE);
+        } catch (Exception e) {
+            log.debug("reqService() had {}", e.toString());
+            throw TransportException.chain(e);
+        }
+        setService(service);
+    }
+    
+    /**
+     * Send an unimplemented packet. This packet should contain the sequence id of the unsupported
+     * packet.
+     * 
+     * @throws IOException
+     *             if an error occured sending the packet
+     */
+    public void sendUnimplemented(int num) throws IOException
+    {
+        Buffer buffer = new Buffer(Message.UNIMPLEMENTED);
+        buffer.putInt(num);
+        writePacket(buffer);
+    }
+    
+    public void setAuthenticated()
+    {
+        authed = true;
+    }
+    
+    /**
+     * Specify how the client identifies itself
+     * 
+     * @param version
+     */
+    public void setClientVersion(String clientVersion)
+    {
+        clientID = "SSH-2.0-" + clientVersion;
+    }
+    
+    /**
+     * null-ok
+     */
+    public synchronized void setService(Service service)
+    {
+        log.info("Setting active service to {}", service.getName());
+        this.service = service;
+    }
+    
+    /*
+     * (non-Javadoc)
+     * 
+     * @see
+     * org.apache.commons.net.ssh.transport.Session#writePacket(org.apache.commons.net.ssh.util.
+     * Buffer)
+     */
+    public long writePacket(Buffer payload) throws TransportException
+    {
+        /*
+         * Synchronize all write requests as needed by the encoding algorithm and also queue the
+         * write request here to ensure packets are sent in the correct order.
+         * 
+         * Besides while another thread that is writing a packet, writeLock may also be held while
+         * key re-exchange is ongoing.
+         */
+        writeLock.lock();
+        try {
+            long seq = bin.encode(payload);
+            byte[] data = payload.getCompactData();
+            try {
+                while (!outQ.offer(data, 1L, TimeUnit.SECONDS))
+                    if (!outPump.isAlive())
+                        throw new TransportException("Output pumping thread is dead");
+            } catch (InterruptedException e) {
+                throw new TransportException(e);
+            }
+            return seq;
+        } finally {
+            writeLock.unlock();
+        }
+    }
+    
+    private void gotUnimplemented(int seqNum) throws TransportException
+    {
+        switch (state)
+        {
+        case KEX:
+            // maybe KexHandler should judge this. but ok for now.
+            throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
+        case SERVICE_REQ:
+            throw new TransportException(
+                    "Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
+                            + service.getName());
+        case SERVICE:
+            if (service != null)
+                service.gotUnimplemented(seqNum);
+        }
+    }
+    
+    private String readIdentification(Buffer buffer) throws IOException
+    {
+        String ident;
+        
+        byte[] data = new byte[256];
+        for (;;) {
+            int rpos = buffer.rpos();
+            int pos = 0;
+            boolean needLf = false;
+            for (;;) {
+                if (buffer.available() == 0) {
+                    // need more data, so undo reading and return null
+                    buffer.rpos(rpos);
+                    return null;
+                }
+                byte b = buffer.getByte();
+                if (b == '\r') {
+                    needLf = true;
+                    continue;
+                }
+                if (b == '\n')
+                    break;
+                if (needLf)
+                    throw new TransportException("Incorrect identification: bad line ending");
+                if (pos >= data.length)
+                    throw new TransportException("Incorrect identification: line too long");
+                data[pos++] = b;
+            }
+            ident = new String(data, 0, pos);
+            if (ident.startsWith("SSH-"))
+                break;
+            if (buffer.rpos() > 16 * 1024)
+                throw new TransportException("Incorrect identification: too many header lines");
+        }
+        
+        if (!ident.startsWith("SSH-2.0-") && !ident.startsWith("SSH-1.99-"))
+            throw new TransportException(DisconnectReason.PROTOCOL_VERSION_NOT_SUPPORTED,
+                    "Server does not support SSHv2, identified as: " + ident);
+        
+        return ident;
+    }
+    
+    private void sendServiceRequest(String serviceName) throws TransportException
+    {
+        log.debug("Sending SSH_MSG_SERVICE_REQUEST for {}", serviceName);
+        Buffer buffer = new Buffer(Message.SERVICE_REQUEST);
+        buffer.putString(serviceName);
+        try {
+            writePacket(buffer);
+        } catch (IOException e) {
+            throw TransportException.chain(e);
+        }
+    }
+    
+    /**
+     * Used by inPump and outPump to notify of an exception, since it would otherwise escape
+     * unnoticed.
+     * 
+     * @param e
+     *            Exception
+     */
+    private synchronized void setError(Exception ex)
+    {
+        log.error("setError() - {}", ex.toString());
+        exception = SSHException.chain(ex);
+        
+        if (service != null) {
+            service.notifyError(exception);
+            service = null;
+        }
+        
+        // will result in the exception being thrown in any thread that was waiting for state
+        // change; see waitFor()
+        setState(State.ERROR);
+        
+        stop();
+    }
+    
+    private void setState(State newState)
+    {
+        log.debug("Changing state  [ {} -> {} ]", state, newState);
+        stateLock.lock();
+        try {
+            state = newState;
+            stateChange.signalAll();
+        } finally {
+            stateLock.unlock();
+        }
+    }
+    
+    private void stop()
+    {
+        // stop inPump and outPump
+        stopPumping = true;
+        
+        if (socket != null)
+            try {
+                socket.close(); // any threads blocked on it will die, yay
+            } catch (IOException e) {
+                log.debug("stop() ignoring {}", e.toString());
+            }
+        
+        // can safely reset these refs, not needed
+        socket = null;
+        input = null;
+        output = null;
+        
+        // will wakeup any thread that was waiting for phase change, see waitFor()
+        setState(State.STOPPED);
+    }
+    
+    /**
+     * Block for specified state.
+     * 
+     * @param s
+     *            State
+     * @throws Exception
+     *             in case of error event while waiting
+     */
+    private void waitFor(State s) throws SSHException
+    {
+        stateLock.lock();
+        try {
+            while (state != s && state != State.ERROR && state != State.STOPPED)
+                try {
+                    stateChange.await();
+                } catch (InterruptedException e) {
+                    throw new SSHException(e);
+                }
+            log.debug("Woke up to {}", state.toString());
+            if (state != s)
+                if (state == State.ERROR)
+                    throw exception;
+                else if (state == State.STOPPED)
+                    throw new TransportException(DisconnectReason.BY_APPLICATION);
+        } finally {
+            stateLock.unlock();
+        }
+    }
+    
+    // gets called in the context of inPump via EncDec
     void handle(Buffer packet) throws IOException
     {
         cmd = packet.getCommand();
@@ -276,7 +559,7 @@ public class Transport implements Session
             DisconnectReason code = DisconnectReason.fromInt(packet.getInt());
             String message = packet.getString();
             log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, message);
-            throw new SSHException(code, message);
+            throw new TransportException(code, message);
         case UNIMPLEMENTED:
             int seqNum = packet.getInt();
             log.info("Received SSH_MSG_UNIMPLEMENTED #{}", seqNum);
@@ -316,209 +599,13 @@ public class Transport implements Session
                 }
                 break;
             case KEX_DONE:
-                log.debug("Hmm? Unknown command received while in KEX_DONE");
+                log.info("Hmm? Unknown packet received while in KEX_DONE");
                 break;
             default:
                 assert false;
             }
         }
         }
-    }
-    
-    public void init(Socket socket) throws IOException
-    {
-        this.socket = socket;
-        input = socket.getInputStream();
-        output = socket.getOutputStream();
-        
-        log.info("Client identity string: {}", clientID);
-        output.write((clientID + "\r\n").getBytes());
-        
-        Buffer buf = new Buffer();
-        while ((serverID = readIdentification(buf)) == null)
-            buf.putByte((byte) input.read());
-        log.info("Server identity string: {}", serverID);
-        
-        setState(State.KEX);
-        
-        outPump.start();
-        inPump.start();
-        
-        try {
-            kex.init();
-            waitFor(State.KEX_DONE);
-        } catch (Exception e) {
-            throw SSHException.chain(e);
-        }
-    }
-    
-    public boolean isRunning()
-    {
-        stateLock.lock();
-        try {
-            return !(state == State.ERROR || state == State.STOPPED);
-        } finally {
-            stateLock.unlock();
-        }
-    }
-    
-    private String readIdentification(Buffer buffer) throws IOException
-    {
-        String ident;
-        
-        byte[] data = new byte[256];
-        for (;;) {
-            int rpos = buffer.rpos();
-            int pos = 0;
-            boolean needLf = false;
-            for (;;) {
-                if (buffer.available() == 0) {
-                    // need more data, so undo reading and return null
-                    buffer.rpos(rpos);
-                    return null;
-                }
-                byte b = buffer.getByte();
-                if (b == '\r') {
-                    needLf = true;
-                    continue;
-                }
-                if (b == '\n')
-                    break;
-                if (needLf)
-                    throw new SSHException("Incorrect identification: bad line ending");
-                if (pos >= data.length)
-                    throw new SSHException("Incorrect identification: line too long");
-                data[pos++] = b;
-            }
-            ident = new String(data, 0, pos);
-            if (ident.startsWith("SSH-"))
-                break;
-            if (buffer.rpos() > 16 * 1024)
-                throw new SSHException("Incorrect identification: too many header lines");
-        }
-        
-        if (!ident.startsWith("SSH-2.0-") && !ident.startsWith("SSH-1.99-"))
-            throw new SSHException("Server does not support SSHv2, identified as: " + ident);
-        
-        return ident;
-    }
-    
-    public synchronized void reqService(Service service) throws IOException
-    {
-        setState(State.SERVICE_REQ);
-        sendServiceRequest(service.getName());
-        try {
-            waitFor(State.SERVICE);
-            setService(service);
-        } catch (Exception e) {
-            throw SSHException.chain(e);
-        }
-    }
-    
-    private void sendServiceRequest(String serviceName) throws IOException
-    {
-        log.debug("Sending SSH_MSG_SERVICE_REQUEST for {}", serviceName);
-        Buffer buffer = new Buffer(Message.SERVICE_REQUEST);
-        buffer.putString(serviceName);
-        writePacket(buffer);
-    }
-    
-    /**
-     * Send an unimplemented packet. This packet should contain the sequence id of the unsupported
-     * packet.
-     * 
-     * @throws IOException
-     *             if an error occured sending the packet
-     */
-    void sendUnimplemented(int num) throws IOException
-    {
-        Buffer buffer = new Buffer(Message.UNIMPLEMENTED);
-        buffer.putInt(num);
-        writePacket(buffer);
-    }
-    
-    public void setAuthenticated()
-    {
-        authed = true;
-    }
-    
-    /**
-     * Specify how the client identifies itself
-     * 
-     * @param version
-     */
-    public void setClientVersion(String clientVersion)
-    {
-        clientID = "SSH-2.0-" + clientVersion;
-    }
-    
-    /**
-     * Used by inPump and outPump to notify of an exception, since it would otherwise escape
-     * unnoticed.
-     * 
-     * @param e
-     *            Exception
-     */
-    private synchronized void setError(Exception e)
-    {
-        // this method is idempotent except for state, but that should not affect anything
-        
-        log.error("Encountered error: {}", e.toString());
-        
-        if (service != null) {
-            service.setError(SSHException.chain(e));
-            service = null;
-        }
-        
-        /*
-         * will result in the exception being thrown in any thread that was waiting for state
-         * change; see waitFor()
-         */
-        exception = e;
-        setState(State.ERROR);
-        
-        stop();
-    }
-    
-    /**
-     * null-ok
-     */
-    public void setService(Service service)
-    {
-        log.info("Setting active service to {}", service.getName());
-        this.service = service;
-    }
-    
-    void setState(State newState)
-    {
-        log.debug("Changing state  [ {} -> {} ]", state, newState);
-        stateLock.lock();
-        try {
-            state = newState;
-            stateChange.signalAll();
-        } finally {
-            stateLock.unlock();
-        }
-    }
-    
-    void stop()
-    {
-        // stop inPump and outPump
-        stopPumping = true;
-        
-        if (socket != null)
-            try {
-                socket.close(); // any threads blocked on it will die, yay
-            } catch (IOException e) {
-                log.debug("stop() ignoring {}", e);
-            }
-        // can safely reset these refs
-        socket = null;
-        input = null;
-        output = null;
-        
-        // will wakeup any thread that was waiting for phase change, see waitFor()
-        setState(State.STOPPED);
     }
     
     boolean verifyHost(PublicKey key)
@@ -530,70 +617,6 @@ public class Transport implements Session
                 return true;
         }
         return false;
-    }
-    
-    /**
-     * Block for specified state.
-     * 
-     * @param s
-     *            State
-     * @throws Exception
-     *             in case of error event while waiting
-     */
-    private void waitFor(State s) throws SSHException
-    {
-        stateLock.lock();
-        try {
-            while (state != s && state != State.ERROR && state != State.STOPPED)
-                try {
-                    stateChange.await();
-                } catch (InterruptedException e) {
-                    throw new SSHException(e);
-                }
-            log.debug("Woke up to {}", state.toString());
-            if (state != s)
-                if (state == State.ERROR)
-                    throw SSHException.chain(exception);
-                else if (state == State.STOPPED)
-                    throw new SSHException(DisconnectReason.BY_APPLICATION);
-        } finally {
-            stateLock.unlock();
-        }
-    }
-    
-    /*
-     * (non-Javadoc)
-     * 
-     * @see
-     * org.apache.commons.net.ssh.transport.Session#writePacket(org.apache.commons.net.ssh.util.
-     * Buffer)
-     */
-    public int writePacket(Buffer payload) throws IOException
-    {
-        /*
-         * Synchronize all write requests as needed by the encoding algorithm and also queue the
-         * write request here to ensure packets are sent in the correct order.
-         * 
-         * Besides while another thread that is writing a packet, writeLock may also be held while
-         * key re-exchange is ongoing.
-         */
-        writeLock.lock();
-        try {
-            int seq = bin.encode(payload);
-            byte[] data = payload.getCompactData();
-            try {
-                while (!outQ.offer(data, 1L, TimeUnit.SECONDS))
-                    if (!outPump.isAlive())
-                        throw new IOException("Output pumping thread is dead");
-            } catch (InterruptedException e) {
-                InterruptedIOException ioe = new InterruptedIOException();
-                ioe.initCause(e);
-                throw ioe;
-            }
-            return seq;
-        } finally {
-            writeLock.unlock();
-        }
     }
     
 }

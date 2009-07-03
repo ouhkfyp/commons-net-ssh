@@ -28,11 +28,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.net.ssh.HostKeyVerifier;
 import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.Constants.KeyType;
 import org.apache.commons.net.ssh.mac.HMACSHA1;
 import org.apache.commons.net.ssh.mac.MAC;
-import org.apache.commons.net.ssh.transport.Session.HostKeyVerifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,19 +104,19 @@ public class KnownHosts implements HostKeyVerifier
     
     public KnownHosts(String... locations)
     {
-        for (String l : locations)
+        for (String loc : locations)
             try {
-                BufferedReader br = new BufferedReader(new FileReader(l));
+                BufferedReader br = new BufferedReader(new FileReader(loc));
                 String line;
                 while ((line = br.readLine()) != null)
                     try {
                         entries.add(new Entry(line));
                     } catch (AssertionError e) {
-                        log.debug("{} - unrecognized line: {}", l, line);
+                        log.debug("{} - unrecognized line: {}", loc, line);
                         continue;
                     }
             } catch (Exception e) {
-                log.info("Error loading {}: {}", l, e);
+                log.info("While loading {} - {}", loc, e.toString());
             }
     }
     
