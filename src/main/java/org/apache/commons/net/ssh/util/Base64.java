@@ -62,86 +62,6 @@ package org.apache.commons.net.ssh.util;
  * </p>
  * <code>String encoded = Base64.encodeBytes( crazyString.getBytes() );</code>
  * 
- * 
- * 
- * <p>
- * Change Log:
- * </p>
- * <ul>
- * <li>v2.3.3 - Changed default char encoding to US-ASCII which reduces the internal Java footprint
- * with its CharEncoders and so forth. Fixed some javadocs that were inconsistent. Removed imports
- * and specified things like java.io.IOException explicitly inline.</li>
- * <li>v2.3.2 - Reduced memory footprint! Finally refined the "guessing" of how big the final
- * encoded data will be so that the code doesn't have to create two output arrays: an oversized
- * initial one and then a final, exact-sized one. Big win when using the
- * {@link #encodeBytesToBytes(byte[])} family of methods (and not using the gzip options which uses
- * a different mechanism with streams and stuff).</li>
- * <li>v2.3.1 - Added {@link #encodeBytesToBytes(byte[], int, int, int)} and some similar helper
- * methods to be more efficient with memory by not returning a String but just a byte array.</li>
- * <li>v2.3 - <strong>This is not a drop-in replacement!</strong> This is two years of comments and
- * bug fixes queued up and finally executed. Thanks to everyone who sent me stuff, and I'm sorry I
- * wasn't able to distribute your fixes to everyone else. Much bad coding was cleaned up including
- * throwing exceptions where necessary instead of returning null values or something similar. Here
- * are some changes that may affect you:
- * <ul>
- * <li><em>Does not break lines, by default.</em> This is to keep in compliance with <a
- * href="http://www.faqs.org/rfcs/rfc3548.html">RFC3548</a>.</li>
- * <li><em>Throws exceptions instead of returning null values.</em> Because some operations
- * (especially those that may permit the GZIP option) use IO streams, there is a possiblity of an
- * java.io.IOException being thrown. After some discussion and thought, I've changed the behavior of
- * the methods to throw java.io.IOExceptions rather than return null if ever there's an error. I
- * think this is more appropriate, though it will require some changes to your code. Sorry, it
- * should have been done this way to begin with.</li>
- * <li><em>Removed all references to System.out, System.err, and the like.</em> Shame on me. All I
- * can say is sorry they were ever there.</li>
- * <li><em>Throws NullPointerExceptions and IllegalArgumentExceptions</em> as needed such as when
- * passed arrays are null or offsets are invalid.</li>
- * <li>Cleaned up as much javadoc as I could to avoid any javadoc warnings. This was especially
- * annoying before for people who were thorough in their own projects and then had gobs of javadoc
- * warnings on this file.</li>
- * </ul>
- * <li>v2.2.1 - Fixed bug using URL_SAFE and ORDERED encodings. Fixed bug when using very small
- * files (~< 40 bytes).</li>
- * <li>v2.2 - Added some helper methods for encoding/decoding directly from one file to the next.
- * Also added a main() method to support command line encoding/decoding from one file to the next.
- * Also added these Base64 dialects:
- * <ol>
- * <li>The default is RFC3548 format.</li>
- * <li>Calling Base64.setFormat(Base64.BASE64_FORMAT.URLSAFE_FORMAT) generates URL and file name
- * friendly format as described in Section 4 of RFC3548. http://www.faqs.org/rfcs/rfc3548.html</li>
- * <li>Calling Base64.setFormat(Base64.BASE64_FORMAT.ORDERED_FORMAT) generates URL and file name
- * friendly format that preserves lexical ordering as described in
- * http://www.faqs.org/qa/rfcc-1940.html</li>
- * </ol>
- * Special thanks to Jim Kellerman at <a
- * href="http://www.powerset.com/">http://www.powerset.com/</a> for contributing the new Base64
- * dialects.</li>
- * 
- * <li>v2.1 - Cleaned up javadoc comments and unused variables and methods. Added some convenience
- * methods for reading and writing to and from files.</li>
- * <li>v2.0.2 - Now specifies UTF-8 encoding in places where the code fails on systems with other
- * encodings (like EBCDIC).</li>
- * <li>v2.0.1 - Fixed an error when decoding a single byte, that is, when the encoded data was a
- * single byte.</li>
- * <li>v2.0 - I got rid of methods that used booleans to set options. Now everything is more
- * consolidated and cleaner. The code now detects when data that's being decoded is gzip-compressed
- * and will decompress it automatically. Generally things are cleaner. You'll probably have to
- * change some method calls that you were making to support the new options format (<tt>int</tt>s
- * that you "OR" together).</li>
- * <li>v1.5.1 - Fixed bug when decompressing and decoding to a byte[] using
- * <tt>decode( String s, boolean gzipCompressed )</tt>. Added the ability to "suspend" encoding in
- * the Output Stream so you can turn on and off the encoding if you need to embed base64 data in an
- * otherwise "normal" stream (like an XML file).</li>
- * <li>v1.5 - Output stream pases on flush() command but doesn't do anything itself. This helps when
- * using GZIP streams. Added the ability to GZip-compress objects before encoding them.</li>
- * <li>v1.4 - Added helper methods to read/write files.</li>
- * <li>v1.3.6 - Fixed OutputStream.flush() so that 'position' is reset.</li>
- * <li>v1.3.5 - Added flag to turn on and off line breaks. Fixed bug in input stream where last
- * buffer being read, if not completely full, was not returned.</li>
- * <li>v1.3.4 - Fixed when "improperly padded stream" error was thrown at the wrong time.</li>
- * <li>v1.3.3 - Fixed I/O streams which were totally messed up.</li>
- * </ul>
- * 
  * <p>
  * I am placing this code in the Public Domain. Do with it as you will. This software comes with no
  * guarantees or warranties but with plenty of well-wishing instead! Please visit <a
@@ -156,8 +76,6 @@ package org.apache.commons.net.ssh.util;
 public class Base64
 {
     
-    /* ******** P U B L I C F I E L D S ******** */
-
     /**
      * A {@link Base64.InputStream} will read data from another <tt>java.io.InputStream</tt>, given
      * in the constructor, and encode/decode to/from Base64 notation on the fly.
@@ -594,7 +512,7 @@ public class Base64
     /** Do break lines when encoding. Value is 8. */
     public final static int DO_BREAK_LINES = 8;
     
-    /* ******** P R I V A T E F I E L D S ******** */
+    /*    ******** P R I V A T E F I E L D S ******** */
 
     /**
      * Encode using Base64-like encoding that is URL- and Filename-safe as described in Section 4 of
@@ -623,13 +541,13 @@ public class Base64
     /** Preferred encoding. */
     private final static String PREFERRED_ENCODING = "US-ASCII";
     
-    /* ******** S T A N D A R D B A S E 6 4 A L P H A B E T ******** */
+    /*    ******** S T A N D A R D B A S E 6 4 A L P H A B E T ******** */
 
     private final static byte WHITE_SPACE_ENC = -5; // Indicates white space in encoding
     
     private final static byte EQUALS_SIGN_ENC = -1; // Indicates equals sign in encoding
     
-    /* ******** U R L S A F E B A S E 6 4 A L P H A B E T ******** */
+    /*    ******** U R L S A F E B A S E 6 4 A L P H A B E T ******** */
 
     /** The 64 valid Base64 values. */
     /* Host platform me be something funny like EBCDIC, so we hardcode these values. */
@@ -684,7 +602,7 @@ public class Base64
      */
     };
     
-    /* ******** O R D E R E D B A S E 6 4 A L P H A B E T ******** */
+    /*    ******** O R D E R E D B A S E 6 4 A L P H A B E T ******** */
 
     /**
      * Used in the URL- and Filename-safe dialect described in Section 4 of RFC3548: <a
@@ -746,7 +664,7 @@ public class Base64
      */
     };
     
-    /* ******** D E T E R M I N E W H I C H A L H A B E T ******** */
+    /*    ******** D E T E R M I N E W H I C H A L H A B E T ******** */
 
     /**
      * I don't get the point of this technique, but someone requested it, and it is described here:
@@ -830,7 +748,7 @@ public class Base64
         return decoded;
     }
     
-    /* ******** E N C O D I N G M E T H O D S ******** */
+    /*    ******** E N C O D I N G M E T H O D S ******** */
 
     /**
      * Low-level access to decoding ASCII characters in the form of a byte array. <strong>Ignores
@@ -1011,107 +929,6 @@ public class Base64
         
         return bytes;
     } // end decode
-    
-    /**
-     * Decodes four bytes from array <var>source</var> and writes the resulting bytes (up to three
-     * of them) to <var>destination</var>. The source and destination arrays can be manipulated
-     * anywhere along their length by specifying <var>srcOffset</var> and <var>destOffset</var>.
-     * This method does not check to make sure your arrays are large enough to accomodate
-     * <var>srcOffset</var> + 4 for the <var>source</var> array or <var>destOffset</var> + 3 for the
-     * <var>destination</var> array. This method returns the actual number of bytes that were
-     * converted from the Base64 encoding.
-     * <p>
-     * This is the lowest level of the decoding methods with all possible parameters.
-     * </p>
-     * 
-     * 
-     * @param source
-     *            the array to convert
-     * @param srcOffset
-     *            the index where conversion begins
-     * @param destination
-     *            the array to hold the conversion
-     * @param destOffset
-     *            the index where output will be put
-     * @param options
-     *            alphabet type is pulled from this (standard, url-safe, ordered)
-     * @return the number of decoded bytes converted
-     * @throws NullPointerException
-     *             if source or destination arrays are null
-     * @throws IllegalArgumentException
-     *             if srcOffset or destOffset are invalid or there is not enough room in the array.
-     * @since 1.3
-     */
-    private static int decode4to3(byte[] source, int srcOffset, byte[] destination, int destOffset,
-            int options)
-    {
-        
-        // Lots of error checking and exception throwing
-        if (source == null)
-            throw new NullPointerException("Source array was null.");
-        if (destination == null)
-            throw new NullPointerException("Destination array was null.");
-        if (srcOffset < 0 || srcOffset + 3 >= source.length)
-            throw new IllegalArgumentException(
-                    String
-                            .format(
-                                    "Source array with length %d cannot have offset of %d and still process four bytes.",
-                                    source.length, srcOffset));
-        if (destOffset < 0 || destOffset + 2 >= destination.length)
-            throw new IllegalArgumentException(
-                    String
-                            .format(
-                                    "Destination array with length %d cannot have offset of %d and still store three bytes.",
-                                    destination.length, destOffset));
-        
-        byte[] DECODABET = getDecodabet(options);
-        
-        // Example: Dk==
-        if (source[srcOffset + 2] == EQUALS_SIGN) {
-            // Two ways to do the same thing. Don't know which way I like best.
-            // int outBuff = ( ( DECODABET[ source[ srcOffset ] ] << 24 ) >>> 6 )
-            // | ( ( DECODABET[ source[ srcOffset + 1] ] << 24 ) >>> 12 );
-            int outBuff = (DECODABET[source[srcOffset]] & 0xFF) << 18
-                    | (DECODABET[source[srcOffset + 1]] & 0xFF) << 12;
-            
-            destination[destOffset] = (byte) (outBuff >>> 16);
-            return 1;
-        }
-
-        // Example: DkL=
-        else if (source[srcOffset + 3] == EQUALS_SIGN) {
-            // Two ways to do the same thing. Don't know which way I like best.
-            // int outBuff = ( ( DECODABET[ source[ srcOffset ] ] << 24 ) >>> 6 )
-            // | ( ( DECODABET[ source[ srcOffset + 1 ] ] << 24 ) >>> 12 )
-            // | ( ( DECODABET[ source[ srcOffset + 2 ] ] << 24 ) >>> 18 );
-            int outBuff = (DECODABET[source[srcOffset]] & 0xFF) << 18
-                    | (DECODABET[source[srcOffset + 1]] & 0xFF) << 12
-                    | (DECODABET[source[srcOffset + 2]] & 0xFF) << 6;
-            
-            destination[destOffset] = (byte) (outBuff >>> 16);
-            destination[destOffset + 1] = (byte) (outBuff >>> 8);
-            return 2;
-        }
-
-        // Example: DkLE
-        else {
-            // Two ways to do the same thing. Don't know which way I like best.
-            // int outBuff = ( ( DECODABET[ source[ srcOffset ] ] << 24 ) >>> 6 )
-            // | ( ( DECODABET[ source[ srcOffset + 1 ] ] << 24 ) >>> 12 )
-            // | ( ( DECODABET[ source[ srcOffset + 2 ] ] << 24 ) >>> 18 )
-            // | ( ( DECODABET[ source[ srcOffset + 3 ] ] << 24 ) >>> 24 );
-            int outBuff = (DECODABET[source[srcOffset]] & 0xFF) << 18
-                    | (DECODABET[source[srcOffset + 1]] & 0xFF) << 12
-                    | (DECODABET[source[srcOffset + 2]] & 0xFF) << 6
-                    | DECODABET[source[srcOffset + 3]] & 0xFF;
-            
-            destination[destOffset] = (byte) (outBuff >> 16);
-            destination[destOffset + 1] = (byte) (outBuff >> 8);
-            destination[destOffset + 2] = (byte) outBuff;
-            
-            return 3;
-        }
-    } // end decodeToBytes
     
     /**
      * Reads <tt>infile</tt> and decodes it to <tt>outfile</tt>.
@@ -1343,106 +1160,6 @@ public class Base64
         } // end input remaining
     }
     
-    /**
-     * Encodes up to the first three bytes of array <var>threeBytes</var> and returns a four-byte
-     * array in Base64 notation. The actual number of significant bytes in your array is given by
-     * <var>numSigBytes</var>. The array <var>threeBytes</var> needs only be as big as
-     * <var>numSigBytes</var>. Code can reuse a byte array by passing a four-byte array as
-     * <var>b4</var>.
-     * 
-     * @param b4
-     *            A reusable byte array to reduce array instantiation
-     * @param threeBytes
-     *            the array to convert
-     * @param numSigBytes
-     *            the number of significant bytes in your array
-     * @return four byte array in Base64 notation.
-     * @since 1.5.1
-     */
-    private static byte[] encode3to4(byte[] b4, byte[] threeBytes, int numSigBytes, int options)
-    {
-        encode3to4(threeBytes, 0, numSigBytes, b4, 0, options);
-        return b4;
-    } // end encode3to4
-    
-    /**
-     * <p>
-     * Encodes up to three bytes of the array <var>source</var> and writes the resulting four Base64
-     * bytes to <var>destination</var>. The source and destination arrays can be manipulated
-     * anywhere along their length by specifying <var>srcOffset</var> and <var>destOffset</var>.
-     * This method does not check to make sure your arrays are large enough to accomodate
-     * <var>srcOffset</var> + 3 for the <var>source</var> array or <var>destOffset</var> + 4 for the
-     * <var>destination</var> array. The actual number of significant bytes in your array is given
-     * by <var>numSigBytes</var>.
-     * </p>
-     * <p>
-     * This is the lowest level of the encoding methods with all possible parameters.
-     * </p>
-     * 
-     * @param source
-     *            the array to convert
-     * @param srcOffset
-     *            the index where conversion begins
-     * @param numSigBytes
-     *            the number of significant bytes in your array
-     * @param destination
-     *            the array to hold the conversion
-     * @param destOffset
-     *            the index where output will be put
-     * @return the <var>destination</var> array
-     * @since 1.3
-     */
-    private static byte[] encode3to4(byte[] source, int srcOffset, int numSigBytes,
-            byte[] destination, int destOffset, int options)
-    {
-        
-        byte[] ALPHABET = getAlphabet(options);
-        
-        // 1 2 3
-        // 01234567890123456789012345678901 Bit position
-        // --------000000001111111122222222 Array position from threeBytes
-        // --------| || || || | Six bit groups to index ALPHABET
-        // >>18 >>12 >> 6 >> 0 Right shift necessary
-        // 0x3f 0x3f 0x3f Additional AND
-        
-        // Create buffer with zero-padding if there are only one or two
-        // significant bytes passed in the array.
-        // We have to shift left 24 in order to flush out the 1's that appear
-        // when Java treats a value as negative that is cast from a byte to an int.
-        int inBuff = (numSigBytes > 0 ? source[srcOffset] << 24 >>> 8 : 0)
-                | (numSigBytes > 1 ? source[srcOffset + 1] << 24 >>> 16 : 0)
-                | (numSigBytes > 2 ? source[srcOffset + 2] << 24 >>> 24 : 0);
-        
-        switch (numSigBytes)
-        {
-        case 3:
-            destination[destOffset] = ALPHABET[(inBuff >>> 18)];
-            destination[destOffset + 1] = ALPHABET[inBuff >>> 12 & 0x3f];
-            destination[destOffset + 2] = ALPHABET[inBuff >>> 6 & 0x3f];
-            destination[destOffset + 3] = ALPHABET[inBuff & 0x3f];
-            return destination;
-            
-        case 2:
-            destination[destOffset] = ALPHABET[(inBuff >>> 18)];
-            destination[destOffset + 1] = ALPHABET[inBuff >>> 12 & 0x3f];
-            destination[destOffset + 2] = ALPHABET[inBuff >>> 6 & 0x3f];
-            destination[destOffset + 3] = EQUALS_SIGN;
-            return destination;
-            
-        case 1:
-            destination[destOffset] = ALPHABET[(inBuff >>> 18)];
-            destination[destOffset + 1] = ALPHABET[inBuff >>> 12 & 0x3f];
-            destination[destOffset + 2] = EQUALS_SIGN;
-            destination[destOffset + 3] = EQUALS_SIGN;
-            return destination;
-            
-        default:
-            return destination;
-        } // end switch
-    } // end encode3to4
-    
-    /* ******** D E C O D I N G M E T H O D S ******** */
-
     /**
      * Encodes a byte array into Base64 notation. Does not GZip-compress data.
      * 
@@ -2001,6 +1718,205 @@ public class Base64
     } // end encodeToFile
     
     /**
+     * Decodes four bytes from array <var>source</var> and writes the resulting bytes (up to three
+     * of them) to <var>destination</var>. The source and destination arrays can be manipulated
+     * anywhere along their length by specifying <var>srcOffset</var> and <var>destOffset</var>.
+     * This method does not check to make sure your arrays are large enough to accomodate
+     * <var>srcOffset</var> + 4 for the <var>source</var> array or <var>destOffset</var> + 3 for the
+     * <var>destination</var> array. This method returns the actual number of bytes that were
+     * converted from the Base64 encoding.
+     * <p>
+     * This is the lowest level of the decoding methods with all possible parameters.
+     * </p>
+     * 
+     * 
+     * @param source
+     *            the array to convert
+     * @param srcOffset
+     *            the index where conversion begins
+     * @param destination
+     *            the array to hold the conversion
+     * @param destOffset
+     *            the index where output will be put
+     * @param options
+     *            alphabet type is pulled from this (standard, url-safe, ordered)
+     * @return the number of decoded bytes converted
+     * @throws NullPointerException
+     *             if source or destination arrays are null
+     * @throws IllegalArgumentException
+     *             if srcOffset or destOffset are invalid or there is not enough room in the array.
+     * @since 1.3
+     */
+    private static int decode4to3(byte[] source, int srcOffset, byte[] destination, int destOffset,
+            int options)
+    {
+        
+        // Lots of error checking and exception throwing
+        if (source == null)
+            throw new NullPointerException("Source array was null.");
+        if (destination == null)
+            throw new NullPointerException("Destination array was null.");
+        if (srcOffset < 0 || srcOffset + 3 >= source.length)
+            throw new IllegalArgumentException(
+                    String
+                            .format(
+                                    "Source array with length %d cannot have offset of %d and still process four bytes.",
+                                    source.length, srcOffset));
+        if (destOffset < 0 || destOffset + 2 >= destination.length)
+            throw new IllegalArgumentException(
+                    String
+                            .format(
+                                    "Destination array with length %d cannot have offset of %d and still store three bytes.",
+                                    destination.length, destOffset));
+        
+        byte[] DECODABET = getDecodabet(options);
+        
+        // Example: Dk==
+        if (source[srcOffset + 2] == EQUALS_SIGN) {
+            // Two ways to do the same thing. Don't know which way I like best.
+            // int outBuff = ( ( DECODABET[ source[ srcOffset ] ] << 24 ) >>> 6 )
+            // | ( ( DECODABET[ source[ srcOffset + 1] ] << 24 ) >>> 12 );
+            int outBuff = (DECODABET[source[srcOffset]] & 0xFF) << 18
+                    | (DECODABET[source[srcOffset + 1]] & 0xFF) << 12;
+            
+            destination[destOffset] = (byte) (outBuff >>> 16);
+            return 1;
+        }
+
+        // Example: DkL=
+        else if (source[srcOffset + 3] == EQUALS_SIGN) {
+            // Two ways to do the same thing. Don't know which way I like best.
+            // int outBuff = ( ( DECODABET[ source[ srcOffset ] ] << 24 ) >>> 6 )
+            // | ( ( DECODABET[ source[ srcOffset + 1 ] ] << 24 ) >>> 12 )
+            // | ( ( DECODABET[ source[ srcOffset + 2 ] ] << 24 ) >>> 18 );
+            int outBuff = (DECODABET[source[srcOffset]] & 0xFF) << 18
+                    | (DECODABET[source[srcOffset + 1]] & 0xFF) << 12
+                    | (DECODABET[source[srcOffset + 2]] & 0xFF) << 6;
+            
+            destination[destOffset] = (byte) (outBuff >>> 16);
+            destination[destOffset + 1] = (byte) (outBuff >>> 8);
+            return 2;
+        }
+
+        // Example: DkLE
+        else {
+            // Two ways to do the same thing. Don't know which way I like best.
+            // int outBuff = ( ( DECODABET[ source[ srcOffset ] ] << 24 ) >>> 6 )
+            // | ( ( DECODABET[ source[ srcOffset + 1 ] ] << 24 ) >>> 12 )
+            // | ( ( DECODABET[ source[ srcOffset + 2 ] ] << 24 ) >>> 18 )
+            // | ( ( DECODABET[ source[ srcOffset + 3 ] ] << 24 ) >>> 24 );
+            int outBuff = (DECODABET[source[srcOffset]] & 0xFF) << 18
+                    | (DECODABET[source[srcOffset + 1]] & 0xFF) << 12
+                    | (DECODABET[source[srcOffset + 2]] & 0xFF) << 6
+                    | DECODABET[source[srcOffset + 3]] & 0xFF;
+            
+            destination[destOffset] = (byte) (outBuff >> 16);
+            destination[destOffset + 1] = (byte) (outBuff >> 8);
+            destination[destOffset + 2] = (byte) outBuff;
+            
+            return 3;
+        }
+    } // end decodeToBytes
+    
+    /**
+     * Encodes up to the first three bytes of array <var>threeBytes</var> and returns a four-byte
+     * array in Base64 notation. The actual number of significant bytes in your array is given by
+     * <var>numSigBytes</var>. The array <var>threeBytes</var> needs only be as big as
+     * <var>numSigBytes</var>. Code can reuse a byte array by passing a four-byte array as
+     * <var>b4</var>.
+     * 
+     * @param b4
+     *            A reusable byte array to reduce array instantiation
+     * @param threeBytes
+     *            the array to convert
+     * @param numSigBytes
+     *            the number of significant bytes in your array
+     * @return four byte array in Base64 notation.
+     * @since 1.5.1
+     */
+    private static byte[] encode3to4(byte[] b4, byte[] threeBytes, int numSigBytes, int options)
+    {
+        encode3to4(threeBytes, 0, numSigBytes, b4, 0, options);
+        return b4;
+    } // end encode3to4
+    
+    /**
+     * <p>
+     * Encodes up to three bytes of the array <var>source</var> and writes the resulting four Base64
+     * bytes to <var>destination</var>. The source and destination arrays can be manipulated
+     * anywhere along their length by specifying <var>srcOffset</var> and <var>destOffset</var>.
+     * This method does not check to make sure your arrays are large enough to accomodate
+     * <var>srcOffset</var> + 3 for the <var>source</var> array or <var>destOffset</var> + 4 for the
+     * <var>destination</var> array. The actual number of significant bytes in your array is given
+     * by <var>numSigBytes</var>.
+     * </p>
+     * <p>
+     * This is the lowest level of the encoding methods with all possible parameters.
+     * </p>
+     * 
+     * @param source
+     *            the array to convert
+     * @param srcOffset
+     *            the index where conversion begins
+     * @param numSigBytes
+     *            the number of significant bytes in your array
+     * @param destination
+     *            the array to hold the conversion
+     * @param destOffset
+     *            the index where output will be put
+     * @return the <var>destination</var> array
+     * @since 1.3
+     */
+    private static byte[] encode3to4(byte[] source, int srcOffset, int numSigBytes,
+            byte[] destination, int destOffset, int options)
+    {
+        
+        byte[] ALPHABET = getAlphabet(options);
+        
+        // 1 2 3
+        // 01234567890123456789012345678901 Bit position
+        // --------000000001111111122222222 Array position from threeBytes
+        // --------| || || || | Six bit groups to index ALPHABET
+        // >>18 >>12 >> 6 >> 0 Right shift necessary
+        // 0x3f 0x3f 0x3f Additional AND
+        
+        // Create buffer with zero-padding if there are only one or two
+        // significant bytes passed in the array.
+        // We have to shift left 24 in order to flush out the 1's that appear
+        // when Java treats a value as negative that is cast from a byte to an int.
+        int inBuff = (numSigBytes > 0 ? source[srcOffset] << 24 >>> 8 : 0)
+                | (numSigBytes > 1 ? source[srcOffset + 1] << 24 >>> 16 : 0)
+                | (numSigBytes > 2 ? source[srcOffset + 2] << 24 >>> 24 : 0);
+        
+        switch (numSigBytes)
+        {
+        case 3:
+            destination[destOffset] = ALPHABET[(inBuff >>> 18)];
+            destination[destOffset + 1] = ALPHABET[inBuff >>> 12 & 0x3f];
+            destination[destOffset + 2] = ALPHABET[inBuff >>> 6 & 0x3f];
+            destination[destOffset + 3] = ALPHABET[inBuff & 0x3f];
+            return destination;
+            
+        case 2:
+            destination[destOffset] = ALPHABET[(inBuff >>> 18)];
+            destination[destOffset + 1] = ALPHABET[inBuff >>> 12 & 0x3f];
+            destination[destOffset + 2] = ALPHABET[inBuff >>> 6 & 0x3f];
+            destination[destOffset + 3] = EQUALS_SIGN;
+            return destination;
+            
+        case 1:
+            destination[destOffset] = ALPHABET[(inBuff >>> 18)];
+            destination[destOffset + 1] = ALPHABET[inBuff >>> 12 & 0x3f];
+            destination[destOffset + 2] = EQUALS_SIGN;
+            destination[destOffset + 3] = EQUALS_SIGN;
+            return destination;
+            
+        default:
+            return destination;
+        } // end switch
+    } // end encode3to4
+    
+    /**
      * Returns one of the _SOMETHING_ALPHABET byte arrays depending on the options specified. It's
      * possible, though silly, to specify ORDERED <b>and</b> URLSAFE in which case one of them will
      * be picked, though there is no guarantee as to which one will be picked.
@@ -2015,8 +1931,6 @@ public class Base64
             return _STANDARD_ALPHABET;
     } // end getAlphabet
     
-    /* ******** I N N E R C L A S S I N P U T S T R E A M ******** */
-
     /**
      * Returns one of the _SOMETHING_DECODABET byte arrays depending on the options specified. It's
      * possible, though silly, to specify ORDERED and URL_SAFE in which case one of them will be
@@ -2032,8 +1946,6 @@ public class Base64
             return _STANDARD_DECODABET;
     } // end getAlphabet
     
-    /* ******** I N N E R C L A S S O U T P U T S T R E A M ******** */
-
     /** Defeats instantiation. */
     private Base64()
     {

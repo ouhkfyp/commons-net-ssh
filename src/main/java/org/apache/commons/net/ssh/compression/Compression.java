@@ -18,9 +18,7 @@
  */
 package org.apache.commons.net.ssh.compression;
 
-import java.io.IOException;
-
-import org.apache.commons.net.ssh.transport.TransportException;
+import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -43,9 +41,7 @@ public interface Compression
      * Compress the given buffer in place.
      * 
      * @param buffer
-     *            the buffer containing the data to compress
-     * @throws IOException
-     *             if an error occurs
+     *            the buffer containing the data to compress s
      */
     void compress(Buffer buffer) throws TransportException;
     
@@ -75,8 +71,6 @@ public interface Compression
      *            the buffer containing the data to uncompress
      * @param to
      *            the buffer receiving the uncompressed data
-     * @throws IOException
-     *             if an error occurs
      */
     void uncompress(Buffer from, Buffer to) throws TransportException;
     

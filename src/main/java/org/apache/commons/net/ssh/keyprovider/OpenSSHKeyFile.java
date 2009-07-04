@@ -25,9 +25,9 @@ import java.io.IOException;
 import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.Constants.KeyType;
 import org.apache.commons.net.ssh.util.Base64;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
 
 /**
  * 

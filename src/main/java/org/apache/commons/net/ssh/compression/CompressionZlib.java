@@ -19,9 +19,9 @@
 package org.apache.commons.net.ssh.compression;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.Constants.DisconnectReason;
-import org.apache.commons.net.ssh.transport.TransportException;
+import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 
 import com.jcraft.jzlib.JZlib;
 import com.jcraft.jzlib.ZStream;

@@ -19,22 +19,20 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.util.ArrayDeque;
-import java.util.Collection;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.Set;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.Session;
-import org.apache.commons.net.ssh.Constants.Message;
-import org.apache.commons.net.ssh.transport.TransportException;
+import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.userauth.AuthMethod.Result;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.LQString;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 public class UserAuthProtocol extends AbstractService implements UserAuthService
 {
@@ -52,10 +50,10 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     
     private final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
     
-    public UserAuthProtocol(Session session, Collection<AuthMethod> methods)
+    public UserAuthProtocol(Session session, Iterable<AuthMethod> methods)
     {
         super(session);
-        this.methods = new LinkedList<AuthMethod>(methods).iterator();
+        this.methods = methods.iterator();
         for (AuthMethod m : methods)
             // initially assume all are allowed
             allowed.add(m.getName());

@@ -23,9 +23,7 @@ import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.Constants.DisconnectReason;
-import org.apache.commons.net.ssh.Constants.KeyType;
-import org.apache.commons.net.ssh.Constants.Message;
+import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
 import org.apache.commons.net.ssh.digest.Digest;
@@ -33,6 +31,9 @@ import org.apache.commons.net.ssh.kex.KeyExchange;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.SecurityUtils;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
+import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

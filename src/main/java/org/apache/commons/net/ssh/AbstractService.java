@@ -1,6 +1,5 @@
 package org.apache.commons.net.ssh;
 
-import org.apache.commons.net.ssh.transport.TransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

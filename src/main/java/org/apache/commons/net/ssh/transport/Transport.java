@@ -18,7 +18,7 @@
  */
 package org.apache.commons.net.ssh.transport;
 
-import static org.apache.commons.net.ssh.Constants.*;
+import static org.apache.commons.net.ssh.util.Constants.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,10 +38,11 @@ import org.apache.commons.net.ssh.HostKeyVerifier;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Session;
-import org.apache.commons.net.ssh.Constants.DisconnectReason;
-import org.apache.commons.net.ssh.Constants.Message;
+import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

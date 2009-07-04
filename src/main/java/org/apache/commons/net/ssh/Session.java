@@ -21,9 +21,9 @@ package org.apache.commons.net.ssh;
 import java.io.IOException;
 import java.net.Socket;
 
-import org.apache.commons.net.ssh.Constants.DisconnectReason;
-import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 
 /**
  * Transport layer of the SSH protocol.

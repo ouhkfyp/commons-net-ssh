@@ -26,8 +26,8 @@ import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.PasswordFinder;
-import org.apache.commons.net.ssh.Constants.KeyType;
 import org.apache.commons.net.ssh.PasswordFinder.Resource;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
 import org.bouncycastle.openssl.PEMReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

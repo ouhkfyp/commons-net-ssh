@@ -30,8 +30,8 @@ import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
 
 import org.apache.commons.net.ssh.SSHRuntimeException;
-import org.apache.commons.net.ssh.Constants.KeyType;
-import org.apache.commons.net.ssh.Constants.Message;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 /**
  * Facilitates reading and writing SSH packets
@@ -127,10 +127,6 @@ public final class Buffer
         rpos = 0;
     }
     
-    /*
-     * ====================== Read methods ======================
-     */
-
     public boolean getBoolean()
     {
         return getByte() != 0;
@@ -260,17 +256,11 @@ public final class Buffer
         return getBytes();
     }
     
-    // ////////////////////////////////////////////////////////////
-    
     public String printHex()
     {
         return BufferUtils.printHex(array(), rpos(), available());
     }
     
-    /*
-     * ====================== Write methods ======================
-     */
-
     public Buffer putBoolean(boolean b)
     {
         return putByte(b ? (byte) 1 : (byte) 0);
@@ -407,8 +397,6 @@ public final class Buffer
         return putString(string.getBytes());
     }
     
-    // ////////////////////////////////////////////////////////////
-    
     public int rpos()
     {
         return rpos;
@@ -419,15 +407,11 @@ public final class Buffer
         this.rpos = rpos;
     }
     
-    // ////////////////////////////////////////////////////////////
-    
     @Override
     public String toString()
     {
         return "Buffer [rpos=" + rpos + ", wpos=" + wpos + ", size=" + data.length + "]";
     }
-    
-    // ////////////////////////////////////////////////////////////
     
     public int wpos()
     {

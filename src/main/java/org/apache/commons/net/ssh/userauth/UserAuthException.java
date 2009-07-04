@@ -1,7 +1,7 @@
 package org.apache.commons.net.ssh.userauth;
 
 import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 
 public class UserAuthException extends SSHException
 {
