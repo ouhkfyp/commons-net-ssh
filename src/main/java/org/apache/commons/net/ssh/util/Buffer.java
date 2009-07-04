@@ -350,16 +350,22 @@ public final class Buffer
     
     public Buffer putPublicKey(PublicKey key)
     {
-        KeyType type;
+        return putPublicKey(key, true);
+    }
+    
+    public Buffer putPublicKey(PublicKey key, boolean justTheBlob)
+    {
+        KeyType type = KeyType.fromKey(key);
+        Buffer target = justTheBlob ? this : new Buffer();
         switch (type = KeyType.fromKey(key))
         {
         case RSA:
-            putString(type.toString()). // ssh-rsa
-                    putMPInt(((RSAPublicKey) key).getPublicExponent()). // e
-                    putMPInt(((RSAPublicKey) key).getModulus()); // n
+            target.putString(type.toString()) // ssh-rsa
+                    .putMPInt(((RSAPublicKey) key).getPublicExponent()) // e
+                    .putMPInt(((RSAPublicKey) key).getModulus()); // n
             break;
         case DSA:
-            putString(type.toString()) // ssh-dss
+            target.putString(type.toString()) // ssh-dss
                     .putMPInt(((DSAPublicKey) key).getParams().getP()) // p
                     .putMPInt(((DSAPublicKey) key).getParams().getQ()) // q
                     .putMPInt(((DSAPublicKey) key).getParams().getG()) // g
@@ -367,6 +373,10 @@ public final class Buffer
             break;
         default:
             assert false;
+        }
+        if (!justTheBlob) {
+            putString(type.toString());
+            putString(target.getCompactData());
         }
         return this;
     }

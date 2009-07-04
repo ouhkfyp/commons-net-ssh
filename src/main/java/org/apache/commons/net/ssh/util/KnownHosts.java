@@ -50,6 +50,7 @@ public class KnownHosts implements HostKeyVerifier
         private final String[] hosts;
         private final KeyType type;
         private final String sKey;
+        private PublicKey key;
         
         Entry(String line) throws AssertionError
         {
@@ -87,15 +88,17 @@ public class KnownHosts implements HostKeyVerifier
         
         PublicKey getKey()
         {
-            byte[] decoded;
-            try {
-                decoded = Base64.decode(sKey);
-            } catch (IOException e) {
-                return null;
+            if (key == null) {
+                byte[] decoded;
+                try {
+                    decoded = Base64.decode(sKey);
+                } catch (IOException e) {
+                    return null;
+                }
+                key = new Buffer(decoded).getPublicKey();
             }
-            return new Buffer(decoded).getPublicKey();
+            return key;
         }
-        
     }
     
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -129,15 +132,21 @@ public class KnownHosts implements HostKeyVerifier
         Set<String> possibilities = new HashSet<String>();
         possibilities.add(host.getHostName());
         possibilities.add(host.getCanonicalHostName());
+        possibilities.add(host.getHostAddress());
+        
+        log.debug("Verifying on parameters = {}", possibilities);
         
         String match;
         for (Entry e : entries)
             if (e.type == type && (match = e.appliesTo(possibilities)) != null)
                 if (key.equals(e.getKey())) {
-                    log.info("Found a valid match against [{}]", match);
+                    log.info("Valid match against [{}]", match);
                     return true;
+                } else {
+                    log.warn("Host key for {} has changed! ", match);
+                    return false;
                 }
+        
         return false;
     }
-    
 }
