@@ -70,8 +70,7 @@ public class PKCS8KeyFile implements FileKeyProvider
                     triesLeft--;
                     return "a wrong password".toCharArray();
                 } else
-                    // last try
-                    return "shxxo749".toCharArray();
+                    return "abcdef".toCharArray();
             }
             
             public boolean retry()
