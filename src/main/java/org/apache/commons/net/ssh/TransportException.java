@@ -1,7 +1,6 @@
-package org.apache.commons.net.ssh.transport;
+package org.apache.commons.net.ssh;
 
-import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 
 public class TransportException extends SSHException
 {

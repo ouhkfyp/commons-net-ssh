@@ -18,7 +18,7 @@
  */
 package org.apache.commons.net.ssh;
 
-import static org.apache.commons.net.ssh.Constants.*;
+import static org.apache.commons.net.ssh.util.Constants.*;
 
 import java.io.File;
 import java.io.IOException;

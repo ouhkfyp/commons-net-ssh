@@ -20,12 +20,13 @@ package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.BufferUtils;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

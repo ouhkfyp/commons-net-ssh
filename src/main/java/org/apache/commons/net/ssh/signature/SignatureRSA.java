@@ -22,7 +22,7 @@ import java.security.SignatureException;
 
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.SSHRuntimeException;
-import org.apache.commons.net.ssh.Constants.KeyType;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
 
 /**
  * RSA <code>Signature</code>

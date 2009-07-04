@@ -30,9 +30,9 @@ import java.util.Set;
 
 import org.apache.commons.net.ssh.HostKeyVerifier;
 import org.apache.commons.net.ssh.SSHRuntimeException;
-import org.apache.commons.net.ssh.Constants.KeyType;
 import org.apache.commons.net.ssh.mac.HMACSHA1;
 import org.apache.commons.net.ssh.mac.MAC;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,13 +44,18 @@ import org.slf4j.LoggerFactory;
 public class KnownHosts implements HostKeyVerifier
 {
     
+    /**
+     * Represents a single line
+     * 
+     * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+     */
     private static class Entry
     {
         
-        private final String[] hosts;
-        private final KeyType type;
-        private final String sKey;
-        private PublicKey key;
+        final String[] hosts;
+        final KeyType type;
+        final String sKey;
+        PublicKey key;
         
         Entry(String line) throws AssertionError
         {
@@ -64,7 +69,7 @@ public class KnownHosts implements HostKeyVerifier
         
         String appliesTo(Set<String> possibilities)
         {
-            if (hosts[0].startsWith("|1|")) { // hashed
+            if (hosts[0].startsWith("|1|")) { // hashed hostname
                 String[] splitted = hosts[0].split("\\|");
                 byte[] salt, host;
                 try {
@@ -99,6 +104,7 @@ public class KnownHosts implements HostKeyVerifier
             }
             return key;
         }
+        
     }
     
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -118,8 +124,8 @@ public class KnownHosts implements HostKeyVerifier
                         log.debug("{} - unrecognized line: {}", loc, line);
                         continue;
                     }
-            } catch (Exception e) {
-                log.info("While loading {} - {}", loc, e.toString());
+            } catch (IOException ioe) {
+                log.info("While loading {} - {}", loc, ioe.toString());
             }
     }
     
@@ -134,7 +140,7 @@ public class KnownHosts implements HostKeyVerifier
         possibilities.add(host.getCanonicalHostName());
         possibilities.add(host.getHostAddress());
         
-        log.debug("Verifying on parameters = {}", possibilities);
+        log.debug("Checking for any of {}", possibilities);
         
         String match;
         for (Entry e : entries)

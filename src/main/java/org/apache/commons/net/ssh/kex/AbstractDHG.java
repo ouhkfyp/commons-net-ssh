@@ -22,14 +22,14 @@ import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.Session;
-import org.apache.commons.net.ssh.Constants.DisconnectReason;
-import org.apache.commons.net.ssh.Constants.KeyType;
-import org.apache.commons.net.ssh.Constants.Message;
+import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.digest.Digest;
 import org.apache.commons.net.ssh.digest.SHA1;
 import org.apache.commons.net.ssh.signature.Signature;
-import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
+import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

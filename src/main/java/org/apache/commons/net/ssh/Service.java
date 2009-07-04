@@ -20,8 +20,8 @@ package org.apache.commons.net.ssh;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 public interface Service
 {

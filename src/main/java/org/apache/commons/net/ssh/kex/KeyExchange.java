@@ -18,12 +18,11 @@
  */
 package org.apache.commons.net.ssh.kex;
 
-import java.io.IOException;
 import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.Session;
+import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.digest.Digest;
-import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -70,7 +69,7 @@ public interface KeyExchange
      *            the server key init packet
      * @param I_C
      *            the client key init packet
-     * @throws IOException
+     * @throws TransportException
      *             if an error occurs
      */
     void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C)

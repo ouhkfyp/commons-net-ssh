@@ -22,9 +22,9 @@ import java.io.IOException;
 import java.util.Set;
 
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.Constants.Message;
-import org.apache.commons.net.ssh.transport.TransportException;
+import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 /**
  * Represents an SSH authentication method for the SSH Authentication Protocol

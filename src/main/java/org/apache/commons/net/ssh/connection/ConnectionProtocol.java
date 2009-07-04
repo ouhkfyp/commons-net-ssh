@@ -21,8 +21,8 @@ package org.apache.commons.net.ssh.connection;
 import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Session;
-import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants.Message;
 
 /*
  * STUB!

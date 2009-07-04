@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 
-import org.apache.commons.net.ssh.Constants.KeyType;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
 
 /*
  * SSHAgentKeyProvider using JUDS <http://code.google.com/p/juds/> ??

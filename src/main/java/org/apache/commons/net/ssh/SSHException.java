@@ -20,7 +20,7 @@ package org.apache.commons.net.ssh;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 
 /**
  * TODO Add javadoc
