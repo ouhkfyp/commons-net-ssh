@@ -23,6 +23,7 @@ import java.util.Set;
 
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Constants.Message;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -90,13 +91,13 @@ public interface AuthMethod
      * @return the determined {@link Result}
      * @throws IOException
      */
-    Result handle(Message cmd, Buffer buf) throws IOException;
+    Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException;
     
     /**
      * Request this method
      * 
      * @throws IOException
      */
-    void request() throws IOException;
+    void request() throws UserAuthException, TransportException;
     
 }

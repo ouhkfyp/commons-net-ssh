@@ -18,13 +18,12 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import java.io.IOException;
-
 import org.apache.commons.net.ssh.PasswordFinder;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.Constants.Message;
 import org.apache.commons.net.ssh.PasswordFinder.Resource;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 public class AuthPassword extends AbstractAuthMethod
@@ -49,27 +48,25 @@ public class AuthPassword extends AbstractAuthMethod
     }
     
     @Override
-    public Result handle(Message cmd, Buffer buf) throws IOException
+    public Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
-        switch (cmd)
+        Result res = super.handle(cmd, buf);
+        switch (res)
         {
-        case USERAUTH_SUCCESS:
-            return Result.SUCCESS;
-        case USERAUTH_FAILURE:
-            setAllowedMethods(buf.getString());
-            if (buf.getBoolean())
-                return Result.PARTIAL_SUCCESS;
-            else if (allowed.contains(NAME) && pwdf.retry()) {
+        case FAILURE:
+            if (allowed.contains(NAME) && pwdf.retry()) {
                 request();
                 return Result.CONTINUED;
-            } else
+            }
+            break;
+        case UNKNOWN:
+            if (cmd == Message.USERAUTH_60) {
+                log.error("Received SSH_MSG_USERAUTH_CHANGERQ; password needs changing");
                 return Result.FAILURE;
-        case USERAUTH_60:
-            log.error("Received SSH_MSG_USERAUTH_CHANGERQ; password needs changing");
-            return Result.FAILURE;
-        default:
-            return Result.UNKNOWN;
+            }
+            break;
         }
+        return res;
     }
     
     @Override

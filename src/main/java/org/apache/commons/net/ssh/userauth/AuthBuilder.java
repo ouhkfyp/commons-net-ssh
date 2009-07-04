@@ -61,14 +61,15 @@ public class AuthBuilder
         return this;
     }
     
-    public AuthBuilder authPublickey(Iterable<KeyProvider> keys)
+    public AuthBuilder authPublickey(Iterable<KeyProvider> keyProvs)
     {
-        return authPublickey(keys.iterator());
+        return authPublickey(keyProvs.iterator());
     }
     
-    public AuthBuilder authPublickey(Iterator<KeyProvider> keys)
+    public AuthBuilder authPublickey(Iterator<KeyProvider> iter)
     {
-        methods.add(new AuthPublickey(session, nextService, username, keys));
+        while (iter.hasNext())
+            methods.add(new AuthPublickey(session, nextService, username, iter.next()));
         return this;
     }
     
@@ -77,14 +78,13 @@ public class AuthBuilder
         return authPublickey(new KeyPairWrapper(kp));
     }
     
-    public AuthBuilder authPublickey(KeyProvider key)
+    //    
+    public AuthBuilder authPublickey(KeyProvider kProv)
     {
-        List<KeyProvider> keys = new LinkedList<KeyProvider>();
-        keys.add(key);
-        return authPublickey(keys.iterator());
+        return authPublickey(kProv);
     }
     
-    public AuthBuilder authPublickey(String... locations)
+    public AuthBuilder authPublickey(String... locations) throws IOException
     { // convenience method, but swallows up errors for API consistency
         List<NamedFactory<FileKeyProvider>> factories = session.getFactoryManager()
                 .getFileKeyProviderFactories();
@@ -102,10 +102,10 @@ public class AuthBuilder
             } catch (IOException e) {
                 log.error("Could not add key file at [{}]: {}", location, e.toString());
             }
-        // if (fkps.size() > 0)
-        return authPublickey(fkps);
-        // else
-        // return this;
+        if (fkps.size() > 0)
+            return authPublickey(fkps);
+        else
+            return this;
     }
     
     public UserAuthService build()
