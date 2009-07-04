@@ -18,7 +18,9 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.locks.Condition;
@@ -35,8 +37,6 @@ import org.apache.commons.net.ssh.util.LQString;
 public class UserAuthProtocol extends AbstractService implements UserAuthService
 {
     
-    private Set<String> allowed = new HashSet<String>();
-    
     private final Queue<AuthMethod> methods;
     
     private LQString banner; // auth banner
@@ -46,17 +46,21 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     private final ReentrantLock resLock = new ReentrantLock(); // lock for res
     private final Condition resCond = resLock.newCondition(); // signifies a conclusive result
     
-    public UserAuthProtocol(Session session, Queue<AuthMethod> methods)
+    private Set<String> allowed = new HashSet<String>();
+    
+    public UserAuthProtocol(Session session, Collection<AuthMethod> methods)
     {
         super(session);
-        this.methods = methods;
+        this.methods = new LinkedList<AuthMethod>(methods);
         for (AuthMethod m : methods)
             // initially assume all are allowed
             allowed.add(m.getName());
     }
     
-    public void authenticate() throws UserAuthException
+    // @return true = authenticated, false = only partially, more auth needed!
+    public boolean authenticate() throws UserAuthException
     {
+        boolean partialSuccess = false;
         try { // service request
             request();
         } catch (TransportException e) {
@@ -65,7 +69,10 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         enterInterruptibleContext();
         for (;;) {
             if ((method = methods.poll()) == null)
-                throw new UserAuthException("Exhausted available authentication methods");
+                if (partialSuccess)
+                    return false;
+                else
+                    throw new UserAuthException("Exhausted available authentication methods");
             log.info("Trying {} auth...", method.getName());
             if (!allowed.contains(method.getName()))
                 continue;
@@ -83,9 +90,10 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 switch (res)
                 {
                 case SUCCESS:
-                    return;
+                    return true;
                 case FAILURE:
                 case PARTIAL_SUCCESS:
+                    partialSuccess = true;
                     continue;
                 default:
                     assert false;
@@ -136,7 +144,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             resLock.lock();
             try {
                 res = method.handle(cmd, buf);
-                log.info("... Result={}", res);
+                log.info("Auth result = {}", res);
                 switch (res)
                 {
                 case SUCCESS:
@@ -157,7 +165,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                     assert false;
                 }
             } catch (Exception e) {
-                log.error("... {} method spewed - {}", method.getName(), e.toString());
+                log.error("{} method spewed - {}", method.getName(), e.toString());
                 res = Result.FAILURE;
                 resCond.signal();
             } finally {

@@ -28,7 +28,7 @@ public interface UserAuthService extends Service
     
     String NAME = "ssh-userauth";
     
-    void authenticate() throws IOException;
+    boolean authenticate() throws IOException;
     
     LQString getBanner();
     

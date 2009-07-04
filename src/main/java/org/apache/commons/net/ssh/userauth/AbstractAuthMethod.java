@@ -129,9 +129,8 @@ public abstract class AbstractAuthMethod implements AuthMethod
      * Make the SSH_MSG_USERAUTH_REQUEST packet
      * 
      * @return the {@link Buffer} containing constructed request
-     * @throws IOException
      */
-    abstract protected Buffer buildReq() throws IOException;
+    abstract protected Buffer buildReq();
     
     /**
      * Make a SSH_MSG_USERAUTH_REQUEST packet replete with the generic fields common to all methods

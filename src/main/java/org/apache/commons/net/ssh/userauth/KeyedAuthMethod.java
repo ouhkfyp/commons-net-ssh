@@ -1,7 +1,6 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
-import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.Service;
@@ -46,25 +45,6 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
     }
     
     /**
-     * Put public key spec into the supplied {@link Buffer} - the key type as a string followed by
-     * the public key blob as a string.
-     * 
-     * @param target
-     *            the buffer in which to put the public key
-     * @return the target, now containing the public key fields
-     * @throws IOException
-     */
-    protected Buffer putPubKey(Buffer target) throws IOException
-    {
-        PublicKey key = kProv.getPublic();
-        target.putString(kProv.getType().toString());
-        Buffer temp = new Buffer();
-        temp.putPublicKey(key);
-        target.putString(temp.getCompactData());
-        return target;
-    }
-    
-    /**
      * Compute signature over {@code subject} and put the signature into {@code target}.
      * 
      * @param subject
@@ -74,21 +54,16 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
      * @return the target, now containing the signature
      * @throws IOException
      */
-    protected Buffer putSig(Buffer subject, Buffer target) throws IOException
+    protected byte[] signature(Buffer subject) throws IOException
     {
         Signature sig = NamedFactory.Utils.create(session.getFactoryManager()
                 .getSignatureFactories(), kProv.getType().toString());
         sig.init(null, kProv.getPrivate());
         sig.update(subject.getCompactData());
-        
-        // buffer containing signature
-        Buffer sigBuf = new Buffer();
-        sigBuf.putString(kProv.getType().toString());
-        sigBuf.putString(sig.sign());
-        
-        target.putString(sigBuf.getCompactData());
-        
-        return target;
+        return new Buffer() // buffer containing signature 
+                .putString(kProv.getType().toString()) // 
+                .putString(sig.sign()) // 
+                .getCompactData();
     }
     
 }
