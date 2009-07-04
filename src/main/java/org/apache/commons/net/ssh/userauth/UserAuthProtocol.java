@@ -49,6 +49,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     private final Condition resCond = resLock.newCondition(); // signifies a conclusive result
     
     private Set<String> allowed = new HashSet<String>();
+    
     private final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
     
     public UserAuthProtocol(Session session, Collection<AuthMethod> methods)
@@ -89,6 +90,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             } catch (UserAuthException e) {
                 // some other exception with the method, let's give other methods a shot
                 log.error("Saving for later - {}", e.toString());
+                savedEx.push(e);
                 continue;
             }
             
@@ -123,15 +125,14 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         
         if (partialSuccess)
             return false;
-        else if (savedEx != null)
+        else if (!savedEx.isEmpty())
             /*
-             * if we are throwing an error here, it would be more informative to specify what caused
-             * the last auth method to fail (especially when _precisely one_ method had to be tried)
+             * it would be informative to throw the last exception thrown by an auth method
+             * (especially when precisely one method had to be tried)
              */
             throw UserAuthException.chain(savedEx.peek());
         else
             throw new UserAuthException("Exhausted available authentication methods");
-        
     }
     
     public LQString getBanner()

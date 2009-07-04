@@ -28,7 +28,6 @@ import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.PasswordFinder;
 import org.apache.commons.net.ssh.Constants.KeyType;
 import org.apache.commons.net.ssh.PasswordFinder.Resource;
-import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.bouncycastle.openssl.PEMReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,34 +51,6 @@ public class PKCS8KeyFile implements FileKeyProvider
         {
             return "PKCS8";
         }
-    }
-    
-    public static void main(String[] args) throws IOException
-    {
-        
-        SecurityUtils.isBouncyCastleRegistered();
-        FileKeyProvider fkp = new Factory().create();
-        fkp.init("/home/shx/.ssh/id_dsa", new PasswordFinder()
-        {
-            int triesLeft = 20;
-            
-            public char[] getPassword(Resource resource)
-            {
-                System.err.println(triesLeft);
-                if (triesLeft > 1) {
-                    triesLeft--;
-                    return "a wrong password".toCharArray();
-                } else
-                    return "abcdef".toCharArray();
-            }
-            
-            public boolean retry()
-            {
-                return triesLeft > 0;
-            }
-            
-        });
-        System.out.println(fkp.getPrivate());
     }
     
     protected PasswordFinder pwdf;

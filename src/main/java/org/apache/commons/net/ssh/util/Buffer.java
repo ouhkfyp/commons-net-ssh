@@ -340,6 +340,8 @@ public final class Buffer
     
     public Buffer putPassword(char[] passwd)
     {
+        if (passwd == null)
+            passwd = new char[] {};
         putInt(passwd.length);
         ensureCapacity(passwd.length);
         for (char c : passwd)
@@ -353,10 +355,10 @@ public final class Buffer
         return putPublicKey(key, true);
     }
     
-    public Buffer putPublicKey(PublicKey key, boolean justTheBlob)
+    public Buffer putPublicKey(PublicKey key, boolean justBlob)
     {
         KeyType type = KeyType.fromKey(key);
-        Buffer target = justTheBlob ? this : new Buffer();
+        Buffer target = justBlob ? this : new Buffer();
         switch (type = KeyType.fromKey(key))
         {
         case RSA:
@@ -374,7 +376,7 @@ public final class Buffer
         default:
             assert false;
         }
-        if (!justTheBlob) {
+        if (!justBlob) {
             putString(type.toString());
             putString(target.getCompactData());
         }

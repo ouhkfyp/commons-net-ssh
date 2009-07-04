@@ -99,10 +99,10 @@ public class AuthPublickey extends KeyedAuthMethod
         PublicKey key;
         try {
             key = kProv.getPublic();
-        } catch (IOException errWithKeyProv) {
-            throw new UserAuthException(errWithKeyProv);
+        } catch (IOException ioe) {
+            throw new UserAuthException("Problem getting public key", ioe);
         }
-        return buildReqCommon() // generic stuff
+        return super.buildReq() // generic stuff
                 .putBoolean(signed) // indicate whether or not signature is included
                 .putPublicKey(key, false); // public key as 2 strings: [ type | blob ]
     }
@@ -115,19 +115,15 @@ public class AuthPublickey extends KeyedAuthMethod
     private void sendSignedReq() throws UserAuthException, TransportException
     {
         log.debug("Sending signed request");
-        
         Buffer reqBuf = buildReq(true);
-        
+        byte[] sig;
         try {
-            reqBuf.putString(signature(new Buffer() // The signature is computed over:
+            sig = sign(new Buffer() // The signature is computed over:
                     .putString(session.getID()) // sessionID string
-                    .putBuffer(reqBuf))); // & data from the rest of the request);
-        } catch (IOException errWithKeyProv) {
-            log.error("While putting signature: {}", errWithKeyProv.toString());
-            throw new UserAuthException(errWithKeyProv);
+                    .putBuffer(reqBuf)); // & the data from common request stuff
+        } catch (IOException ioe) {
+            throw new UserAuthException("Problem getting private key", ioe);
         }
-        
-        session.writePacket(reqBuf);
+        session.writePacket(reqBuf.putString(sig));
     }
-    
 }

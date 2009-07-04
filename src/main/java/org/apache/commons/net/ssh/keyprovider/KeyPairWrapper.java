@@ -18,6 +18,7 @@
  */
 package org.apache.commons.net.ssh.keyprovider;
 
+import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 
@@ -31,10 +32,10 @@ import org.apache.commons.net.ssh.Constants.KeyType;
  */
 public class KeyPairWrapper implements KeyProvider
 {
-    private final java.security.KeyPair kp;
+    private final KeyPair kp;
     private final KeyType type;
     
-    public KeyPairWrapper(java.security.KeyPair kp)
+    public KeyPairWrapper(KeyPair kp)
     {
         this.kp = kp;
         type = KeyType.fromKey(kp.getPublic());
@@ -42,7 +43,7 @@ public class KeyPairWrapper implements KeyProvider
     
     public KeyPairWrapper(PublicKey publicKey, PrivateKey privateKey)
     {
-        this(new java.security.KeyPair(publicKey, privateKey));
+        this(new KeyPair(publicKey, privateKey));
     }
     
     public PrivateKey getPrivate()

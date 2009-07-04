@@ -140,7 +140,7 @@ public class KnownHosts implements HostKeyVerifier
         for (Entry e : entries)
             if (e.type == type && (match = e.appliesTo(possibilities)) != null)
                 if (key.equals(e.getKey())) {
-                    log.info("Valid match against [{}]", match);
+                    log.info("Matched against [{}]", match);
                     return true;
                 } else {
                     log.warn("Host key for {} has changed! ", match);
