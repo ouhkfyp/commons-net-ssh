@@ -76,9 +76,10 @@ public class AuthPassword extends AbstractAuthMethod
     protected Buffer buildReq()
     {
         return buildReqCommon() // the generic stuff
-                .putBoolean(false) // no, we are not interested in changing an old password
+                .putBoolean(false) // no, we are not responding to a CHANGEREQ
                 .putPassword(pwdf.getPassword(resource)); // putPassword blanks char[]
     }
+    
 }
 
 // COMMENTED out bellow (password change handling as part of the password auth method) because
