@@ -37,16 +37,18 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
      *            for signature computation
      * @return signature
      * @throws IOException
+     *             if there is an error getting private key / key type from key provider
      */
-    protected byte[] signature(Buffer subject) throws IOException
+    protected byte[] sign(Buffer subject) throws IOException
     {
-        Signature sig = NamedFactory.Utils.create(session.getFactoryManager()
-                .getSignatureFactories(), kProv.getType().toString());
-        sig.init(null, kProv.getPrivate());
-        sig.update(subject.getCompactData());
+        String keyType = kProv.getType().toString();
+        Signature sigger = NamedFactory.Utils.create(session.getFactoryManager()
+                .getSignatureFactories(), keyType);
+        sigger.init(null, kProv.getPrivate());
+        sigger.update(subject.getCompactData());
         return new Buffer() // buffer containing signature 
-                .putString(kProv.getType().toString()) // key type e.g. ssh-rsa 
-                .putString(sig.sign()) // + the signature
+                .putString(keyType) // e.g. ssh-rsa 
+                .putString(sigger.sign()) // + the signature
                 .getCompactData();
     }
     

@@ -86,14 +86,31 @@ public interface PasswordFinder
         
     }
     
+    /**
+     * Static utility methods and factories
+     * 
+     * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+     */
     class Util
     {
-        public static void blankOut(char[] pass)
+        
+        /**
+         * Blank out a character array
+         * 
+         * @param pwd
+         *            the character array
+         */
+        public static void blankOut(char[] pwd)
         {
-            if (pass != null)
-                Arrays.fill(pass, ' ');
+            if (pwd != null)
+                Arrays.fill(pwd, ' ');
         }
         
+        /**
+         * @param password
+         *            the password as a character array
+         * @return the constructed {@link PasswordFinder}
+         */
         public static PasswordFinder createOneOff(final char[] password)
         {
             return new PasswordFinder()
@@ -110,6 +127,11 @@ public interface PasswordFinder
             };
         }
         
+        /**
+         * @param password
+         *            the password as a string
+         * @return the constructed {@link PasswordFinder}
+         */
         public static PasswordFinder createOneOff(String password)
         {
             try {
@@ -119,13 +141,13 @@ public interface PasswordFinder
             }
         }
         
-        public static PasswordFinder createResourceBased(final Map<Resource, char[]> passwordMap)
+        public static PasswordFinder createResourceBased(final Map<Resource, String> passwordMap)
         {
             return new PasswordFinder()
             {
                 public char[] getPassword(Resource resource)
                 {
-                    return passwordMap.get(resource);
+                    return passwordMap.get(resource).toCharArray();
                 }
                 
                 public boolean retry()
@@ -135,7 +157,6 @@ public interface PasswordFinder
                 
             };
         }
-        
     }
     
     char[] getPassword(Resource resource);

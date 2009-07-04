@@ -126,18 +126,11 @@ public abstract class AbstractAuthMethod implements AuthMethod
     }
     
     /**
-     * Make the SSH_MSG_USERAUTH_REQUEST packet
-     * 
-     * @return the {@link Buffer} containing constructed request
-     */
-    abstract protected Buffer buildReq() throws UserAuthException;
-    
-    /**
      * Make a SSH_MSG_USERAUTH_REQUEST packet replete with the generic fields common to all methods
      * 
      * @return {@link Buffer} containing the packet
      */
-    protected Buffer buildReqCommon()
+    protected Buffer buildReq() throws UserAuthException
     {
         return new Buffer(Message.USERAUTH_REQUEST) // SSH_MSG_USERAUTH_REQUEST
                 .putString(username) // username goes first

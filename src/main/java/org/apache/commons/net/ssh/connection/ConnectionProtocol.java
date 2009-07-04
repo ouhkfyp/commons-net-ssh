@@ -31,8 +31,6 @@ import org.apache.commons.net.ssh.util.Buffer;
 public class ConnectionProtocol extends AbstractService implements ConnectionService
 {
     
-    public static final String NAME = "ssh-connection";
-    
     public ConnectionProtocol(Session session)
     {
         super(session);

@@ -334,23 +334,20 @@ public class Transport implements Session
         writePacket(buffer);
     }
     
+    /*
+     * (non-Javadoc)
+     * 
+     * @see Session#setAuthenticated()
+     */
     public void setAuthenticated()
     {
         authed = true;
     }
     
-    /**
-     * Specify how the client identifies itself
+    /*
+     * (non-Javadoc)
      * 
-     * @param version
-     */
-    public void setClientVersion(String clientVersion)
-    {
-        clientID = "SSH-2.0-" + clientVersion;
-    }
-    
-    /**
-     * null-ok
+     * @see Session#setService(Service)
      */
     public synchronized void setService(Service service)
     {
@@ -361,9 +358,7 @@ public class Transport implements Session
     /*
      * (non-Javadoc)
      * 
-     * @see
-     * org.apache.commons.net.ssh.transport.Session#writePacket(org.apache.commons.net.ssh.util.
-     * Buffer)
+     * @see Session#writePacket(Buffer)
      */
     public long writePacket(Buffer payload) throws TransportException
     {
@@ -506,8 +501,8 @@ public class Transport implements Session
         if (socket != null)
             try {
                 socket.close(); // any threads blocked on it will die, yay
-            } catch (IOException e) {
-                log.debug("stop() ignoring {}", e.toString());
+            } catch (IOException ignored) {
+                log.debug("stop() ignoring {}", ignored.toString());
             }
         
         // can safely reset these refs, not needed
