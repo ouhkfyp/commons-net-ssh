@@ -14,20 +14,6 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
     protected KeyProvider kProv;
     
     /**
-     * Constructor; does not initialize a specific key provider
-     * 
-     * @param session
-     * @param nextService
-     * @param username
-     */
-    public KeyedAuthMethod(Session session, Service nextService, String username)
-    {
-        super(session, nextService, username);
-    }
-    
-    /**
-     * Constructor; initializes a specific key provider
-     * 
      * @param session
      *            transport layer
      * @param nextService
@@ -39,19 +25,17 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
      */
     public KeyedAuthMethod(Session session, Service nextService, String username, KeyProvider kProv)
     {
-        this(session, nextService, username);
+        super(session, nextService, username);
         assert kProv != null;
         this.kProv = kProv;
     }
     
     /**
-     * Compute signature over {@code subject} and put the signature into {@code target}.
+     * Computes signature over {@code subject}
      * 
      * @param subject
      *            for signature computation
-     * @param target
-     *            into which to put the signature
-     * @return the target, now containing the signature
+     * @return signature
      * @throws IOException
      */
     protected byte[] signature(Buffer subject) throws IOException
@@ -61,8 +45,8 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
         sig.init(null, kProv.getPrivate());
         sig.update(subject.getCompactData());
         return new Buffer() // buffer containing signature 
-                .putString(kProv.getType().toString()) // 
-                .putString(sig.sign()) // 
+                .putString(kProv.getType().toString()) // key type e.g. ssh-rsa 
+                .putString(sig.sign()) // + the signature
                 .getCompactData();
     }
     

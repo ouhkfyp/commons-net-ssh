@@ -19,7 +19,7 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
-import java.util.Iterator;
+import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Session;
@@ -31,13 +31,9 @@ import org.apache.commons.net.ssh.util.Buffer;
 /**
  * Implements the "publickey" SSH authentication method.
  * <p>
- * It is initialised with an {@code Iterator<KeyProvider>}. It sends "feeler" requests using just
- * the public key from the key provider, until the server responds with {@code
- * SSH_MSG_USERAUTH_PK_OK} indicating that the key is acceptable. Then it proceeds to send a request
- * signed with the private key.
- * <p>
- * At any point if there is an error and there are more key providers available in the iterator, it
- * silently logs the error and continues.
+ * It is initialised with a {@code Iterator<KeyProvider>}. It first sends a "feeler" request with
+ * just the public key, and if the server responds with {@code SSH_MSG_USERAUTH_PK_OK} indicating
+ * that the key is acceptable, it proceeds to send a request signed with the private key.
  * 
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
@@ -50,29 +46,21 @@ public class AuthPublickey extends KeyedAuthMethod
     public static final String NAME = "publickey";
     
     /**
-     * KeyProvider's that we shall try
-     */
-    private final Iterator<KeyProvider> keys;
-    
-    /**
      * 
      * @param session
      * @param nextService
      * @param username
      * @param keys
      */
-    public AuthPublickey(Session session, Service nextService, String username,
-            Iterator<KeyProvider> keys)
+    public AuthPublickey(Session session, Service nextService, String username, KeyProvider kProv)
     {
-        super(session, nextService, username);
-        assert keys != null;
-        this.keys = keys;
+        super(session, nextService, username, kProv);
     }
     
     /*
      * (non-Javadoc)
      * 
-     * @see org.apache.commons.net.ssh.userauth.AuthMethod#getName()
+     * @see AuthMethod#getName()
      */
     public String getName()
     {
@@ -82,109 +70,64 @@ public class AuthPublickey extends KeyedAuthMethod
     /*
      * (non-Javadoc)
      * 
-     * @see
-     * org.apache.commons.net.ssh.userauth.AbstractAuthMethod#handle(org.apache.commons.net.ssh.
-     * Constants.Message, org.apache.commons.net.ssh.util.Buffer)
+     * @see AbstractAuthMethod#handle(Message, Buffer)
      */
     @Override
-    public Result handle(Message cmd, Buffer buf) throws IOException
+    public Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
-        switch (cmd)
-        {
-        case USERAUTH_SUCCESS:
-            return Result.SUCCESS;
-        case USERAUTH_FAILURE:
-            setAllowedMethods(buf.getString());
-            if (allowed.contains(NAME) && reqLoop())
-                // publickey auth still available, and managed to send another feeler
-                return Result.CONTINUED;
-            else
-                // a true value here indicates "partial success" (more auths needed)
-                return buf.getBoolean() ? Result.PARTIAL_SUCCESS : Result.FAILURE;
-        case USERAUTH_60:
-            // sent signed request or if that failed, another feeler
-            return sendSignedReq() || reqLoop() ? Result.CONTINUED : Result.FAILURE;
-        default:
-            return Result.UNKNOWN;
-        }
+        Result res = super.handle(cmd, buf);
+        if (res == Result.UNKNOWN && cmd == Message.USERAUTH_60) {
+            sendSignedReq();
+            return Result.CONTINUED;
+        } else
+            return res;
     }
     
     /*
      * (non-Javadoc)
      * 
-     * @see org.apache.commons.net.ssh.userauth.AbstractAuthMethod#request()
+     * @see AbstractAuthMethod#buildReq()
      */
     @Override
-    public void request() throws IOException // initially invoked by UserAuthProtocol
+    protected Buffer buildReq() throws UserAuthException
     {
-        if (!reqLoop())
-            throw new UserAuthException("No keys supplied for authentication");
+        return buildReq(false);
     }
     
-    @Override
-    // UNUSED
-    protected Buffer buildReq()
+    protected Buffer buildReq(boolean signed) throws UserAuthException
     {
-        return null;
-    }
-    
-    protected Buffer buildReq(boolean signed) throws IOException
-    {
-        return buildReqCommon().putBoolean(signed).putPublicKey(kProv.getPublic(), false);
-    }
-    
-    /**
-     * Send a feeler request, and don't give up till out of keys
-     * 
-     * @return {@code true} indicates a request was sent, {@code false} that no more usable keys
-     * @throws IOException
-     * 
-     */
-    private boolean reqLoop() throws IOException
-    {
-        while (keys.hasNext()) {
-            kProv = keys.next();
-            log.debug("Sending request for {} key", kProv.getType());
-            Buffer buf;
-            try {
-                buf = buildReq(false);
-            } catch (IOException e) {
-                if (keys.hasNext()) {
-                    log.debug("Had error with last key, trying next: {}", e.toString());
-                    continue;
-                } else
-                    return false;
-            }
-            session.writePacket(buf);
-            return true;
+        PublicKey key;
+        try {
+            key = kProv.getPublic();
+        } catch (IOException errWithKeyProv) {
+            throw new UserAuthException(errWithKeyProv);
         }
-        return false;
+        return buildReqCommon() // generic stuff
+                .putBoolean(signed) // indicate whether or not signature is included
+                .putPublicKey(key, false); // public key as 2 strings: [ type | blob ]
     }
     
     /**
      * Send signed userauth request
      * 
      * @return {@code true} if all went well, {@code false} if there was an error signing
-     * @throws IOException
      */
-    private boolean sendSignedReq() throws TransportException
+    private void sendSignedReq() throws UserAuthException, TransportException
     {
         log.debug("Sending signed request");
         
-        Buffer reqBuf;
+        Buffer reqBuf = buildReq(true);
         
         try {
-            reqBuf = buildReq(true);
             reqBuf.putString(signature(new Buffer() // The signature is computed over:
                     .putString(session.getID()) // sessionID string
                     .putBuffer(reqBuf))); // & data from the rest of the request);
         } catch (IOException errWithKeyProv) {
-            log.info("Error putting signature: {}", errWithKeyProv.toString());
-            return false;
+            log.error("While putting signature: {}", errWithKeyProv.toString());
+            throw new UserAuthException(errWithKeyProv);
         }
         
         session.writePacket(reqBuf);
-        
-        return true; // all well
     }
+    
 }

@@ -18,10 +18,12 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
+import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -37,7 +39,7 @@ import org.apache.commons.net.ssh.util.LQString;
 public class UserAuthProtocol extends AbstractService implements UserAuthService
 {
     
-    private final Queue<AuthMethod> methods;
+    private final Iterator<AuthMethod> methods;
     
     private LQString banner; // auth banner
     
@@ -47,11 +49,12 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     private final Condition resCond = resLock.newCondition(); // signifies a conclusive result
     
     private Set<String> allowed = new HashSet<String>();
+    private final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
     
     public UserAuthProtocol(Session session, Collection<AuthMethod> methods)
     {
         super(session);
-        this.methods = new LinkedList<AuthMethod>(methods);
+        this.methods = new LinkedList<AuthMethod>(methods).iterator();
         for (AuthMethod m : methods)
             // initially assume all are allowed
             allowed.add(m.getName());
@@ -60,55 +63,75 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     // @return true = authenticated, false = only partially, more auth needed!
     public boolean authenticate() throws UserAuthException
     {
+        
         boolean partialSuccess = false;
+        
         try { // service request
             request();
         } catch (TransportException e) {
             throw new UserAuthException(e);
         }
-        enterInterruptibleContext();
-        for (;;) {
-            if ((method = methods.poll()) == null)
-                if (partialSuccess)
-                    return false;
-                else
-                    throw new UserAuthException("Exhausted available authentication methods");
+        
+        while (methods.hasNext()) {
+            
+            method = methods.next();
+            
             log.info("Trying {} auth...", method.getName());
             if (!allowed.contains(method.getName()))
                 continue;
+            
             resLock.lock();
-            res = Result.CONTINUED;
             try {
-                try {
-                    method.request();
-                } catch (Exception e) {
-                    log.error("... but it spewed - {}", e.toString());
-                    continue;
-                }
-                while (res == Result.CONTINUED)
-                    resCond.await();
-                switch (res)
-                {
-                case SUCCESS:
-                    return true;
-                case FAILURE:
-                case PARTIAL_SUCCESS:
-                    partialSuccess = true;
-                    continue;
-                default:
-                    assert false;
-                }
+                method.request();
+            } catch (TransportException e) {
+                // if it was a transport error, no point trying more, is there?
+                throw new UserAuthException(e);
+            } catch (UserAuthException e) {
+                // some other exception with the method, let's give other methods a shot
+                log.error("Saving for later - {}", e.toString());
+                continue;
+            }
+            
+            try {
+                enterInterruptibleContext();
+                for (res = Result.CONTINUED; res == Result.CONTINUED; resCond.await())
+                    ;
             } catch (InterruptedException e) {
                 log.debug("Got interrupted");
-                if (exception != null)
+                if (exception != null) // were interrupted by AbstractService#notifyError
                     throw UserAuthException.chain(exception);
                 else
-                    throw new UserAuthException(e);
+                    throw new UserAuthException(e); // genuinely interrupted!
             } finally {
                 leaveInterruptibleContext();
                 resLock.unlock();
             }
+            
+            switch (res)
+            {
+            case SUCCESS:
+                return true; // exit point for fully successful auth
+            case PARTIAL_SUCCESS:
+                partialSuccess = true;
+            case FAILURE:
+                continue;
+            default:
+                assert false;
+            }
+            
         }
+        
+        if (partialSuccess)
+            return false;
+        else if (savedEx != null)
+            /*
+             * if we are throwing an error here, it would be more informative to specify what caused
+             * the last auth method to fail (especially when _precisely one_ method had to be tried)
+             */
+            throw UserAuthException.chain(savedEx.peek());
+        else
+            throw new UserAuthException("Exhausted available authentication methods");
+        
     }
     
     public LQString getBanner()
@@ -132,7 +155,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         // TODO Auto-generated method stub
     }
     
-    public void handle(Message cmd, Buffer buf) throws UserAuthException
+    public void handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
         switch (cmd)
         {
@@ -161,11 +184,14 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                     break;
                 case CONTINUED:
                     break;
+                case UNKNOWN:
+                    throw new UserAuthException("Could not decipher packet");
                 default:
                     assert false;
                 }
-            } catch (Exception e) {
-                log.error("{} method spewed - {}", method.getName(), e.toString());
+            } catch (UserAuthException e) {
+                log.error("Saving for later - {}", e.toString());
+                savedEx.push(e);
                 res = Result.FAILURE;
                 resCond.signal();
             } finally {

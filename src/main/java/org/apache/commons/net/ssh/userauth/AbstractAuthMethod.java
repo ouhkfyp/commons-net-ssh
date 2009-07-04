@@ -18,7 +18,6 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -26,6 +25,7 @@ import java.util.Set;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.Constants.Message;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,7 +100,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
      * org.apache.commons.net.ssh.userauth.AuthMethod#handle(org.apache.commons.net.ssh.Constants
      * .Message, org.apache.commons.net.ssh.util.Buffer)
      */
-    public Result handle(Message cmd, Buffer buf) throws IOException
+    public Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
         switch (cmd)
         {
@@ -119,7 +119,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
      * 
      * @see org.apache.commons.net.ssh.userauth.AuthMethod#request()
      */
-    public void request() throws IOException
+    public void request() throws UserAuthException, TransportException
     {
         log.debug("Sending SSH_MSG_USERAUTH_REQUEST for {}", username);
         session.writePacket(buildReq());
@@ -130,7 +130,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
      * 
      * @return the {@link Buffer} containing constructed request
      */
-    abstract protected Buffer buildReq();
+    abstract protected Buffer buildReq() throws UserAuthException;
     
     /**
      * Make a SSH_MSG_USERAUTH_REQUEST packet replete with the generic fields common to all methods
