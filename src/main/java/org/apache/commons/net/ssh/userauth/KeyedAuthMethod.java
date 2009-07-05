@@ -1,6 +1,8 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.Service;
@@ -8,6 +10,7 @@ import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
 import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
 
 public abstract class KeyedAuthMethod extends AbstractAuthMethod
 {
@@ -30,26 +33,39 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
         this.kProv = kProv;
     }
     
-    /**
-     * Computes signature over {@code subject}
-     * 
-     * @param subject
-     *            for signature computation
-     * @return signature
-     * @throws IOException
-     *             if there is an error getting private key / key type from key provider
-     */
-    protected byte[] sign(Buffer subject) throws IOException
+    protected Buffer putPubKey(Buffer reqBuf) throws UserAuthException
     {
-        String keyType = kProv.getType().toString();
+        PublicKey key;
+        try {
+            key = kProv.getPublic();
+        } catch (IOException ioe) {
+            throw new UserAuthException("Problem getting public key", ioe);
+        }
+        
+        // public key as 2 strings: [ key type | key blob ]
+        reqBuf.putString(KeyType.fromKey(key).toString()) //
+              .putString(new Buffer().putPublicKey(key).getCompactData());
+        
+        return reqBuf;
+    }
+    
+    protected Buffer putSig(Buffer reqBuf) throws UserAuthException
+    {
+        PrivateKey key;
+        try {
+            key = kProv.getPrivate();
+        } catch (IOException ioe) {
+            throw new UserAuthException("Problem getting private key", ioe);
+        }
+        String kt = KeyType.fromKey(key).toString();
         Signature sigger = NamedFactory.Utils.create(session.getFactoryManager()
-                .getSignatureFactories(), keyType);
-        sigger.init(null, kProv.getPrivate());
-        sigger.update(subject.getCompactData());
-        return new Buffer() // buffer containing signature 
-                .putString(keyType) // e.g. ssh-rsa 
-                .putString(sigger.sign()) // + the signature
-                .getCompactData();
+                                                            .getSignatureFactories(), kt);
+        sigger.init(null, key);
+        sigger.update(new Buffer().putString(session.getID()) // sessionID string
+                                  .putBuffer(reqBuf) // & the data from common request stuff
+                                  .getCompactData());
+        reqBuf.putSignature(kt, sigger.sign());
+        return reqBuf;
     }
     
 }

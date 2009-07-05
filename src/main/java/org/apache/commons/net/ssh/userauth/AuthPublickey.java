@@ -19,7 +19,6 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
-import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Session;
@@ -57,21 +56,11 @@ public class AuthPublickey extends KeyedAuthMethod
         super(session, nextService, username, kProv);
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see AuthMethod#getName()
-     */
     public String getName()
     {
         return NAME;
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see AbstractAuthMethod#handle(Message, Buffer)
-     */
     @Override
     public Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
@@ -83,47 +72,37 @@ public class AuthPublickey extends KeyedAuthMethod
             return res;
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see AbstractAuthMethod#buildReq()
-     */
     @Override
     protected Buffer buildReq() throws UserAuthException
     {
         return buildReq(false);
     }
     
+    /**
+     * 
+     * @param signed
+     * @return
+     * @throws UserAuthException
+     */
     protected Buffer buildReq(boolean signed) throws UserAuthException
     {
-        PublicKey key;
         try {
-            key = kProv.getPublic();
+            kProv.getPublic();
         } catch (IOException ioe) {
             throw new UserAuthException("Problem getting public key", ioe);
         }
-        return super.buildReq() // generic stuff
-                .putBoolean(signed) // indicate whether or not signature is included
-                .putPublicKey(key, false); // public key as 2 strings: [ type | blob ]
+        return putPubKey(super.buildReq().putBoolean(signed));
     }
     
     /**
-     * Send signed userauth request
      * 
-     * @return {@code true} if all went well, {@code false} if there was an error signing
+     * @throws UserAuthException
+     * @throws TransportException
      */
     private void sendSignedReq() throws UserAuthException, TransportException
     {
         log.debug("Sending signed request");
-        Buffer reqBuf = buildReq(true);
-        byte[] sig;
-        try {
-            sig = sign(new Buffer() // The signature is computed over:
-                    .putString(session.getID()) // sessionID string
-                    .putBuffer(reqBuf)); // & the data from common request stuff
-        } catch (IOException ioe) {
-            throw new UserAuthException("Problem getting private key", ioe);
-        }
-        session.writePacket(reqBuf.putString(sig));
+        session.writePacket(putSig(buildReq(true)));
     }
+    
 }

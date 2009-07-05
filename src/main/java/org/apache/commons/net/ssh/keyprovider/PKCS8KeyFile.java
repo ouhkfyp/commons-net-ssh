@@ -21,6 +21,7 @@ package org.apache.commons.net.ssh.keyprovider;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 
@@ -41,7 +42,6 @@ public class PKCS8KeyFile implements FileKeyProvider
     
     public static class Factory implements NamedFactory<FileKeyProvider>
     {
-        
         public FileKeyProvider create()
         {
             return new PKCS8KeyFile();
@@ -53,12 +53,11 @@ public class PKCS8KeyFile implements FileKeyProvider
         }
     }
     
+    protected final Logger log = LoggerFactory.getLogger(getClass());
     protected PasswordFinder pwdf;
     protected String location;
     protected Resource resource;
-    
-    protected final Logger log = LoggerFactory.getLogger(getClass());
-    protected java.security.KeyPair kp;
+    protected KeyPair kp;
     
     protected KeyType type;
     
@@ -96,18 +95,18 @@ public class PKCS8KeyFile implements FileKeyProvider
             return null;
         else
             return new org.bouncycastle.openssl.PasswordFinder()
-            {
-                
-                public char[] getPassword()
                 {
-                    return pwdf.getPassword(resource);
-                }
-            };
+                    
+                    public char[] getPassword()
+                    {
+                        return pwdf.reqPassword(resource);
+                    }
+                };
     }
     
-    protected java.security.KeyPair readKeyPair() throws IOException
+    protected KeyPair readKeyPair() throws IOException
     {
-        java.security.KeyPair kp = null;
+        KeyPair kp = null;
         org.bouncycastle.openssl.PasswordFinder pFinder = makeBouncyPasswordFinder();
         PEMReader r = null;
         Object o = null;
@@ -116,20 +115,20 @@ public class PKCS8KeyFile implements FileKeyProvider
                 r = new PEMReader(new InputStreamReader(new FileInputStream(location)), pFinder);
                 o = r.readObject();
             } catch (IOException e) {
-                if (e.toString().contains("javax.crypto.BadPaddingException")) // egh
-                    if (pwdf.retry())
+                if (e.toString().contains("javax.crypto.BadPaddingException")) // screen-scraping sucks
+                    if (pwdf.retry(resource))
                         continue;
                 throw e;
             } finally {
                 try {
                     r.close();
-                } catch (Exception e) {
+                } catch (IOException ignored) {
                 }
             }
             break;
         }
-        if (o instanceof java.security.KeyPair)
-            kp = (java.security.KeyPair) o;
+        if (o instanceof KeyPair)
+            kp = (KeyPair) o;
         else
             log.debug("Expected KeyPair, got {}", o.getClass().toString());
         return kp;

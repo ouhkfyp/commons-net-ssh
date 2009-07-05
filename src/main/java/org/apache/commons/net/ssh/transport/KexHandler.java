@@ -18,7 +18,6 @@
  */
 package org.apache.commons.net.ssh.transport;
 
-import java.io.IOException;
 import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.FactoryManager;
@@ -129,14 +128,8 @@ class KexHandler
     {
         extractProposal(buffer);
         negotiate();
-        kex = NamedFactory.Utils
-                .create(fm.getKeyExchangeFactories(), negotiated[PROPOSAL_KEX_ALGS]);
-        try {
-            kex.init(transport, transport.serverID.getBytes(), transport.clientID.getBytes(), I_S,
-                    I_C);
-        } catch (IOException e) {
-            throw new TransportException(e);
-        }
+        kex = NamedFactory.Utils.create(fm.getKeyExchangeFactories(), negotiated[PROPOSAL_KEX_ALGS]);
+        kex.init(transport, transport.serverID.getBytes(), transport.clientID.getBytes(), I_S, I_C);
     }
     
     /**
@@ -166,11 +159,10 @@ class KexHandler
             System.arraycopy(H, 0, sessionID, 0, H.length);
         }
         
-        Buffer buffer = new Buffer();
-        buffer.putMPInt(K);
-        buffer.putRawBytes(H);
-        buffer.putByte((byte) 0x41);
-        buffer.putRawBytes(sessionID);
+        Buffer buffer = new Buffer().putMPInt(K) //
+                                    .putRawBytes(H) //
+                                    .putByte((byte) 0x41) //
+                                    .putRawBytes(sessionID);
         int pos = buffer.available();
         byte[] buf = buffer.array();
         hash.update(buf, 0, pos);
@@ -199,27 +191,27 @@ class KexHandler
         MACs2c = hash.digest();
         
         s2ccipher = NamedFactory.Utils.create(fm.getCipherFactories(),
-                negotiated[PROPOSAL_ENC_ALGS_STOC]);
+                                              negotiated[PROPOSAL_ENC_ALGS_STOC]);
         Es2c = resizeKey(Es2c, s2ccipher.getBlockSize(), hash, K, H);
         s2ccipher.init(Cipher.Mode.Decrypt, Es2c, IVs2c);
         
         s2cmac = NamedFactory.Utils
-                .create(fm.getMACFactories(), negotiated[PROPOSAL_MAC_ALGS_STOC]);
+                                   .create(fm.getMACFactories(), negotiated[PROPOSAL_MAC_ALGS_STOC]);
         s2cmac.init(MACs2c);
         
         c2scipher = NamedFactory.Utils.create(fm.getCipherFactories(),
-                negotiated[PROPOSAL_ENC_ALGS_CTOS]);
+                                              negotiated[PROPOSAL_ENC_ALGS_CTOS]);
         Ec2s = resizeKey(Ec2s, c2scipher.getBlockSize(), hash, K, H);
         c2scipher.init(Cipher.Mode.Encrypt, Ec2s, IVc2s);
         
         c2smac = NamedFactory.Utils
-                .create(fm.getMACFactories(), negotiated[PROPOSAL_MAC_ALGS_CTOS]);
+                                   .create(fm.getMACFactories(), negotiated[PROPOSAL_MAC_ALGS_CTOS]);
         c2smac.init(MACc2s);
         
         s2ccomp = NamedFactory.Utils.create(fm.getCompressionFactories(),
-                negotiated[PROPOSAL_COMP_ALGS_STOC]);
+                                            negotiated[PROPOSAL_COMP_ALGS_STOC]);
         c2scomp = NamedFactory.Utils.create(fm.getCompressionFactories(),
-                negotiated[PROPOSAL_COMP_ALGS_CTOS]);
+                                            negotiated[PROPOSAL_COMP_ALGS_CTOS]);
         
         transport.bin.setClientToServer(c2scipher, c2smac, c2scomp);
         transport.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
@@ -275,10 +267,9 @@ class KexHandler
     private byte[] resizeKey(byte[] E, int blockSize, Digest hash, byte[] K, byte[] H)
     {
         while (blockSize > E.length) {
-            Buffer buffer = new Buffer();
-            buffer.putMPInt(K);
-            buffer.putRawBytes(H);
-            buffer.putRawBytes(E);
+            Buffer buffer = new Buffer().putMPInt(K) //
+                                        .putRawBytes(H) //
+                                        .putRawBytes(E);
             hash.update(buffer.array(), 0, buffer.available());
             byte[] foo = hash.digest();
             byte[] bar = new byte[E.length + foo.length];
@@ -289,30 +280,31 @@ class KexHandler
         return E;
     }
     
-    private void sendKexInit() throws IOException
+    private void sendKexInit() throws TransportException
     {
         clientProposal = createProposal(KeyType.RSA + "," + KeyType.DSA);
         Buffer buffer = new Buffer(Message.KEXINIT);
         int p = buffer.wpos();
         buffer.wpos(p + 16);
-        transport.prng.fill(buffer.array(), p, 16);
+        transport.prng.fill(buffer.array(), p, 16); // cookie
         for (String s : clientProposal)
+            // the 10 name-lists
             buffer.putString(s);
-        buffer.putByte((byte) 0);
-        buffer.putInt(0);
+        buffer.putBoolean(false) // optimistic next packet does not follow
+              .putInt(0); // reserved packet
         byte[] data = buffer.getCompactData();
         log.info("Sending SSH_MSG_KEXINIT");
         transport.writePacket(buffer);
         I_C = data;
     }
     
-    private void sendNewKeys() throws IOException
+    private void sendNewKeys() throws TransportException
     {
         log.info("Sending SSH_MSG_NEWKEYS");
         transport.writePacket(new Buffer(Message.NEWKEYS));
     }
     
-    boolean handle(Message cmd, Buffer buffer) throws IOException
+    boolean handle(Message cmd, Buffer buffer) throws TransportException
     {
         /*
          * Thread context = Transport.inPump
@@ -347,7 +339,7 @@ class KexHandler
         case EXPECT_NEWKEYS:
             if (cmd != Message.NEWKEYS) {
                 transport.disconnect(DisconnectReason.PROTOCOL_ERROR,
-                        "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
+                                     "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
                 break;
             }
             log.info("Received SSH_MSG_NEWKEYS");
@@ -372,7 +364,7 @@ class KexHandler
         return state == State.KEX_DONE ? true : false;
     }
     
-    void init() throws IOException
+    void init() throws TransportException
     {
         /*
          * Thread context: API client, via Transport.init()

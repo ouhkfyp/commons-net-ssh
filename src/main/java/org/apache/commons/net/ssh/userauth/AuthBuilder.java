@@ -13,8 +13,6 @@ import org.apache.commons.net.ssh.keyprovider.FileKeyProvider;
 import org.apache.commons.net.ssh.keyprovider.KeyPairWrapper;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
 import org.apache.commons.net.ssh.util.SecurityUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class AuthBuilder
 {
@@ -22,7 +20,7 @@ public class AuthBuilder
     private final Session session;
     
     private final LinkedList<AuthMethod> methods = new LinkedList<AuthMethod>();
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    //private final Logger log = LoggerFactory.getLogger(getClass());
     
     private String username;
     private Service nextService;
@@ -33,6 +31,11 @@ public class AuthBuilder
         this.session = session;
         this.username = username;
         this.nextService = nextService;
+    }
+    
+    public boolean authenticate() throws UserAuthException
+    {
+        return build().authenticate();
     }
     
     public AuthBuilder authMethod(AuthMethod method)
@@ -78,30 +81,26 @@ public class AuthBuilder
         return authPublickey(new KeyPairWrapper(kp));
     }
     
-    //    
     public AuthBuilder authPublickey(KeyProvider kProv)
     {
         return authPublickey(kProv);
     }
     
     public AuthBuilder authPublickey(String... locations) throws IOException
-    { // convenience method, but swallows up errors for API consistency
+    {
         List<NamedFactory<FileKeyProvider>> factories = session.getFactoryManager()
                 .getFileKeyProviderFactories();
         List<KeyProvider> fkps = new LinkedList<KeyProvider>();
-        for (String location : locations)
-            try {
-                String format = SecurityUtils.detectKeyFileFormat(location);
-                if (format.equals("unknown"))
-                    throw new IOException("Unknown key file format");
-                FileKeyProvider fkp = NamedFactory.Utils.create(factories, format);
-                if (fkp != null) {
-                    fkp.init(location, pwdf);
-                    fkps.add(fkp);
-                }
-            } catch (IOException e) {
-                log.error("Could not add key file at [{}]: {}", location, e.toString());
+        for (String location : locations) {
+            String format = SecurityUtils.detectKeyFileFormat(location);
+            if (format.equals("unknown"))
+                throw new IOException("Unknown key file format");
+            FileKeyProvider fkp = NamedFactory.Utils.create(factories, format);
+            if (fkp != null) {
+                fkp.init(location, pwdf);
+                fkps.add(fkp);
             }
+        }
         if (fkps.size() > 0)
             return authPublickey(fkps);
         else

@@ -117,36 +117,36 @@ public class Transport implements Session
      * a full packet has been decoded. Thus a lot happens in this thread's context.
      */
     private final Thread inPump = new Thread()
-    {
         {
-            setDaemon(true);
-            setName("inPump");
-        }
-        
-        @Override
-        public void run()
-        {
-            while (!stopPumping)
-                try {
-                    bin.munch((byte) input.read());
-                } catch (Exception e) {
-                    if (!stopPumping) {
-                        if (e instanceof SSHException && !(cmd == Message.DISCONNECT)) {
-                            /*
-                             * send SSH_MSG_DISCONNECT if we have the required info in the exception
-                             * (and the exception didn't arise from receiving a SSH_MSG_DISCONNECT
-                             * ourself! :P)
-                             */
-                            DisconnectReason reason = ((SSHException) e).getDisconnectReason();
-                            if (!reason.equals(DisconnectReason.UNKNOWN))
-                                disconnect(reason, ((SSHException) e).getMessage());
+            {
+                setDaemon(true);
+                setName("inPump");
+            }
+            
+            @Override
+            public void run()
+            {
+                while (!stopPumping)
+                    try {
+                        bin.munch((byte) input.read());
+                    } catch (Exception e) {
+                        if (!stopPumping) {
+                            if (e instanceof SSHException && !(cmd == Message.DISCONNECT)) {
+                                /*
+                                 * send SSH_MSG_DISCONNECT if we have the required info in the
+                                 * exception (and the exception didn't arise from receiving a
+                                 * SSH_MSG_DISCONNECT ourself! :P)
+                                 */
+                                DisconnectReason reason = ((SSHException) e).getDisconnectReason();
+                                if (!reason.equals(DisconnectReason.UNKNOWN))
+                                    disconnect(reason, ((SSHException) e).getMessage());
+                            }
+                            setError(e);
                         }
-                        setError(e);
                     }
-                }
-            log.debug("Stopping");
-        }
-    };
+                log.debug("Stopping");
+            }
+        };
     
     /**
      * This thread waits for {@link #outQ} to offer some byte[] and sends the deliciousness over the
@@ -156,25 +156,25 @@ public class Transport implements Session
      * latter case, it calls {@link #setError(Exception)}
      */
     private final Thread outPump = new Thread()
-    {
         {
-            setDaemon(true);
-            setName("outPump");
-        }
-        
-        @Override
-        public void run()
-        {
-            while (!stopPumping)
-                try {
-                    output.write(outQ.take());
-                } catch (Exception e) {
-                    if (!stopPumping)
-                        setError(e);
-                }
-            log.debug("Stopping");
-        }
-    };
+            {
+                setDaemon(true);
+                setName("outPump");
+            }
+            
+            @Override
+            public void run()
+            {
+                while (!stopPumping)
+                    try {
+                        output.write(outQ.take());
+                    } catch (Exception e) {
+                        if (!stopPumping)
+                            setError(e);
+                    }
+                log.debug("Stopping");
+            }
+        };
     
     /** Lock supporting correct encoding and queuing of packets */
     final ReentrantLock writeLock = new ReentrantLock();
@@ -222,13 +222,12 @@ public class Transport implements Session
     {
         log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
         try {
-            Buffer buffer = new Buffer(Message.DISCONNECT);
-            buffer.putInt(reason.toInt());
-            buffer.putString(msg);
-            buffer.putString(""); // langtag..?
-            writePacket(buffer);
+            writePacket(new Buffer(Message.DISCONNECT) //
+                                                      .putInt(reason.toInt()) //
+                                                      .putString(msg) //
+                                                      .putString(""));
             return true;
-        } catch (Exception e) {
+        } catch (TransportException e) {
             log.error("disconnect() - {}", e.toString());
             return false;
         } finally {
@@ -396,8 +395,8 @@ public class Transport implements Session
             throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
         case SERVICE_REQ:
             throw new TransportException(
-                    "Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
-                            + service.getName());
+                                         "Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
+                                                 + service.getName());
         case SERVICE:
             if (service != null)
                 service.gotUnimplemented(seqNum);
@@ -441,7 +440,7 @@ public class Transport implements Session
         
         if (!ident.startsWith("SSH-2.0-") && !ident.startsWith("SSH-1.99-"))
             throw new TransportException(DisconnectReason.PROTOCOL_VERSION_NOT_SUPPORTED,
-                    "Server does not support SSHv2, identified as: " + ident);
+                                         "Server does not support SSHv2, identified as: " + ident);
         
         return ident;
     }
@@ -545,7 +544,7 @@ public class Transport implements Session
     }
     
     // gets called in the context of inPump via EncDec
-    void handle(Buffer packet) throws IOException
+    void handle(Buffer packet) throws SSHException
     {
         cmd = packet.getCommand();
         log.debug("Received packet {}", cmd);
@@ -580,7 +579,7 @@ public class Transport implements Session
             case SERVICE_REQ:
                 if (cmd != Message.SERVICE_ACCEPT) {
                     disconnect(DisconnectReason.PROTOCOL_ERROR,
-                            "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
+                               "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
                     return;
                 }
                 setState(State.SERVICE);

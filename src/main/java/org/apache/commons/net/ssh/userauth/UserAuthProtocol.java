@@ -123,12 +123,16 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         
         if (partialSuccess)
             return false;
-        else if (!savedEx.isEmpty())
+        
+        else if (!savedEx.isEmpty()) {
             /*
              * it would be informative to throw the last exception thrown by an auth method
              * (especially when precisely one method had to be tried)
              */
+            log.debug("Had {} saved exceptions", savedEx.size());
             throw UserAuthException.chain(savedEx.peek());
+        }
+
         else
             throw new UserAuthException("Exhausted available authentication methods");
     }
