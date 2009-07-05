@@ -64,16 +64,16 @@ public class OpenSSHKeyFile extends PKCS8KeyFile
         File f = new File(location + ".pub");
         if (f.exists())
             try {
-                String[] parts = new BufferedReader(new FileReader(f)).readLine().split(" ");
+                BufferedReader br = new BufferedReader(new FileReader(f));
+                String[] parts = br.readLine().split(" ");
                 assert parts.length >= 2;
                 type = KeyType.fromString(parts[0]);
                 pubKey = new Buffer(Base64.decode(parts[1])).getPublicKey();
-            } catch (Exception e) {
-                type = null;
-                pubKey = null;
+                br.close();
+            } catch (IOException e) {
                 log.error("Error reading public key file: {}", e.toString());
+                // fail quietly, and let super provide both public & private key
             }
         super.init(location);
     }
-    
 }

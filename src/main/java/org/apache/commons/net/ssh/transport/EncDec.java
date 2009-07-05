@@ -20,6 +20,7 @@ package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
 
+import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
@@ -60,8 +61,10 @@ class EncDec
     private int decoderState;
     private int decoderLength;
     
-    // how many bytes do we need, before a call to decode() can succeed at decoding packet length /
-    // the whole packet?
+    /*
+     * How many bytes do we need, before a call to decode() can succeed at decoding packet length /
+     * the whole packet?
+     */
     private int needed = inCipherSize;
     
     EncDec(Transport transport)
@@ -70,12 +73,15 @@ class EncDec
     }
     
     /**
-     * Decode the incoming buffer and handle packets as needed.
+     * Decodes incoming buffer; when a packet has been decoded hooks in to
+     * {@link Transport#handle(Buffer)}.
      * <p>
      * Returns advised number of bytes that should be made available in decoderBuffer before the
      * method should be called again.
+     * 
+     * @return number of bytes needed before further decoding possible
      */
-    private int decode() throws IOException
+    private int decode() throws SSHException
     {
         int need;
         // Decoding loop
@@ -95,10 +101,10 @@ class EncDec
                     decoderLength = decoderBuffer.getInt();
                     // Check packet length validity
                     if (decoderLength < 5 || decoderLength > 256 * 1024) {
-                        log.info("Error decoding packet (invalid length) {}", decoderBuffer
-                                .printHex());
+                        log.info("Error decoding packet (invalid length) {}",
+                                 decoderBuffer.printHex());
                         throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
-                                "invalid packet length: " + decoderLength);
+                                                     "invalid packet length: " + decoderLength);
                     }
                     // Ok, that's good, we can go to the next step
                     decoderState = 1;
@@ -172,75 +178,70 @@ class EncDec
     }
     
     /**
-     * Encode a buffer into the SSH protocol. Should be called from a synchronized block.
+     * Encode a buffer into the SSH protocol.
      * 
      * @param buffer
      *            the buffer to encode
-     * @throws TransportException
-     *             if an exception occurs during the encoding process
      * @return the sequence no. of encoded packet
+     * @throws TransportException
      */
     long encode(Buffer buffer) throws TransportException
     {
         long seq = seqo;
-        try {
-            // Check that the packet has some free space for the header
-            if (buffer.rpos() < 5) {
-                log.warn("Performance cost: when sending a packet, ensure that "
-                        + "5 bytes are available in front of the buffer");
-                Buffer nb = new Buffer();
-                nb.wpos(5);
-                nb.putBuffer(buffer);
-                buffer = nb;
-            }
-            // Grab the length of the packet (excluding the 5 header bytes)
-            int len = buffer.available();
-            int off = buffer.rpos() - 5;
-            // Debug log the packet
-            if (log.isDebugEnabled())
-                log.trace("Sending packet #{}: {}", seqo, buffer.printHex());
-            // Compress the packet if needed
-            if (outCompression != null && (transport.authed || !outCompression.isDelayed())) {
-                outCompression.compress(buffer);
-                len = buffer.available();
-            }
-            // Compute padding length
-            int bsize = outCipherSize;
-            int oldLen = len;
-            len += 5;
-            int pad = -len & bsize - 1;
-            if (pad < bsize)
-                pad += bsize;
-            len = len + pad - 4;
-            // Write 5 header bytes
-            buffer.wpos(off);
-            buffer.putInt(len);
-            buffer.putByte((byte) pad);
-            // Fill padding
-            buffer.wpos(off + oldLen + 5 + pad);
-            transport.prng.fill(buffer.array(), buffer.wpos() - pad, pad);
-            // Compute mac
-            if (outMAC != null) {
-                int macSize = outMAC.getBlockSize();
-                int l = buffer.wpos();
-                buffer.wpos(l + macSize);
-                outMAC.update(seqo);
-                outMAC.update(buffer.array(), off, l);
-                outMAC.doFinal(buffer.array(), l);
-            }
-            // Encrypt packet, excluding mac
-            if (outCipher != null)
-                outCipher.update(buffer.array(), off, len + 4);
-            // Increment outgoing packet sequence number (i.e. applicable to next packet)
-            if (seqo == 4294967296L) {
-                log.debug("Wrapping outgoing sequence number to 0");
-                seqo = 0;
-            } else
-                seqo++;
-            buffer.rpos(off); // Make buffer ready to be read
-        } catch (Exception e) {
-            throw TransportException.chain(e);
+        // Check that the packet has some free space for the header
+        if (buffer.rpos() < 5) {
+            log.warn("Performance cost: when sending a packet, ensure that "
+                    + "5 bytes are available in front of the buffer");
+            Buffer nb = new Buffer();
+            nb.wpos(5);
+            nb.putBuffer(buffer);
+            buffer = nb;
         }
+        // Grab the length of the packet (excluding the 5 header bytes)
+        int len = buffer.available();
+        int off = buffer.rpos() - 5;
+        // Debug log the packet
+        if (log.isDebugEnabled())
+            log.trace("Sending packet #{}: {}", seqo, buffer.printHex());
+        // Compress the packet if needed
+        if (outCompression != null && (transport.authed || !outCompression.isDelayed())) {
+            outCompression.compress(buffer);
+            len = buffer.available();
+        }
+        // Compute padding length
+        int bsize = outCipherSize;
+        int oldLen = len;
+        len += 5;
+        int pad = -len & bsize - 1;
+        if (pad < bsize)
+            pad += bsize;
+        len = len + pad - 4;
+        // Write 5 header bytes
+        buffer.wpos(off);
+        buffer.putInt(len);
+        buffer.putByte((byte) pad);
+        // Fill padding
+        buffer.wpos(off + oldLen + 5 + pad);
+        transport.prng.fill(buffer.array(), buffer.wpos() - pad, pad);
+        // Compute mac
+        if (outMAC != null) {
+            int macSize = outMAC.getBlockSize();
+            int l = buffer.wpos();
+            buffer.wpos(l + macSize);
+            outMAC.update(seqo);
+            outMAC.update(buffer.array(), off, l);
+            outMAC.doFinal(buffer.array(), l);
+        }
+        // Encrypt packet, excluding mac
+        if (outCipher != null)
+            outCipher.update(buffer.array(), off, len + 4);
+        // Increment outgoing packet sequence number (i.e. applicable to next packet)
+        if (seqo == 4294967296L) {
+            log.debug("Wrapping outgoing sequence number to 0");
+            seqo = 0;
+        } else
+            seqo++;
+        buffer.rpos(off); // Make buffer ready to be read
         return seq;
     }
     

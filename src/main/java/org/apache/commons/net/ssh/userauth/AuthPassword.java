@@ -54,7 +54,7 @@ public class AuthPassword extends AbstractAuthMethod
         switch (cmd)
         {
         case USERAUTH_FAILURE:
-            if (allowed.contains(NAME) && pwdf.retry()) {
+            if (allowed.contains(NAME) && pwdf.retry(resource)) {
                 request();
                 return Result.CONTINUED;
             }
@@ -69,14 +69,14 @@ public class AuthPassword extends AbstractAuthMethod
     @Override
     protected Buffer buildReq() throws UserAuthException
     {
-        char[] password = pwdf.getPassword(resource);
+        char[] password = pwdf.reqPassword(resource);
         try {
             if (password == null)
                 throw new UserAuthException("Was given null password for " + resource);
             else
                 return super.buildReq() // the generic stuff
-                        .putBoolean(false) // no, we are not responding to a CHANGEREQ
-                        .putPassword(password);
+                            .putBoolean(false) // no, we are not responding to a CHANGEREQ
+                            .putPassword(password);
         } finally {
             password = null;
         }

@@ -18,8 +18,6 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import java.io.IOException;
-
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.util.LQString;
 
@@ -28,7 +26,7 @@ public interface UserAuthService extends Service
     
     String NAME = "ssh-userauth";
     
-    boolean authenticate() throws IOException;
+    boolean authenticate() throws UserAuthException;
     
     LQString getBanner();
     

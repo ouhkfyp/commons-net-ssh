@@ -62,8 +62,6 @@ public interface Session
      */
     boolean disconnect(DisconnectReason reason, String msg);
     
-    Service getService();
-    
     /**
      * Returns the version string used by this client to identify itself to an SSH server.
      * 
@@ -95,6 +93,8 @@ public interface Session
      * @return server's version string
      */
     String getServerVersion();
+    
+    Service getService();
     
     /**
      * Initializes this session by exchanging identification information and performing key exchange

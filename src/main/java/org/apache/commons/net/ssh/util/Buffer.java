@@ -34,7 +34,9 @@ import org.apache.commons.net.ssh.util.Constants.KeyType;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
 /**
- * Facilitates reading and writing SSH packets
+ * Provides support for reading and writing SSH binary data types.
+ * 
+ * Has convenient mappings from Java to SSH primitives.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
@@ -50,6 +52,9 @@ public final class Buffer
         }
     }
     
+    /**
+     * The default size for a {@code Buffer} (256 bytes)
+     */
     public static final int DEFAULT_SIZE = 256;
     
     private static int getNextPowerOf2(int i)
@@ -64,16 +69,30 @@ public final class Buffer
     private int rpos;
     private int wpos;
     
+    /**
+     * @see {@link #DEFAULT_SIZE}
+     */
     public Buffer()
     {
         this(DEFAULT_SIZE);
     }
     
+    /**
+     * @param data
+     *            byte-array to initialise with
+     */
     public Buffer(byte[] data)
     {
         this(data, true);
     }
     
+    /**
+     * @param data
+     *            byte-array to initialise with
+     * @param read
+     *            whether write position should be advanced
+     * 
+     */
     public Buffer(byte[] data, boolean read)
     {
         this.data = data;
@@ -119,6 +138,9 @@ public final class Buffer
         wpos = 0;
     }
     
+    /**
+     * Compact this {@link Buffer}
+     */
     public void compact()
     {
         if (available() > 0)
@@ -127,17 +149,32 @@ public final class Buffer
         rpos = 0;
     }
     
+    /**
+     * Read an SSH boolean byte
+     * 
+     * @return the {@code true} or {@code false} value read
+     */
     public boolean getBoolean()
     {
         return getByte() != 0;
     }
     
+    /**
+     * Read a byte from the buffer
+     * 
+     * @return the byte read
+     */
     public byte getByte()
     {
         ensureAvailable(1);
         return data[rpos++];
     }
     
+    /**
+     * Read an SSH byte-array
+     * 
+     * @return the byte-array read
+     */
     public byte[] getBytes()
     {
         int len = getInt();
@@ -148,6 +185,11 @@ public final class Buffer
         return b;
     }
     
+    /**
+     * Read an SSH packet's message identifier
+     * 
+     * @return the message identifier as a {@link Constants.Message} type
+     */
     public Message getCommand()
     {
         byte b = getByte();
@@ -176,16 +218,32 @@ public final class Buffer
         return i;
     }
     
+    /**
+     * Reads two SSH strings in order, the first one is taken to be the text and the second one is
+     * taken to be te language tag.
+     * 
+     * @return a constructed {@link LQString}
+     */
     public LQString getLQString()
     {
         return new LQString(getString(), getString());
     }
     
+    /**
+     * Read an SSH multiple-precision integer
+     * 
+     * @return the MP integer as a {@code BigInteger}
+     */
     public BigInteger getMPInt()
     {
         return new BigInteger(getMPIntAsBytes());
     }
     
+    /**
+     * 
+     * 
+     * @return
+     */
     public byte[] getMPIntAsBytes()
     {
         return getBytes();
@@ -236,6 +294,11 @@ public final class Buffer
         rpos += len;
     }
     
+    /**
+     * Reads an SSH string
+     * 
+     * @return the string as a Java {@code String}
+     */
     public String getString()
     {
         int len = getInt();
@@ -251,21 +314,45 @@ public final class Buffer
         return s;
     }
     
+    /**
+     * Reads an SSH string
+     * 
+     * @return the string as a byte-array
+     */
     public byte[] getStringAsBytes()
     {
         return getBytes();
     }
     
+    /**
+     * Gives a readable snapshot of the buffer in hex. This is useful for debugging.
+     * 
+     * @return snapshot of the buffer as a hex string with each octet delimited by a space
+     */
     public String printHex()
     {
         return BufferUtils.printHex(array(), rpos(), available());
     }
     
+    /**
+     * Puts an SSH boolean value
+     * 
+     * @param b
+     *            the value
+     * @return this
+     */
     public Buffer putBoolean(boolean b)
     {
         return putByte(b ? (byte) 1 : (byte) 0);
     }
     
+    /**
+     * Copies the contents of provided buffer into this buffer
+     * 
+     * @param buffer
+     *            the {@code Buffer} to copy
+     * @return this
+     */
     public Buffer putBuffer(Buffer buffer)
     {
         int r = buffer.available();
@@ -275,6 +362,12 @@ public final class Buffer
         return this;
     }
     
+    /**
+     * Writes a single byte into this buffer
+     * 
+     * @param b
+     * @return this
+     */
     public Buffer putByte(byte b)
     {
         ensureCapacity(1);
@@ -282,11 +375,29 @@ public final class Buffer
         return this;
     }
     
+    /**
+     * Writes Java byte-array as an SSH byte-array
+     * 
+     * @param b
+     *            Java byte-array
+     * @return this
+     */
     public Buffer putBytes(byte[] b)
     {
         return putBytes(b, 0, b.length);
     }
     
+    /**
+     * Writes Java byte-array as an SSH byte-array
+     * 
+     * @param b
+     *            Java byte-array
+     * @param off
+     *            offset
+     * @param len
+     *            length
+     * @return this
+     */
     public Buffer putBytes(byte[] b, int off, int len)
     {
         putInt(len);
@@ -296,11 +407,24 @@ public final class Buffer
         return this;
     }
     
+    /**
+     * Writes a byte indicating the SSH message identifier
+     * 
+     * @param cmd
+     *            the identifier as a {@link Constants.Message} type
+     * @return this
+     */
     public Buffer putCommand(Message cmd)
     {
         return putByte(cmd.toByte());
     }
     
+    /**
+     * Writes an integer
+     * 
+     * @param i
+     * @return this
+     */
     public Buffer putInt(int i)
     {
         ensureCapacity(4);
@@ -311,11 +435,25 @@ public final class Buffer
         return this;
     }
     
+    /**
+     * Writes an SSH multiple-precision integer from a {@code BigInteger}
+     * 
+     * @param bi
+     *            {@code BigInteger} to write
+     * @return this
+     */
     public Buffer putMPInt(BigInteger bi)
     {
         return putMPInt(bi.toByteArray());
     }
     
+    /**
+     * Writes an SSH multiple-precision integer from a Java byte-array
+     * 
+     * @param foo
+     *            byte-array
+     * @return this
+     */
     public Buffer putMPInt(byte[] foo)
     {
         int i = foo.length;
@@ -328,10 +466,20 @@ public final class Buffer
         return putRawBytes(foo);
     }
     
+    /**
+     * Writes a char-array as an SSH string and then blanks it out.
+     * 
+     * This is useful when a plaintext password needs to be sent. If {@code passwd} is {@code null},
+     * an empty string is written.
+     * 
+     * @param passwd
+     *            (null-ok) the password as a character array
+     * @return this
+     */
     public Buffer putPassword(char[] passwd)
     {
         if (passwd == null)
-            passwd = new char[] {};
+            return putString("");
         putInt(passwd.length);
         ensureCapacity(passwd.length);
         for (char c : passwd)
@@ -342,33 +490,23 @@ public final class Buffer
     
     public Buffer putPublicKey(PublicKey key)
     {
-        return putPublicKey(key, true);
-    }
-    
-    public Buffer putPublicKey(PublicKey key, boolean justBlob)
-    {
         KeyType type = KeyType.fromKey(key);
-        Buffer target = justBlob ? this : new Buffer();
         switch (type = KeyType.fromKey(key))
         {
         case RSA:
-            target.putString(type.toString()) // ssh-rsa
-                    .putMPInt(((RSAPublicKey) key).getPublicExponent()) // e
-                    .putMPInt(((RSAPublicKey) key).getModulus()); // n
+            putString(type.toString()) // ssh-rsa
+                                      .putMPInt(((RSAPublicKey) key).getPublicExponent()) // e
+                                      .putMPInt(((RSAPublicKey) key).getModulus()); // n
             break;
         case DSA:
-            target.putString(type.toString()) // ssh-dss
-                    .putMPInt(((DSAPublicKey) key).getParams().getP()) // p
-                    .putMPInt(((DSAPublicKey) key).getParams().getQ()) // q
-                    .putMPInt(((DSAPublicKey) key).getParams().getG()) // g
-                    .putMPInt(((DSAPublicKey) key).getY()); // y
+            putString(type.toString()) // ssh-dss
+                                      .putMPInt(((DSAPublicKey) key).getParams().getP()) // p
+                                      .putMPInt(((DSAPublicKey) key).getParams().getQ()) // q
+                                      .putMPInt(((DSAPublicKey) key).getParams().getG()) // g
+                                      .putMPInt(((DSAPublicKey) key).getY()); // y
             break;
         default:
             assert false;
-        }
-        if (!justBlob) {
-            putString(type.toString());
-            putString(target.getCompactData());
         }
         return this;
     }
@@ -384,6 +522,14 @@ public final class Buffer
         System.arraycopy(d, off, data, wpos, len);
         wpos += len;
         return this;
+    }
+    
+    public Buffer putSignature(String sigFormat, byte[] sigData)
+    {
+        return putString(new Buffer() // signature blob as string 
+                                     .putString(sigFormat) // sig format identifier
+                                     .putBytes(sigData) // sig as byte array
+                                     .getCompactData());
     }
     
     public Buffer putString(byte[] str)
@@ -423,8 +569,6 @@ public final class Buffer
         ensureCapacity(wpos - this.wpos);
         this.wpos = wpos;
     }
-    
-    // ////////////////////////////////////////////////////////////
     
     private void ensureAvailable(int a)
     {

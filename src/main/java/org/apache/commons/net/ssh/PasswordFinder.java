@@ -22,8 +22,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 /**
- * On the lines of org.bouncycastle.openssl.PasswordFinder, with an additional retry() method to
- * check if we should retry on failure (should help GUI apps)
+ * An interface for servicing requests for plaintext passwords.
  * 
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
@@ -62,7 +61,7 @@ public interface PasswordFinder
                 return false;
         }
         
-        public String getInfo()
+        public String getDetail()
         {
             return detail;
         }
@@ -115,12 +114,12 @@ public interface PasswordFinder
         {
             return new PasswordFinder()
             {
-                public char[] getPassword(Resource resource)
+                public char[] reqPassword(Resource resource)
                 {
                     return password;
                 }
                 
-                public boolean retry()
+                public boolean retry(Resource resource)
                 {
                     return false;
                 }
@@ -145,12 +144,12 @@ public interface PasswordFinder
         {
             return new PasswordFinder()
             {
-                public char[] getPassword(Resource resource)
+                public char[] reqPassword(Resource resource)
                 {
                     return passwordMap.get(resource).toCharArray();
                 }
                 
-                public boolean retry()
+                public boolean retry(Resource resource)
                 {
                     return false;
                 }
@@ -159,8 +158,28 @@ public interface PasswordFinder
         }
     }
     
-    char[] getPassword(Resource resource);
+    /**
+     * Request password for specified resource.
+     * <p>
+     * This method may return {@code null} when the request cannot be serviced, e.g. when the user
+     * cancels a password prompt. The consequences of returning {@code null} are specific to the
+     * requestor.
+     * 
+     * @param resource
+     *            the resource for which password is being requested
+     * @return the password
+     */
+    char[] reqPassword(Resource resource);
     
-    boolean retry();
+    /**
+     * If password turns out to be incorrect, indicates whether another call to
+     * {@link #reqPassword(Resource)} should be made.
+     * <p>
+     * This method is geared at interactive implementations, and stub implementations may simply
+     * return {@code false}.
+     * 
+     * @return whether to retry requesting password for a particular resource
+     */
+    boolean retry(Resource resource);
     
 }
