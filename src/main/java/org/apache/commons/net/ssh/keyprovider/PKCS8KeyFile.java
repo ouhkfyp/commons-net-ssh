@@ -121,7 +121,8 @@ public class PKCS8KeyFile implements FileKeyProvider
                 throw e;
             } finally {
                 try {
-                    r.close();
+                    if (r != null)
+                        r.close();
                 } catch (IOException ignored) {
                 }
             }

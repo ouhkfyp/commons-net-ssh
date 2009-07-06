@@ -18,7 +18,7 @@
  */
 package org.apache.commons.net.ssh;
 
-import static org.apache.commons.net.ssh.util.Constants.*;
+import static org.apache.commons.net.ssh.util.Constants.DEFAULT_PORT;
 
 import java.io.File;
 import java.io.IOException;
@@ -69,6 +69,7 @@ import org.apache.commons.net.ssh.util.SecurityUtils;
  */
 public class SSHClient extends SocketClient
 {
+    
     @SuppressWarnings("unchecked")
     protected static FactoryManager getDefaultFactoryManager()
     {
@@ -76,28 +77,29 @@ public class SSHClient extends SocketClient
         
         if (SecurityUtils.isBouncyCastleRegistered()) {
             
-            fm.setKeyExchangeFactories(Arrays.<NamedFactory<KeyExchange>> asList(
-                    new DHG14.Factory(), new DHG1.Factory()));
+            fm.setKeyExchangeFactories(Arrays.<NamedFactory<KeyExchange>> asList(new DHG14.Factory(),
+                                                                                 new DHG1.Factory()));
             
             fm.setRandomFactory(new SingletonRandomFactory(new BouncyCastleRandom.Factory()));
             
-            fm.setFileKeyProviderFactories(Arrays.<NamedFactory<FileKeyProvider>> asList(
-                    new PKCS8KeyFile.Factory(), new OpenSSHKeyFile.Factory()));
+            fm.setFileKeyProviderFactories(Arrays.<NamedFactory<FileKeyProvider>> asList(new PKCS8KeyFile.Factory(),
+                                                                                         new OpenSSHKeyFile.Factory()));
             
         } else {
             
-            fm.setKeyExchangeFactories(Arrays
-                    .<NamedFactory<KeyExchange>> asList(new DHG1.Factory()));
+            fm.setKeyExchangeFactories(Arrays.<NamedFactory<KeyExchange>> asList(new DHG1.Factory()));
             
             fm.setRandomFactory(new SingletonRandomFactory(new JCERandom.Factory()));
             
             fm.setFileKeyProviderFactories(Arrays.<NamedFactory<FileKeyProvider>> asList()); // empty
         }
         
-        List<NamedFactory<Cipher>> avail = new LinkedList<NamedFactory<Cipher>>(Arrays
-                .<NamedFactory<Cipher>> asList(new AES256CBC.Factory(), new AES192CBC.Factory(),
-                        new AES128CBC.Factory(), new BlowfishCBC.Factory(),
-                        new TripleDESCBC.Factory()));
+        List<NamedFactory<Cipher>> avail =
+                new LinkedList<NamedFactory<Cipher>>(Arrays.<NamedFactory<Cipher>> asList(new AES256CBC.Factory(),
+                                                                                          new AES192CBC.Factory(),
+                                                                                          new AES128CBC.Factory(),
+                                                                                          new BlowfishCBC.Factory(),
+                                                                                          new TripleDESCBC.Factory()));
         
         for (Iterator<NamedFactory<Cipher>> i = avail.iterator(); i.hasNext();) {
             final NamedFactory<Cipher> f = i.next();
@@ -113,20 +115,21 @@ public class SSHClient extends SocketClient
         
         fm.setCipherFactories(avail);
         
-        fm.setCompressionFactories(Arrays.<NamedFactory<Compression>> asList(
-                new CompressionNone.Factory(), new CompressionDelayedZlib.Factory(),
-                new CompressionZlib.Factory()));
+        fm.setCompressionFactories(Arrays.<NamedFactory<Compression>> asList(new CompressionNone.Factory(),
+                                                                             new CompressionDelayedZlib.Factory(),
+                                                                             new CompressionZlib.Factory()));
         
-        fm.setMACFactories(Arrays.<NamedFactory<MAC>> asList(new HMACSHA1.Factory(),
-                new HMACSHA196.Factory(), new HMACMD5.Factory(), new HMACMD596.Factory()));
+        fm.setMACFactories(Arrays.<NamedFactory<MAC>> asList(new HMACSHA1.Factory(), new HMACSHA196.Factory(),
+                                                             new HMACMD5.Factory(), new HMACMD596.Factory()));
         
-        fm.setSignatureFactories(Arrays.<NamedFactory<Signature>> asList(
-                new SignatureDSA.Factory(), new SignatureRSA.Factory()));
+        fm.setSignatureFactories(Arrays.<NamedFactory<Signature>> asList(new SignatureDSA.Factory(),
+                                                                         new SignatureRSA.Factory()));
         
         return fm;
     }
     
     protected final Session trans;
+    
     protected final ConnectionService conn;
     
     protected HostKeyVerifier hostKeyVerifier;
@@ -157,7 +160,24 @@ public class SSHClient extends SocketClient
     
     public AuthBuilder getAuthBuilder()
     {
-        return new AuthBuilder(trans, System.getProperty("user.name"), conn);
+        return new AuthBuilder(trans, conn, System.getProperty("user.name"));
+    }
+    
+    public void initKnownHosts(String... locations) throws IOException
+    {
+        for (String loc : locations)
+            trans.addHostKeyVerifier(new KnownHosts(loc));
+    }
+    
+    public void initUserKnownHosts()
+    {
+        String kh = System.getProperty("user.home") + File.separator + ".ssh" + File.separator + "known_hosts";
+        try {
+            initKnownHosts(kh, // "~/.ssh/known_hosts" 
+                           kh + "2"); // "~/.ssh/known_hosts2"
+        } catch (IOException ignored) {
+            
+        }
     }
     
     @Override
@@ -166,14 +186,25 @@ public class SSHClient extends SocketClient
         return super.isConnected() && trans.isRunning();
     }
     
-    public void loadKnownHosts(String... locations)
+    public FileKeyProvider loadKeyFile(String location) throws IOException
     {
-        if (locations.length == 0) {
-            String kh = System.getProperty("user.home") + File.separator + ".ssh" + File.separator
-                    + "known_hosts";
-            trans.addHostKeyVerifier(new KnownHosts(kh, kh + "2"));
-        } else
-            trans.addHostKeyVerifier(new KnownHosts(locations));
+        return loadKeyFile(location, "");
+    }
+    
+    public FileKeyProvider loadKeyFile(String location, PasswordFinder pwdf) throws IOException
+    {
+        String format = SecurityUtils.detectKeyFileFormat(location);
+        if (format.equals("unknown"))
+            throw new IOException("Unknown key file format");
+        FileKeyProvider fkp =
+                NamedFactory.Utils.create(trans.getFactoryManager().getFileKeyProviderFactories(), format);
+        fkp.init(location, pwdf);
+        return fkp;
+    }
+    
+    public FileKeyProvider loadKeyFile(String location, String passphrase) throws IOException
+    {
+        return loadKeyFile(location, PasswordFinder.Util.createOneOff(passphrase));
     }
     
     @Override

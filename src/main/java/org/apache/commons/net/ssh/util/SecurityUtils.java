@@ -69,9 +69,10 @@ public class SecurityUtils
     }
     
     private static final Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);
-    public static final String BOUNCY_CASTLE = "BC";
     
+    public static final String BOUNCY_CASTLE = "BC";
     private static String securityProvider = null;
+    
     private static Boolean registerBouncyCastle;
     private static boolean registrationDone;
     
@@ -87,8 +88,8 @@ public class SecurityUtils
         return "unknown";
     }
     
-    public static synchronized Cipher getCipher(String transformation)
-            throws NoSuchAlgorithmException, NoSuchPaddingException, NoSuchProviderException
+    public static synchronized Cipher getCipher(String transformation) throws NoSuchAlgorithmException,
+            NoSuchPaddingException, NoSuchProviderException
     {
         register();
         if (getSecurityProvider() == null)
@@ -145,8 +146,8 @@ public class SecurityUtils
         return fp;
     }
     
-    public static synchronized KeyAgreement getKeyAgreement(String algorithm)
-            throws NoSuchAlgorithmException, NoSuchProviderException
+    public static synchronized KeyAgreement getKeyAgreement(String algorithm) throws NoSuchAlgorithmException,
+            NoSuchProviderException
     {
         register();
         if (getSecurityProvider() == null)
@@ -155,8 +156,8 @@ public class SecurityUtils
             return KeyAgreement.getInstance(algorithm, getSecurityProvider());
     }
     
-    public static synchronized KeyFactory getKeyFactory(String algorithm)
-            throws NoSuchAlgorithmException, NoSuchProviderException
+    public static synchronized KeyFactory getKeyFactory(String algorithm) throws NoSuchAlgorithmException,
+            NoSuchProviderException
     {
         register();
         if (getSecurityProvider() == null)
@@ -165,8 +166,8 @@ public class SecurityUtils
             return KeyFactory.getInstance(algorithm, getSecurityProvider());
     }
     
-    public static synchronized KeyPairGenerator getKeyPairGenerator(String algorithm)
-            throws NoSuchAlgorithmException, NoSuchProviderException
+    public static synchronized KeyPairGenerator getKeyPairGenerator(String algorithm) throws NoSuchAlgorithmException,
+            NoSuchProviderException
     {
         register();
         if (getSecurityProvider() == null)
@@ -175,8 +176,7 @@ public class SecurityUtils
             return KeyPairGenerator.getInstance(algorithm, getSecurityProvider());
     }
     
-    public static synchronized Mac getMAC(String algorithm) throws NoSuchAlgorithmException,
-            NoSuchProviderException
+    public static synchronized Mac getMAC(String algorithm) throws NoSuchAlgorithmException, NoSuchProviderException
     {
         register();
         if (getSecurityProvider() == null)
@@ -185,8 +185,8 @@ public class SecurityUtils
             return Mac.getInstance(algorithm, getSecurityProvider());
     }
     
-    public static synchronized MessageDigest getMessageDigest(String algorithm)
-            throws NoSuchAlgorithmException, NoSuchProviderException
+    public static synchronized MessageDigest getMessageDigest(String algorithm) throws NoSuchAlgorithmException,
+            NoSuchProviderException
     {
         register();
         if (getSecurityProvider() == null)
@@ -201,8 +201,8 @@ public class SecurityUtils
         return securityProvider;
     }
     
-    public static synchronized Signature getSignature(String algorithm)
-            throws NoSuchAlgorithmException, NoSuchProviderException
+    public static synchronized Signature getSignature(String algorithm) throws NoSuchAlgorithmException,
+            NoSuchProviderException
     {
         register();
         if (getSecurityProvider() == null)
@@ -241,8 +241,7 @@ public class SecurityUtils
                         LOG.info("BouncyCastle not registered, using the default JCE provider");
                     else {
                         LOG.error("Failed to register BouncyCastle as the defaut JCE provider");
-                        throw new SSHRuntimeException(
-                                "Failed to register BouncyCastle as the defaut JCE provider", t);
+                        throw new SSHRuntimeException("Failed to register BouncyCastle as the defaut JCE provider", t);
                     }
                 }
             registrationDone = true;
