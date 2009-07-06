@@ -66,16 +66,12 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     }
     
     // @return true = authenticated, false = only partially, more auth needed!
-    public boolean authenticate() throws UserAuthException
+    public boolean authenticate() throws UserAuthException, TransportException
     {
         
         boolean partialSuccess = false;
         
-        try { // service request
-            request();
-        } catch (TransportException e) {
-            throw new UserAuthException(e);
-        }
+        request(); // service request
         
         while (methods.hasNext()) {
             
@@ -87,9 +83,6 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             
             try {
                 method.request();
-            } catch (TransportException e) {
-                // if it was a transport error, no point trying more, is there?
-                throw new UserAuthException(e);
             } catch (UserAuthException e) {
                 // some other exception with the method, let's give other methods a shot
                 log.error("Saving for later - {}", e.toString());
@@ -98,16 +91,20 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             }
             
             resLock.lock();
+            enterInterruptibleContext();
             try {
-                enterInterruptibleContext();
                 for (res = Result.CONTINUED; res == Result.CONTINUED; resCond.await())
                     ;
-            } catch (InterruptedException e) {
+            } catch (InterruptedException ie) {
                 log.debug("Got interrupted");
+                
                 if (exception != null) // were interrupted by AbstractService#notifyError
-                    throw UserAuthException.chain(exception);
+                    if (exception instanceof TransportException)
+                        throw (TransportException) exception;
+                    else
+                        throw UserAuthException.chain(exception);
                 else
-                    throw new UserAuthException(e); // genuinely interrupted!
+                    throw new UserAuthException(ie);
             } finally {
                 resLock.unlock();
                 leaveInterruptibleContext();
@@ -142,6 +139,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
 
         else
             throw new UserAuthException("Exhausted available authentication methods");
+        
     }
     
     public LQString getBanner()

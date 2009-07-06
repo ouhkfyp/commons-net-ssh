@@ -28,11 +28,6 @@ public class AuthBuilder
         //methods.add(new AuthNone(session, nextService, username));
     }
     
-    public boolean authenticate() throws UserAuthException
-    {
-        return build().authenticate();
-    }
-    
     public AuthBuilder authHostbased(String hostuser, String hostname, KeyPair kp)
     {
         return authHostbased(hostuser, hostname, new KeyPairWrapper(kp));

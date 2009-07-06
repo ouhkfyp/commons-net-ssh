@@ -332,9 +332,9 @@ public class Transport implements Session
      * @throws IOException
      *             if an error occured sending the packet
      */
-    public long sendUnimplemented(long num) throws IOException
+    public long sendUnimplemented(long seqNum) throws IOException
     {
-        return writePacket(new Buffer(Message.UNIMPLEMENTED).putInt(num));
+        return writePacket(new Buffer(Message.UNIMPLEMENTED).putInt(seqNum));
     }
     
     /*
@@ -371,8 +371,8 @@ public class Transport implements Session
          * Synchronize all write requests as needed by the encoding algorithm and also queue the
          * write request here to ensure packets are sent in the correct order.
          * 
-         * Besides while another thread that is writing a packet, writeLock may also be held while
-         * key re-exchange is ongoing.
+         * Besides with another thread that is writing a packet, writeLock may also be held by
+         * KexHandler key re-exchange is ongoing.
          */
         writeLock.lock();
         try {
@@ -551,7 +551,12 @@ public class Transport implements Session
         }
     }
     
-    // gets called in the context of inPump via EncDec
+    /**
+     * Gets called in the context of inPump via EncDec#decode()
+     * 
+     * @param packet
+     * @throws SSHException
+     */
     void handle(Buffer packet) throws SSHException
     {
         cmd = packet.getCommand();
