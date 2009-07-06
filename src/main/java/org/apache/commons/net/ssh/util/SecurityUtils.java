@@ -80,6 +80,8 @@ public class SecurityUtils
     {
         BufferedReader br = new BufferedReader(new FileReader(location));
         String firstLine = br.readLine();
+        if (firstLine == null)
+            throw new IOException("Empty file");
         if (firstLine.startsWith("-----BEGIN") && firstLine.endsWith("PRIVATE KEY-----"))
             if (new File(location + ".pub").exists())
                 return "OpenSSH"; // can delay asking for password since have unencrypted pubkey

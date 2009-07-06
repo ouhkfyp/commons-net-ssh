@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.net.ssh.HostKeyVerifier;
+import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.mac.HMACSHA1;
 import org.apache.commons.net.ssh.mac.MAC;
@@ -57,13 +58,15 @@ public class KnownHosts implements HostKeyVerifier
         final String sKey;
         PublicKey key;
         
-        Entry(String line) throws AssertionError
+        Entry(String line) throws SSHException
         {
             String[] parts = line.split(" ");
-            assert parts.length == 3;
+            if (parts.length != 3)
+                throw new SSHException("Line parts not 3");
             hosts = parts[0].split(",");
             type = KeyType.fromString(parts[1]);
-            assert type != KeyType.UNKNOWN;
+            if (type == KeyType.UNKNOWN)
+                throw new SSHException("Unknown key type: " + parts[1]);
             sKey = parts[2];
         }
         
@@ -115,13 +118,21 @@ public class KnownHosts implements HostKeyVerifier
     {
         BufferedReader br = new BufferedReader(new FileReader(loc));
         String line;
-        while ((line = br.readLine()) != null)
+        try {
+            while ((line = br.readLine()) != null)
+                try {
+                    entries.add(new Entry(line));
+                } catch (SSHException ignore) {
+                    log.debug("{} - bad line: {} - ", loc, ignore);
+                    continue;
+                }
+        } finally {
             try {
-                entries.add(new Entry(line));
-            } catch (AssertionError e) {
-                log.debug("{} - unrecognized line: {}", loc, line);
-                continue;
+                if (br != null)
+                    br.close();
+            } catch (IOException ignored) {
             }
+        }
     }
     
     public boolean verify(InetAddress host, PublicKey key)
