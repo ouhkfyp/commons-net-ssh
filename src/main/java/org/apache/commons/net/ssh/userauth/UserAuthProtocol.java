@@ -85,7 +85,6 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             if (!allowed.contains(method.getName()))
                 continue;
             
-            resLock.lock();
             try {
                 method.request();
             } catch (TransportException e) {
@@ -98,6 +97,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 continue;
             }
             
+            resLock.lock();
             try {
                 enterInterruptibleContext();
                 for (res = Result.CONTINUED; res == Result.CONTINUED; resCond.await())
@@ -109,8 +109,8 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 else
                     throw new UserAuthException(e); // genuinely interrupted!
             } finally {
-                leaveInterruptibleContext();
                 resLock.unlock();
+                leaveInterruptibleContext();
             }
             
             switch (res)
@@ -119,6 +119,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 return true; // exit point for fully successful auth
             case PARTIAL_SUCCESS:
                 partialSuccess = true;
+                continue;
             case FAILURE:
                 continue;
             default:

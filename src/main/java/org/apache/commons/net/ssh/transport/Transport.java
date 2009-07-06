@@ -78,6 +78,8 @@ public class Transport implements Session
     private final ReentrantLock stateLock = new ReentrantLock();
     private final Condition stateChange = stateLock.newCondition();
     
+    private final Object serviceLock = new Object();
+    
     private Socket socket;
     private InputStream input;
     private OutputStream output;
@@ -262,7 +264,9 @@ public class Transport implements Session
     
     public Service getService()
     {
-        return service;
+        synchronized (serviceLock) {
+            return service;
+        }
     }
     
     public void init(Socket socket) throws TransportException
@@ -309,15 +313,17 @@ public class Transport implements Session
     
     public synchronized void reqService(Service service) throws TransportException
     {
-        setState(State.SERVICE_REQ);
-        sendServiceRequest(service.getName());
-        try {
-            waitFor(State.SERVICE);
-        } catch (Exception e) {
-            log.debug("reqService() had {}", e.toString());
-            throw TransportException.chain(e);
+        synchronized (serviceLock) {
+            setState(State.SERVICE_REQ);
+            sendServiceRequest(service.getName());
+            try {
+                waitFor(State.SERVICE);
+            } catch (Exception e) {
+                log.debug("reqService() had {}", e.toString());
+                throw TransportException.chain(e);
+            }
+            setService(service);
         }
-        setService(service);
     }
     
     /**
@@ -346,10 +352,12 @@ public class Transport implements Session
      * 
      * @see Session#setService(Service)
      */
-    public synchronized void setService(Service service)
+    public void setService(Service service)
     {
-        log.info("Setting active service to {}", service.getName());
-        this.service = service;
+        synchronized (serviceLock) {
+            log.info("Setting active service to {}", service.getName());
+            this.service = service;
+        }
     }
     
     /*
@@ -385,17 +393,19 @@ public class Transport implements Session
     
     private void gotUnimplemented(int seqNum) throws TransportException
     {
-        switch (state)
-        {
-        case KEX:
-            // maybe KexHandler should judge this. but ok for now.
-            throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
-        case SERVICE_REQ:
-            throw new TransportException("Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
-                    + service.getName());
-        case SERVICE:
-            if (service != null)
-                service.gotUnimplemented(seqNum);
+        synchronized (serviceLock) {
+            switch (state)
+            {
+            case KEX:
+                // maybe KexHandler should judge this. but ok for now.
+                throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
+            case SERVICE_REQ:
+                throw new TransportException("Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
+                        + service.getName());
+            case SERVICE:
+                if (service != null)
+                    service.gotUnimplemented(seqNum);
+            }
         }
     }
     
@@ -465,9 +475,11 @@ public class Transport implements Session
         log.error("setError() - {}", ex.toString());
         exception = SSHException.chain(ex);
         
-        if (service != null) {
-            service.notifyError(exception);
-            service = null;
+        synchronized (serviceLock) {
+            if (service != null) {
+                service.notifyError(exception);
+                service = null;
+            }
         }
         
         // will result in the exception being thrown in any thread that was waiting for state
@@ -581,13 +593,15 @@ public class Transport implements Session
                 setState(State.SERVICE);
                 break;
             case SERVICE:
-                if (cmd != Message.KEXINIT)
-                    service.handle(cmd, packet);
-                else {
+                if (cmd == Message.KEXINIT) {
                     setState(State.KEX);
                     kex.init();
                     kex.handle(cmd, packet);
-                }
+                } else
+                    synchronized (serviceLock) {
+                        if (service != null)
+                            service.handle(cmd, packet);
+                    }
                 break;
             case KEX_DONE:
                 log.info("Hmm? Unknown packet received while in KEX_DONE");

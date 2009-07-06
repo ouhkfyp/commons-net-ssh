@@ -19,6 +19,7 @@
 package org.apache.commons.net.ssh.transport;
 
 import java.security.PublicKey;
+import java.util.concurrent.Semaphore;
 
 import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.NamedFactory;
@@ -80,7 +81,12 @@ class KexHandler
     private KeyExchange kex;
     
     private State state = State.EXPECT_KEXINIT; // our initial state
-    private volatile boolean sentKexInit = false;
+    
+    /*
+     * There must be a release (implying KEXINIT sent) before we process received KEXINIT and
+     * negotiate algorithms.
+     */
+    private final Semaphore initSent = new Semaphore(0);
     
     KexHandler(Transport transport)
     {
@@ -97,11 +103,10 @@ class KexHandler
      */
     private String[] createProposal(String hostKeyTypes)
     {
-        return new String[] { NamedFactory.Utils.getNames(fm.getKeyExchangeFactories()),
-                hostKeyTypes, NamedFactory.Utils.getNames(fm.getCipherFactories()),
+        return new String[] { NamedFactory.Utils.getNames(fm.getKeyExchangeFactories()), hostKeyTypes,
                 NamedFactory.Utils.getNames(fm.getCipherFactories()),
-                NamedFactory.Utils.getNames(fm.getMACFactories()),
-                NamedFactory.Utils.getNames(fm.getMACFactories()),
+                NamedFactory.Utils.getNames(fm.getCipherFactories()),
+                NamedFactory.Utils.getNames(fm.getMACFactories()), NamedFactory.Utils.getNames(fm.getMACFactories()),
                 NamedFactory.Utils.getNames(fm.getCompressionFactories()),
                 NamedFactory.Utils.getNames(fm.getCompressionFactories()), "", "" };
     }
@@ -190,28 +195,22 @@ class KexHandler
         hash.update(buf, 0, pos);
         MACs2c = hash.digest();
         
-        s2ccipher = NamedFactory.Utils.create(fm.getCipherFactories(),
-                                              negotiated[PROPOSAL_ENC_ALGS_STOC]);
+        s2ccipher = NamedFactory.Utils.create(fm.getCipherFactories(), negotiated[PROPOSAL_ENC_ALGS_STOC]);
         Es2c = resizeKey(Es2c, s2ccipher.getBlockSize(), hash, K, H);
         s2ccipher.init(Cipher.Mode.Decrypt, Es2c, IVs2c);
         
-        s2cmac = NamedFactory.Utils
-                                   .create(fm.getMACFactories(), negotiated[PROPOSAL_MAC_ALGS_STOC]);
+        s2cmac = NamedFactory.Utils.create(fm.getMACFactories(), negotiated[PROPOSAL_MAC_ALGS_STOC]);
         s2cmac.init(MACs2c);
         
-        c2scipher = NamedFactory.Utils.create(fm.getCipherFactories(),
-                                              negotiated[PROPOSAL_ENC_ALGS_CTOS]);
+        c2scipher = NamedFactory.Utils.create(fm.getCipherFactories(), negotiated[PROPOSAL_ENC_ALGS_CTOS]);
         Ec2s = resizeKey(Ec2s, c2scipher.getBlockSize(), hash, K, H);
         c2scipher.init(Cipher.Mode.Encrypt, Ec2s, IVc2s);
         
-        c2smac = NamedFactory.Utils
-                                   .create(fm.getMACFactories(), negotiated[PROPOSAL_MAC_ALGS_CTOS]);
+        c2smac = NamedFactory.Utils.create(fm.getMACFactories(), negotiated[PROPOSAL_MAC_ALGS_CTOS]);
         c2smac.init(MACc2s);
         
-        s2ccomp = NamedFactory.Utils.create(fm.getCompressionFactories(),
-                                            negotiated[PROPOSAL_COMP_ALGS_STOC]);
-        c2scomp = NamedFactory.Utils.create(fm.getCompressionFactories(),
-                                            negotiated[PROPOSAL_COMP_ALGS_CTOS]);
+        s2ccomp = NamedFactory.Utils.create(fm.getCompressionFactories(), negotiated[PROPOSAL_COMP_ALGS_STOC]);
+        c2scomp = NamedFactory.Utils.create(fm.getCompressionFactories(), negotiated[PROPOSAL_COMP_ALGS_CTOS]);
         
         transport.bin.setClientToServer(c2scipher, c2smac, c2scomp);
         transport.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
@@ -241,11 +240,10 @@ class KexHandler
         }
         negotiated = guess;
         
-        log.info("Negotiated algorithms: client -> server = (" + negotiated[PROPOSAL_ENC_ALGS_CTOS]
-                + ", " + negotiated[PROPOSAL_MAC_ALGS_CTOS] + ", "
-                + negotiated[PROPOSAL_COMP_ALGS_CTOS] + "); server -> client = ("
-                + negotiated[PROPOSAL_ENC_ALGS_STOC] + ", " + negotiated[PROPOSAL_MAC_ALGS_STOC]
-                + ", " + negotiated[PROPOSAL_COMP_ALGS_STOC] + ")");
+        log.info("Negotiated algorithms: client -> server = (" + negotiated[PROPOSAL_ENC_ALGS_CTOS] + ", "
+                + negotiated[PROPOSAL_MAC_ALGS_CTOS] + ", " + negotiated[PROPOSAL_COMP_ALGS_CTOS]
+                + "); server -> client = (" + negotiated[PROPOSAL_ENC_ALGS_STOC] + ", "
+                + negotiated[PROPOSAL_MAC_ALGS_STOC] + ", " + negotiated[PROPOSAL_COMP_ALGS_STOC] + ")");
     }
     
     /**
@@ -291,7 +289,7 @@ class KexHandler
             // the 10 name-lists
             buffer.putString(s);
         buffer.putBoolean(false) // optimistic next packet does not follow
-              .putInt(0); // reserved packet
+              .putInt(0); // "reserved" for future
         byte[] data = buffer.getCompactData();
         log.info("Sending SSH_MSG_KEXINIT");
         transport.writePacket(buffer);
@@ -318,8 +316,11 @@ class KexHandler
             }
             log.info("Received SSH_MSG_KEXINIT");
             // make sure init() has been called; its a pre-requisite for negotiating
-            while (!sentKexInit)
-                ;
+            try {
+                initSent.acquire();
+            } catch (InterruptedException e) {
+                throw new TransportException(e);
+            }
             gotKexInit(buffer);
             state = State.EXPECT_FOLLOWUP;
             break;
@@ -330,8 +331,8 @@ class KexHandler
                 PublicKey hostKey = kex.getHostKey();
                 if (!transport.verifyHost(hostKey))
                     throw new TransportException("Could not verify [" + KeyType.fromKey(hostKey)
-                            + "] host key with fingerprint ["
-                            + SecurityUtils.getFingerprint(hostKey) + "]");
+                            + "] host key with fingerprint [" + // 
+                            SecurityUtils.getFingerprint(hostKey) + "]");
                 sendNewKeys();
                 state = State.EXPECT_NEWKEYS;
             }
@@ -366,11 +367,8 @@ class KexHandler
     
     void init() throws TransportException
     {
-        /*
-         * Thread context: API client, via Transport.init()
-         */
         sendKexInit();
-        sentKexInit = true;
+        initSent.release();
     }
     
 }
