@@ -186,9 +186,9 @@ public final class Buffer
     }
     
     /**
-     * Read an SSH packet's message identifier
+     * Reads an SSH byte and returns it as {@link Constants.Message}
      * 
-     * @return the message identifier as a {@link Constants.Message} type
+     * @return the message identifier
      */
     public Message getCommand()
     {
@@ -213,8 +213,9 @@ public final class Buffer
     public int getInt()
     {
         ensureAvailable(4);
-        int i = data[rpos++] << 24 & 0xff000000 | data[rpos++] << 16 & 0x00ff0000
-                | data[rpos++] << 8 & 0x0000ff00 | data[rpos++] & 0x000000ff;
+        int i =
+                data[rpos++] << 24 & 0xff000000 | data[rpos++] << 16 & 0x00ff0000
+                        | data[rpos++] << 8 & 0x0000ff00 | data[rpos++] & 0x000000ff;
         return i;
     }
     
@@ -426,6 +427,22 @@ public final class Buffer
      * @return this
      */
     public Buffer putInt(int i)
+    {
+        ensureCapacity(4);
+        data[wpos++] = (byte) (i >> 24);
+        data[wpos++] = (byte) (i >> 16);
+        data[wpos++] = (byte) (i >> 8);
+        data[wpos++] = (byte) i;
+        return this;
+    }
+    
+    /**
+     * Writes a Java long as an SSH uint32
+     * 
+     * @param i
+     * @return this
+     */
+    public Buffer putInt(long i)
     {
         ensureCapacity(4);
         data[wpos++] = (byte) (i >> 24);

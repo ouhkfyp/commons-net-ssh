@@ -37,11 +37,14 @@ public class AuthHostbased extends KeyedAuthMethod
     public static final String NAME = "hostbased";
     
     private final String hostname;
+    private final String hostuser;
     
-    public AuthHostbased(Session session, Service nextService, String username, String hostname,
+    public AuthHostbased(Session session, Service nextService, String username, String hostuser, String hostname,
             KeyProvider kProv)
     {
         super(session, nextService, username, kProv);
+        assert hostuser != null && hostname != null;
+        this.hostuser = hostuser;
         this.hostname = hostname;
     }
     
@@ -55,7 +58,7 @@ public class AuthHostbased extends KeyedAuthMethod
     {
         Buffer req = putPubKey(super.buildReq());
         req.putString(hostname) //
-           .putString(username);
+           .putString(hostuser);
         return putSig(req);
     }
     

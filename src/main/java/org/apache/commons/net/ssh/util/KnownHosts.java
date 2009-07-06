@@ -111,21 +111,16 @@ public class KnownHosts implements HostKeyVerifier
     
     private final List<Entry> entries = new LinkedList<Entry>();
     
-    public KnownHosts(String... locations)
+    public KnownHosts(String loc) throws IOException
     {
-        for (String loc : locations)
+        BufferedReader br = new BufferedReader(new FileReader(loc));
+        String line;
+        while ((line = br.readLine()) != null)
             try {
-                BufferedReader br = new BufferedReader(new FileReader(loc));
-                String line;
-                while ((line = br.readLine()) != null)
-                    try {
-                        entries.add(new Entry(line));
-                    } catch (AssertionError e) {
-                        log.debug("{} - unrecognized line: {}", loc, line);
-                        continue;
-                    }
-            } catch (IOException ioe) {
-                log.info("While loading {} - {}", loc, ioe.toString());
+                entries.add(new Entry(line));
+            } catch (AssertionError e) {
+                log.debug("{} - unrecognized line: {}", loc, line);
+                continue;
             }
     }
     

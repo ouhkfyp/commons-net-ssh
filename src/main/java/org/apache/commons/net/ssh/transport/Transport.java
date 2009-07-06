@@ -18,7 +18,7 @@
  */
 package org.apache.commons.net.ssh.transport;
 
-import static org.apache.commons.net.ssh.util.Constants.*;
+import static org.apache.commons.net.ssh.util.Constants.VERSION;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -321,17 +321,14 @@ public class Transport implements Session
     }
     
     /**
-     * Send an unimplemented packet. This packet should contain the sequence id of the unsupported
-     * packet.
+     * Send SSH_MSG_UNIMPLEMENTED for the specified sequence number.
      * 
      * @throws IOException
      *             if an error occured sending the packet
      */
-    public void sendUnimplemented(int num) throws IOException
+    public long sendUnimplemented(long num) throws IOException
     {
-        Buffer buffer = new Buffer(Message.UNIMPLEMENTED);
-        buffer.putInt(num);
-        writePacket(buffer);
+        return writePacket(new Buffer(Message.UNIMPLEMENTED).putInt(num));
     }
     
     /*
@@ -394,9 +391,8 @@ public class Transport implements Session
             // maybe KexHandler should judge this. but ok for now.
             throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
         case SERVICE_REQ:
-            throw new TransportException(
-                                         "Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
-                                                 + service.getName());
+            throw new TransportException("Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
+                    + service.getName());
         case SERVICE:
             if (service != null)
                 service.gotUnimplemented(seqNum);

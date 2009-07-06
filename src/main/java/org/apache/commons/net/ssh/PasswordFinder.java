@@ -107,54 +107,43 @@ public interface PasswordFinder
         
         /**
          * @param password
-         *            the password as a character array
-         * @return the constructed {@link PasswordFinder}
-         */
-        public static PasswordFinder createOneOff(final char[] password)
-        {
-            return new PasswordFinder()
-            {
-                public char[] reqPassword(Resource resource)
-                {
-                    return password;
-                }
-                
-                public boolean retry(Resource resource)
-                {
-                    return false;
-                }
-            };
-        }
-        
-        /**
-         * @param password
          *            the password as a string
          * @return the constructed {@link PasswordFinder}
          */
-        public static PasswordFinder createOneOff(String password)
+        public static PasswordFinder createOneOff(final String password)
         {
-            try {
-                return createOneOff(password.toCharArray());
-            } finally {
-                password = null;
-            }
+            if (password == null)
+                return null;
+            else
+                return new PasswordFinder()
+                    {
+                        public char[] reqPassword(Resource resource)
+                        {
+                            return password.toCharArray();
+                        }
+                        
+                        public boolean retry(Resource resource)
+                        {
+                            return false;
+                        }
+                    };
         }
         
         public static PasswordFinder createResourceBased(final Map<Resource, String> passwordMap)
         {
             return new PasswordFinder()
-            {
-                public char[] reqPassword(Resource resource)
                 {
-                    return passwordMap.get(resource).toCharArray();
-                }
-                
-                public boolean retry(Resource resource)
-                {
-                    return false;
-                }
-                
-            };
+                    public char[] reqPassword(Resource resource)
+                    {
+                        return passwordMap.get(resource).toCharArray();
+                    }
+                    
+                    public boolean retry(Resource resource)
+                    {
+                        return false;
+                    }
+                    
+                };
         }
     }
     

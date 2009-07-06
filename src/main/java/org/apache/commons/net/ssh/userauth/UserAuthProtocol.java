@@ -19,6 +19,7 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -49,6 +50,11 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     private Set<String> allowed = new HashSet<String>();
     
     private final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
+    
+    public UserAuthProtocol(Session session, AuthMethod... methods)
+    {
+        this(session, Arrays.<AuthMethod> asList(methods));
+    }
     
     public UserAuthProtocol(Session session, Iterable<AuthMethod> methods)
     {

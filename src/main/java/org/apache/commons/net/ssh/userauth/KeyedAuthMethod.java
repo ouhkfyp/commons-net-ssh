@@ -58,11 +58,10 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
             throw new UserAuthException("Problem getting private key", ioe);
         }
         String kt = KeyType.fromKey(key).toString();
-        Signature sigger = NamedFactory.Utils.create(session.getFactoryManager()
-                                                            .getSignatureFactories(), kt);
+        Signature sigger = NamedFactory.Utils.create(session.getFactoryManager().getSignatureFactories(), kt);
         sigger.init(null, key);
         sigger.update(new Buffer().putString(session.getID()) // sessionID string
-                                  .putBuffer(reqBuf) // & the data from common request stuff
+                                  .putBuffer(reqBuf) // & rest of the data for sig
                                   .getCompactData());
         reqBuf.putSignature(kt, sigger.sign());
         return reqBuf;
