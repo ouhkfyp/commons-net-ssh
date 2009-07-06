@@ -46,7 +46,10 @@ class KexHandler
     
     private enum State
     {
-        EXPECT_KEXINIT, EXPECT_FOLLOWUP, EXPECT_NEWKEYS, KEX_DONE
+        EXPECT_KEXINIT, // we have sent or are sending KEXINIT, and expect the server's KEXINIT
+        EXPECT_FOLLOWUP, // we are expecting some followup data as part of the exchange 
+        EXPECT_NEWKEYS, // we are expecting SSH_MSG_NEWKEYS
+        KEX_DONE, // key exchange has completed for now; but will be reinitiated if we get a KEXINIT
     }
     
     //
@@ -62,8 +65,7 @@ class KexHandler
     private static final int PROPOSAL_COMP_ALGS_STOC = 7;
     private static final int PROPOSAL_LANG_CTOS = 8;
     private static final int PROPOSAL_LANG_STOC = 9;
-    
-    private static final int PROPOSAL_MAX = 10;;
+    private static final int PROPOSAL_MAX = 10;
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final Transport transport;
@@ -83,8 +85,7 @@ class KexHandler
     private State state = State.EXPECT_KEXINIT; // our initial state
     
     /*
-     * There must be a release (implying KEXINIT sent) before we process received KEXINIT and
-     * negotiate algorithms.
+     * There must be a release (implying KEXINIT sent) before we process received KEXINIT and negotiate algorithms.
      */
     private final Semaphore initSent = new Semaphore(0);
     
@@ -97,36 +98,42 @@ class KexHandler
     /**
      * Create our proposal for SSH negotiation
      * 
-     * @param hostKeyTypes
-     *            the list of supported host key types
      * @return an array of 10 strings holding this proposal
      */
-    private String[] createProposal(String hostKeyTypes)
+    private String[] createProposal()
     {
-        return new String[] { NamedFactory.Utils.getNames(fm.getKeyExchangeFactories()), hostKeyTypes,
-                NamedFactory.Utils.getNames(fm.getCipherFactories()),
-                NamedFactory.Utils.getNames(fm.getCipherFactories()),
-                NamedFactory.Utils.getNames(fm.getMACFactories()), NamedFactory.Utils.getNames(fm.getMACFactories()),
-                NamedFactory.Utils.getNames(fm.getCompressionFactories()),
-                NamedFactory.Utils.getNames(fm.getCompressionFactories()), "", "" };
+        return new String[] { NamedFactory.Utils.getNames(fm.getKeyExchangeFactories()), // PROPOSAL_KEX_ALGS 
+                NamedFactory.Utils.getNames(fm.getSignatureFactories()), // PROPOSAL_SERVER_HOST_KEY_ALGS 
+                NamedFactory.Utils.getNames(fm.getCipherFactories()), // PROPOSAL_ENC_ALGS_CTOS
+                NamedFactory.Utils.getNames(fm.getCipherFactories()), // PROPOSAL_ENC_ALGS_CTOS
+                NamedFactory.Utils.getNames(fm.getMACFactories()), // PROPOSAL_MAC_ALGS_CTOS
+                NamedFactory.Utils.getNames(fm.getMACFactories()), // PROPOSAL_MAC_ALGS_STOC
+                NamedFactory.Utils.getNames(fm.getCompressionFactories()), // PROPOSAL_MAC_ALGS_STOC
+                NamedFactory.Utils.getNames(fm.getCompressionFactories()), // PROPOSAL_COMP_ALGS_STOC
+                "", // PROPOSAL_COMP_ALGS_STOC (optional) 
+                "" }; // PROPOSAL_LANG_STOC (optional)
     }
     
     private void extractProposal(Buffer buffer)
     {
         serverProposal = new String[PROPOSAL_MAX];
+        
         // recreate the packet payload which will be needed at a later time
         byte[] d = buffer.array();
         I_S = new byte[buffer.available() + 1];
         I_S[0] = Message.KEXINIT.toByte();
         System.arraycopy(d, buffer.rpos(), I_S, 1, I_S.length - 1);
+        
         // skip 16 bytes of random data
         buffer.rpos(buffer.rpos() + 16);
+        
         // read proposal
         for (int i = 0; i < serverProposal.length; i++)
             serverProposal[i] = buffer.getString();
-        // skip 5 bytes
-        buffer.getByte();
-        buffer.getInt();
+        
+        //        // skip 5 bytes
+        //        buffer.getByte();
+        //        buffer.getInt();
     }
     
     private void gotKexInit(Buffer buffer) throws TransportException
@@ -138,8 +145,8 @@ class KexHandler
     }
     
     /**
-     * Put new keys into use. This method will intialize the ciphers, digests, MACs and compression
-     * according to the negotiated server and client proposals.
+     * Put new keys into use. This method will intialize the ciphers, digests, MACs and compression according to the
+     * negotiated server and client proposals.
      */
     private void gotNewKeys()
     {
@@ -217,8 +224,8 @@ class KexHandler
     }
     
     /**
-     * Compute the negotiated proposals by merging the client and server proposal. The negotiated
-     * proposal will be stored in the {@link #negotiated} property.
+     * Compute the negotiated proposals by merging the client and server proposal. The negotiated proposal will be
+     * stored in the {@link #negotiated} property.
      */
     private void negotiate() throws TransportException
     {
@@ -247,8 +254,8 @@ class KexHandler
     }
     
     /**
-     * Private method used while putting new keys into use that will resize the key used to
-     * initialize the cipher to the needed length.
+     * Private method used while putting new keys into use that will resize the key used to initialize the cipher to the
+     * needed length.
      * 
      * @param E
      *            the key to resize
@@ -280,7 +287,7 @@ class KexHandler
     
     private void sendKexInit() throws TransportException
     {
-        clientProposal = createProposal(KeyType.RSA + "," + KeyType.DSA);
+        clientProposal = createProposal();
         Buffer buffer = new Buffer(Message.KEXINIT);
         int p = buffer.wpos();
         buffer.wpos(p + 16);
@@ -328,25 +335,24 @@ class KexHandler
             log.info("Received kex followup data");
             buffer.rpos(buffer.rpos() - 1);
             if (kex.next(buffer)) {
+                // kex is done; now verify host key
                 PublicKey hostKey = kex.getHostKey();
                 if (!transport.verifyHost(hostKey))
-                    throw new TransportException("Could not verify [" + KeyType.fromKey(hostKey)
-                            + "] host key with fingerprint [" + // 
-                            SecurityUtils.getFingerprint(hostKey) + "]");
-                sendNewKeys();
-                state = State.EXPECT_NEWKEYS;
+                    throw new TransportException(DisconnectReason.HOST_KEY_NOT_VERIFIABLE, "Could not verify ["
+                            + KeyType.fromKey(hostKey) + "] host key with fingerprint ["
+                            + SecurityUtils.getFingerprint(hostKey) + "]");
+                sendNewKeys(); // declare all is well
+                state = State.EXPECT_NEWKEYS; // expect server to tell us the same thing
             }
             break;
         case EXPECT_NEWKEYS:
-            if (cmd != Message.NEWKEYS) {
-                transport.disconnect(DisconnectReason.PROTOCOL_ERROR,
-                                     "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
-                break;
-            }
+            if (cmd != Message.NEWKEYS)
+                throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
+                                             "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
             log.info("Received SSH_MSG_NEWKEYS");
             gotNewKeys();
             state = State.KEX_DONE;
-            if (transport.writeLock.isHeldByCurrentThread()) // for key re-ex, see below
+            if (transport.writeLock.isHeldByCurrentThread()) // is held for re-exchange, se below
                 transport.writeLock.unlock();
             break;
         case KEX_DONE:

@@ -61,9 +61,8 @@ class EncDec
     private int decoderState;
     private int decoderLength;
     
-    /*
-     * How many bytes do we need, before a call to decode() can succeed at decoding packet length /
-     * the whole packet?
+    /**
+     * How many bytes do we need, before a call to decode() can succeed at decoding packet length / the whole packet?
      */
     private int needed = inCipherSize;
     
@@ -73,11 +72,10 @@ class EncDec
     }
     
     /**
-     * Decodes incoming buffer; when a packet has been decoded hooks in to
-     * {@link Transport#handle(Buffer)}.
+     * Decodes incoming buffer; when a packet has been decoded hooks in to {@link Transport#handle(Buffer)}.
      * <p>
-     * Returns advised number of bytes that should be made available in decoderBuffer before the
-     * method should be called again.
+     * Returns advised number of bytes that should be made available in decoderBuffer before the method should be called
+     * again.
      * 
      * @return number of bytes needed before further decoding possible
      */
@@ -101,10 +99,9 @@ class EncDec
                     decoderLength = decoderBuffer.getInt();
                     // Check packet length validity
                     if (decoderLength < 5 || decoderLength > 256 * 1024) {
-                        log.info("Error decoding packet (invalid length) {}",
-                                 decoderBuffer.printHex());
-                        throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
-                                                     "invalid packet length: " + decoderLength);
+                        log.info("Error decoding packet (invalid length) {}", decoderBuffer.printHex());
+                        throw new TransportException(DisconnectReason.PROTOCOL_ERROR, "invalid packet length: "
+                                + decoderLength);
                     }
                     // Ok, that's good, we can go to the next step
                     decoderState = 1;
@@ -178,7 +175,7 @@ class EncDec
     }
     
     /**
-     * Encode a buffer into the SSH protocol.
+     * Encode a buffer into the SSH binary sprotocol as per the negotiated algorithms.
      * 
      * @param buffer
      *            the buffer to encode
@@ -223,7 +220,7 @@ class EncDec
         // Fill padding
         buffer.wpos(off + oldLen + 5 + pad);
         transport.prng.fill(buffer.array(), buffer.wpos() - pad, pad);
-        // Compute mac
+        // Compute MAC
         if (outMAC != null) {
             int macSize = outMAC.getBlockSize();
             int l = buffer.wpos();
@@ -245,6 +242,11 @@ class EncDec
         return seq;
     }
     
+    /**
+     * Call this method for every byte received.
+     * <p>
+     * When enough data has been received to decode a complete packet, {@link Transport#handle(Buffer)} will be called.
+     */
     void munch(byte b) throws IOException
     {
         decoderBuffer.putByte(b);
@@ -254,6 +256,9 @@ class EncDec
             needed--;
     }
     
+    /**
+     * Set the algorithms to use while encoding packets
+     */
     void setClientToServer(Cipher cipher, MAC mac, Compression comp)
     {
         outCipher = cipher;
@@ -264,6 +269,9 @@ class EncDec
             outCompression.init(Compression.Type.Deflater, -1);
     }
     
+    /**
+     * Set the algorithms to use while decoding packets
+     */
     void setServerToClient(Cipher cipher, MAC mac, Compression comp)
     {
         inCipher = cipher;

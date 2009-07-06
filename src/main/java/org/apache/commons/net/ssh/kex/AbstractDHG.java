@@ -78,8 +78,7 @@ public abstract class AbstractDHG implements KeyExchange
         return K;
     }
     
-    public void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C)
-            throws TransportException
+    public void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws TransportException
     {
         this.session = session;
         this.V_S = V_S;
@@ -100,8 +99,8 @@ public abstract class AbstractDHG implements KeyExchange
     {
         Message cmd = buffer.getCommand();
         if (cmd != Message.KEXDH_31)
-            throw new TransportException(DisconnectReason.KEY_EXCHANGE_FAILED,
-                    "Protocol error: expected packet " + Message.KEXDH_31 + ", got " + cmd);
+            throw new TransportException(DisconnectReason.KEY_EXCHANGE_FAILED, "Protocol error: expected packet "
+                    + Message.KEXDH_31 + ", got " + cmd);
         
         log.info("Received SSH_MSG_KEXDH_REPLY");
         byte[] K_S = buffer.getBytes();
@@ -113,24 +112,24 @@ public abstract class AbstractDHG implements KeyExchange
         hostKey = new Buffer(K_S).getPublicKey();
         
         buffer = new Buffer() // our hash
-                .putString(V_C) // ...
-                .putString(V_S) // ...
-                .putString(I_C) // ...
-                .putString(I_S) // ...
-                .putString(K_S) // ...
-                .putMPInt(e) // ...
-                .putMPInt(f) // ...
-                .putMPInt(K); // ...
+                             .putString(V_C) // 
+                             .putString(V_S) // 
+                             .putString(I_C) //
+                             .putString(I_S) //
+                             .putString(K_S) //
+                             .putMPInt(e) //
+                             .putMPInt(f) //
+                             .putMPInt(K); //
         sha.update(buffer.array(), 0, buffer.available());
         H = sha.digest();
         
-        Signature verif = NamedFactory.Utils.create(session.getFactoryManager()
-                .getSignatureFactories(), KeyType.fromKey(hostKey).toString());
+        Signature verif = NamedFactory.Utils.create(session.getFactoryManager().getSignatureFactories(), // 
+                                                    KeyType.fromKey(hostKey).toString());
         verif.init(hostKey, null);
         verif.update(H, 0, H.length);
         if (!verif.verify(sig))
             throw new TransportException(DisconnectReason.KEY_EXCHANGE_FAILED,
-                    "KeyExchange signature verification failed");
+                                         "KeyExchange signature verification failed");
         return true;
     }
     

@@ -122,8 +122,8 @@ public class SSHClient extends SocketClient
         fm.setMACFactories(Arrays.<NamedFactory<MAC>> asList(new HMACSHA1.Factory(), new HMACSHA196.Factory(),
                                                              new HMACMD5.Factory(), new HMACMD596.Factory()));
         
-        fm.setSignatureFactories(Arrays.<NamedFactory<Signature>> asList(new SignatureDSA.Factory(),
-                                                                         new SignatureRSA.Factory()));
+        fm.setSignatureFactories(Arrays.<NamedFactory<Signature>> asList(new SignatureRSA.Factory(),
+                                                                         new SignatureDSA.Factory()));
         
         return fm;
     }

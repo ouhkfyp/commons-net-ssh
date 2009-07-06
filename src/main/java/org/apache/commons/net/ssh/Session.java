@@ -83,6 +83,10 @@ public interface Session
      */
     byte[] getID();
     
+    /**
+     * 
+     * @return the sequence number of the last received packet
+     */
     long getLastSeqNum();
     
     /**
@@ -94,6 +98,10 @@ public interface Session
      */
     String getServerVersion();
     
+    /**
+     * 
+     * @return currently active service
+     */
     Service getService();
     
     /**
@@ -110,6 +118,10 @@ public interface Session
      */
     void init(Socket socket) throws IOException;
     
+    /**
+     * 
+     * @return whether alive
+     */
     boolean isRunning();
     
     /**
