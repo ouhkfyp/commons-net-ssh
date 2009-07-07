@@ -18,11 +18,18 @@
  */
 package org.apache.commons.net.ssh;
 
-import java.io.IOException;
-
+import org.apache.commons.net.ssh.connection.ConnectionService;
+import org.apache.commons.net.ssh.userauth.UserAuthService;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
+/**
+ * Represents a service running on top of the SSH protocol transport layer.
+ * 
+ * @author shikhar
+ * @see UserAuthService
+ * @see ConnectionService
+ */
 public interface Service
 {
     /**
@@ -33,30 +40,30 @@ public interface Service
     String getName();
     
     /**
-     * @return the {@link Session} associated with this service
+     * Getter for the {@link Session} instance for this service
+     * 
+     * @return the session
      */
     Session getSession();
     
     /**
-     * Transport layer notifying that a SSH_MSG_UNIMPLEMENTED was received for packet with given
-     * sequence number
+     * Asks this service to handle a particular packet.
      * 
-     * @param seqNum
-     */
-    void gotUnimplemented(int seqNum);
-    
-    /**
-     * SSH packets not recognized by the transport layer are passed to the service instance for
-     * handling.
+     * Meant as a callback for the transport layer so it can deliver packets meant for the active
+     * service.
      * 
      * @param cmd
-     * @param packet
-     * @throws IOException
+     *            the message identifier
+     * @param buffer
+     *            the buffer containing rest of the packet
+     * @throws SSHException
      */
-    void handle(Message cmd, Buffer packet) throws SSHException;
+    void handle(Message cmd, Buffer buffer) throws SSHException;
     
     /**
-     * Notifies this instance that an error occured in the transport layer.
+     * Notifies this instance of an error in the transport layer.
+     * 
+     * Meant as a callback for transport layer.
      * 
      * @param ex
      *            the exception that occured in session layer
@@ -64,9 +71,19 @@ public interface Service
     void notifyError(SSHException ex);
     
     /**
-     * Request and install this service.
+     * Notifies this service that a SSH_MSG_UNIMPLEMENTED was received for packet with given
+     * sequence number.
      * 
-     * @throws IOException
+     * Meant as a callback for transport layer.
+     * 
+     * @param seqNum
+     */
+    void notifyUnimplemented(int seqNum);
+    
+    /**
+     * Request and install this service with the session.
+     * 
+     * @throws SSHException
      */
     void request() throws SSHException;
     
