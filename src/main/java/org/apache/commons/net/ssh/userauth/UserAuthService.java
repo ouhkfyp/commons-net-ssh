@@ -22,13 +22,38 @@ import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.util.LQString;
 
+/**
+ * The {@code "ssh-userauth"} service.
+ * 
+ * @author shikhar
+ */
 public interface UserAuthService extends Service
 {
     
+    /**
+     * The assigned name for this service.
+     */
     String NAME = "ssh-userauth";
     
+    /**
+     * Attempts authentication.
+     * <p>
+     * This interface does not specify how the attempt is accomplished, save for the return values.
+     * 
+     * @return {@code true} if authentication succeeded completely, {@code false} if authentiation
+     *         was partially successful
+     * @throws UserAuthException
+     *             if authentication failed
+     * @throws TransportException
+     *             if there was a transport error during authentication
+     */
     boolean authenticate() throws UserAuthException, TransportException;
     
+    /**
+     * Returns the authentication banner (if any)
+     * 
+     * @return the banner, or {@code null} if it has not been received
+     */
     LQString getBanner();
     
 }
