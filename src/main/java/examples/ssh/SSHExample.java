@@ -13,16 +13,21 @@ public class SSHExample
     public static void main(String[] args) throws Exception
     {
         SSHClient client = new SSHClient();
-        client.loadKnownHosts();
-        client.connect("127.0.0.1");
+        client.initUserKnownHosts();
         
-        client.getAuthBuilder().withPassword("abcdef").authPublickey("/home/shx/.ssh/id_dsa",
-                "/home/shx/.ssh/clamv").build().authenticate();
+        client.connect("localhost");
         
-        // client.getAuthBuilder().withUsername("bleh").authPassword("abcdef").build().authenticate();
+        client.authPassword("bobo", "abcdef");
+        
+        //        // PUBLICKEY AUTH
+        //        KeyProvider fkp = client.loadKeyFile("/home/shikhar/.ssh/clamv");
+        //        client.getAuthBuilder().authPublickey(fkp).build().authenticate();
+        
+        //        // HOSTBASED AUTH
+        //        KeyProvider fkp = client.loadKeyFile("/home/shikhar/ssh_host_rsa_key");
+        //        client.getAuthBuilder().authHostbased("bobo", "localhost.localdomain", fkp).build().authenticate();
         
         client.disconnect();
         
     }
-    
 }

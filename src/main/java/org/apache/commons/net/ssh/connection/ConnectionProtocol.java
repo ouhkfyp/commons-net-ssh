@@ -42,7 +42,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         return NAME;
     }
     
-    public void gotUnimplemented(int seqNum)
+    public void notifyUnimplemented(int seqNum)
     {
         // TODO Auto-generated method stub
         

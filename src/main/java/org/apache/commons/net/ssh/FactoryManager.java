@@ -11,8 +11,10 @@ import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.signature.Signature;
 
 /**
- * Allows retrieving {@link NamedFactory}(s) for {@link KeyExchange}, {@link Cipher},
- * {@link Compression}, {@link MAC}, {@link Signature}, and {@link Random}.
+ * Container class for {@link NamedFactory} implementations of {@link KeyExchange}, {@link Cipher},
+ * {@link Compression}, {@link MAC}, {@link Signature}, {@link Random}, and {@link FileKeyProvider}.
+ * <p>
+ * This class is used in {@link Session} initialization.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
@@ -31,7 +33,7 @@ public class FactoryManager
     /**
      * Retrieve the list of named factories for <code>Cipher</code>.
      * 
-     * @return a list of named <code>Cipher</code> factories, never <code>null</code>
+     * @return a list of named <code>Cipher</code> factories, never {@code null}
      */
     public List<NamedFactory<Cipher>> getCipherFactories()
     {
@@ -41,7 +43,7 @@ public class FactoryManager
     /**
      * Retrieve the list of named factories for <code>Compression</code>.
      * 
-     * @return a list of named <code>Compression</code> factories, never <code>null</code>
+     * @return a list of named {@code Compression} factories, never {@code null}
      */
     public List<NamedFactory<Compression>> getCompressionFactories()
     {
@@ -49,9 +51,9 @@ public class FactoryManager
     }
     
     /**
-     * Retrieve the list of named factories for <code>FileKeyProvider</code>.
+     * Retrieve the list of named factories for {@code FileKeyProvider}.
      * 
-     * @return a list of named <code>FileKeyProvider</code> factories, never <code>null</code>
+     * @return a list of named {@code FileKeyProvider} factories
      */
     public List<NamedFactory<FileKeyProvider>> getFileKeyProviderFactories()
     {
@@ -61,7 +63,7 @@ public class FactoryManager
     /**
      * Retrieve the list of named factories for <code>KeyExchange</code>.
      * 
-     * @return a list of named <code>KeyExchange</code> factories, never <code>null</code>
+     * @return a list of named <code>KeyExchange</code> factories, never {@code null}
      */
     public List<NamedFactory<KeyExchange>> getKeyExchangeFactories()
     {
@@ -71,7 +73,7 @@ public class FactoryManager
     /**
      * Retrieve the list of named factories for <code>MAC</code>.
      * 
-     * @return a list of named <code>Mac</code> factories, never <code>null</code>
+     * @return a list of named <code>Mac</code> factories, never {@code null}
      */
     public List<NamedFactory<MAC>> getMACFactories()
     {
@@ -79,9 +81,9 @@ public class FactoryManager
     }
     
     /**
-     * Retrieve the <code>Random</code> factory to be used.
+     * Retrieve the {@link Random} factory to be used.
      * 
-     * @return the <code>Random</code> factory, never <code>null</code>
+     * @return the {@link Random} factory, never {@code null}
      */
     public NamedFactory<Random> getRandomFactory()
     {
@@ -89,27 +91,36 @@ public class FactoryManager
     }
     
     /**
-     * Retrieve the list of named factories for <code>Signature</code>.
+     * Retrieve the list of named factories for {@link Signature}
      * 
-     * @return a list of named <code>Signature</code> factories, never <code>null</code>
+     * @return a list of named {@link Signature} factories, never {@code null}
      */
     public List<NamedFactory<Signature>> getSignatureFactories()
     {
         return signatureFactories;
     }
     
+    /**
+     * Specify the list of named factories for {@link Cipher}
+     * 
+     * @param cipherFactories
+     */
     public void setCipherFactories(List<NamedFactory<Cipher>> cipherFactories)
     {
         this.cipherFactories = cipherFactories;
     }
     
+    /**
+     * Specify the list of named factories for
+     * 
+     * @param compressionFactories
+     */
     public void setCompressionFactories(List<NamedFactory<Compression>> compressionFactories)
     {
         this.compressionFactories = compressionFactories;
     }
     
-    public void setFileKeyProviderFactories(
-            List<NamedFactory<FileKeyProvider>> fileKeyProviderFactories)
+    public void setFileKeyProviderFactories(List<NamedFactory<FileKeyProvider>> fileKeyProviderFactories)
     {
         this.fileKeyProviderFactories = fileKeyProviderFactories;
     }

@@ -30,8 +30,8 @@ public interface HostKeyVerifier
 {
     
     /**
-     * This is the callback that is called when the server's host key needs to be verified, and its
-     * return value indicates whether the SSH connection should proceed.
+     * This callback is invoked when the server's host key needs to be verified. The return value
+     * indicates to the caller whether the SSH connection should proceed.
      * <p>
      * <b>Note</b>: host key verification is the basis for security in SSH, therefore exercise due
      * caution in implementing!
@@ -39,8 +39,8 @@ public interface HostKeyVerifier
      * @param address
      *            remote address we are connected to
      * @param key
-     *            public key provided server
-     * @return <code>true</code> if key acceptable, <code>false</code> otherwise
+     *            host key of server
+     * @return <code>true</code> if key is acceptable, <code>false</code> otherwise
      */
     boolean verify(InetAddress address, PublicKey key);
     
