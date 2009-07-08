@@ -30,6 +30,14 @@ public class LQString
     private final String text;
     private final String langTag;
     
+    /**
+     * Construct with the 2 strings which constitute a language qualified string
+     * 
+     * @param text
+     *            the content that is qualified
+     * @param langTag
+     *            the language tag
+     */
     public LQString(String text, String langTag)
     {
         this.text = text;
