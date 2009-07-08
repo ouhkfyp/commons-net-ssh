@@ -33,14 +33,14 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public interface Service
 {
     /**
-     * Get the assignmed name for this SSH service.
+     * Get the assigned name for this SSH service.
      * 
      * @return service name
      */
     String getName();
     
     /**
-     * Getter for the {@link Session} instance for this service
+     * Returns the associated {@link Session} instance.
      * 
      * @return the session
      */
@@ -49,8 +49,8 @@ public interface Service
     /**
      * Asks this service to handle a particular packet.
      * <p>
-     * Meant as a callback for the transport layer so it can deliver packets meant for the active
-     * service.
+     * Meant to be invoked as a callback by the transport layer so it can deliver packets meant for
+     * the active service.
      * 
      * @param cmd
      *            the message identifier
@@ -61,9 +61,10 @@ public interface Service
     void handle(Message cmd, Buffer buffer) throws SSHException;
     
     /**
-     * Notifies this instance of an error in the transport layer.
+     * Notifies this service of an error in the transport layer.
      * <p>
-     * Meant as a callback for transport layer.
+     * Meant to be invoked as a callback by the transport layer so that this service can be notified
+     * of unrecoverable errors and cleanup.
      * 
      * @param ex
      *            the exception that occured in session layer
@@ -71,17 +72,17 @@ public interface Service
     void notifyError(SSHException ex);
     
     /**
-     * Notifies this service that a SSH_MSG_UNIMPLEMENTED was received for packet with given
+     * Notifies this service that a {@code SSH_MSG_UNIMPLEMENTED} was received for packet with given
      * sequence number.
      * <p>
-     * Meant as a callback for transport layer.
+     * Meant to be invoked as a callback by the transport layer.
      * 
      * @param seqNum
      */
     void notifyUnimplemented(int seqNum);
     
     /**
-     * Request and install this service with the session.
+     * Request and install this service with the associated session.
      * 
      * @throws SSHException
      */
