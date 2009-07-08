@@ -102,6 +102,8 @@ public class FactoryManager
     
     /**
      * Specify the list of named factories for {@link Cipher}
+     * <p>
+     * Order within the list is significant and plays a role in algorithm negotiation.
      * 
      * @param cipherFactories
      */
@@ -111,7 +113,9 @@ public class FactoryManager
     }
     
     /**
-     * Specify the list of named factories for
+     * Specify the list of named factories for {@link Compression}
+     * <p>
+     * Order within the list is significant and plays a role in algorithm negotiation.
      * 
      * @param compressionFactories
      */
@@ -120,26 +124,59 @@ public class FactoryManager
         this.compressionFactories = compressionFactories;
     }
     
+    /**
+     * Specify the list of named factories for {@link FileKeyProvider}
+     * <p>
+     * Order is insignificant.
+     * 
+     * @param compressionFactories
+     */
     public void setFileKeyProviderFactories(List<NamedFactory<FileKeyProvider>> fileKeyProviderFactories)
     {
         this.fileKeyProviderFactories = fileKeyProviderFactories;
     }
     
+    /**
+     * Specify the list of named factories for {@link KeyExchange}
+     * <p>
+     * Order within the list is significant and plays a role in algorithm negotiation.
+     * 
+     * @param compressionFactories
+     */
     public void setKeyExchangeFactories(List<NamedFactory<KeyExchange>> keyExchangeFactories)
     {
         this.keyExchangeFactories = keyExchangeFactories;
     }
     
+    /**
+     * Specify the list of named factories for {@link MAC}
+     * <p>
+     * Order within the list is significant and plays a role in algorithm negotiation.
+     * 
+     * @param compressionFactories
+     */
     public void setMACFactories(List<NamedFactory<MAC>> macFactories)
     {
         this.macFactories = macFactories;
     }
     
+    /**
+     * Specify the named factory for {@link Random}
+     * 
+     * @param compressionFactories
+     */
     public void setRandomFactory(NamedFactory<Random> randomFactory)
     {
         this.randomFactory = randomFactory;
     }
     
+    /**
+     * Specify the list of named factories for {@link Signature}
+     * <p>
+     * Order within the list is significant and plays a role in algorithm negotiation.
+     * 
+     * @param compressionFactories
+     */
     public void setSignatureFactories(List<NamedFactory<Signature>> signatureFactories)
     {
         this.signatureFactories = signatureFactories;
