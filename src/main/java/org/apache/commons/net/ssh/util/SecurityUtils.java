@@ -39,6 +39,7 @@ import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 
 import org.apache.commons.net.ssh.SSHRuntimeException;
+import org.apache.commons.net.ssh.keyprovider.FileKeyProvider;
 import org.apache.commons.net.ssh.util.Constants.KeyType;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
@@ -69,15 +70,19 @@ public class SecurityUtils
         }
     }
     
+    private static final Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);
+    
     /**
      * Identifier for the BouncyCastle JCE provider
      */
     public static final String BOUNCY_CASTLE = "BC";
     
-    private static final Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);
+    /*
+     * Security provider identifier. null = default JCE
+     */
+    private static String securityProvider = null;
     
     // relate to BC registration 
-    private static String securityProvider = null;
     private static Boolean registerBouncyCastle;
     private static boolean registrationDone;
     
@@ -104,6 +109,9 @@ public class SecurityUtils
             else
                 // more general
                 return "PKCS8";
+        /*
+         * FUTURE: Tectia, PuTTY ...
+         */
         return "unknown";
     }
     
@@ -174,7 +182,7 @@ public class SecurityUtils
     }
     
     /**
-     * Creates a new instance of {@link KeyAgreement} for given algorithm.
+     * Creates a new instance of {@link KeyAgreement} with the given algorithm.
      * 
      * @param algorithm
      *            key agreement algorithm
@@ -193,7 +201,7 @@ public class SecurityUtils
     }
     
     /**
-     * Creates a new instance of {@link KeyFactory} for the given algorithm.
+     * Creates a new instance of {@link KeyFactory} with the given algorithm.
      * 
      * @param algorithm
      *            key factory algorithm e.g. RSA, DSA
@@ -212,7 +220,7 @@ public class SecurityUtils
     }
     
     /**
-     * Creates a new instance of {@link KeyPairGenerator} for the given algorithm.
+     * Creates a new instance of {@link KeyPairGenerator} with the given algorithm.
      * 
      * @param algorithm
      *            key pair generator algorithm
@@ -231,7 +239,7 @@ public class SecurityUtils
     }
     
     /**
-     * Create a new instance of {@link Mac} for the given algorithm.
+     * Create a new instance of {@link Mac} with the given algorithm.
      * 
      * @param algorithm
      *            MAC algorithm
@@ -249,7 +257,7 @@ public class SecurityUtils
     }
     
     /**
-     * Create a new instance of {@link MessageDigest} for the given algorithm.
+     * Create a new instance of {@link MessageDigest} with the given algorithm.
      * 
      * @param algorithm
      *            MessageDigest algorithm name
@@ -268,9 +276,9 @@ public class SecurityUtils
     }
     
     /**
-     * Get the registered security provider
+     * Get the identifier for the registered security provider.
      * 
-     * @return the registered security provider
+     * @return JCE provider identifier
      */
     public static synchronized String getSecurityProvider()
     {
@@ -279,9 +287,7 @@ public class SecurityUtils
     }
     
     /**
-     * 
-     * 
-     * 
+     * @return the {@link FileKeyProvider} initialized with given location
      * 
      * @param algorithm
      * @return

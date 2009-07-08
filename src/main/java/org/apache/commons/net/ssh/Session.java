@@ -37,18 +37,22 @@ public interface Session
      * Specify a callback for host key verification.
      * 
      * @param hkv
-     * @see HostKeyVerifier#verify(java.net.InetAddress, java.security.PublicKey)
+     *            the implementation whose {@link HostKeyVerifier#verify} method will be invoked
      */
     void addHostKeyVerifier(HostKeyVerifier hkv);
     
     /**
      * Send a disconnection packet with reason as {@link Constants#SSH_DISCONNECT_BY_APPLICATION},
      * and close the session.
+     * 
+     * @return whether the disconnection happened cleanly, without any error
      */
     boolean disconnect();
     
     /**
      * Send a disconnect packet with the given reason, and close this session.
+     * 
+     * @return whether the disconnection happened cleanly, without any error
      */
     boolean disconnect(DisconnectReason reason);
     
@@ -59,6 +63,8 @@ public interface Session
      *            the reason code for this disconnect
      * @param msg
      *            the text message
+     * 
+     * @return whether the disconnection happened cleanly, without any error
      */
     boolean disconnect(DisconnectReason reason, String msg);
     
@@ -78,21 +84,24 @@ public interface Session
     
     /**
      * Returns the session identifier computed during key exchange.
+     * <p>
+     * If the session has not yet been initialized via {@link #init}, it will be {@code null}.
      * 
      * @return session identifier as a byte array
      */
     byte[] getID();
     
     /**
+     * Returns the sequence number of the last packet received.
      * 
-     * @return the sequence number of the last received packet
+     * @return sequence number of the last packet received
      */
     long getLastSeqNum();
     
     /**
      * Returns the version string as sent by the SSH server for identification purposes.
-     * 
-     * If the session has not been initialized, will be {@code null}.
+     * <p>
+     * If the session has not yet been initialized via {@link #init}, it will be {@code null}.
      * 
      * @return server's version string
      */
@@ -106,9 +115,9 @@ public interface Session
     
     /**
      * Initializes this session by exchanging identification information and performing key exchange
-     * with the SSH server.
+     * and algorithm negotiation with the SSH server.
      * <p>
-     * When this method returns, it is ready for requesting a SSH service (typically,
+     * When this method returns, the session is ready for requesting a SSH service (typically, user
      * authentication).
      * 
      * @param socket
@@ -119,7 +128,6 @@ public interface Session
     void init(Socket socket) throws SSHException;
     
     /**
-     * 
      * @return whether alive
      */
     boolean isRunning();

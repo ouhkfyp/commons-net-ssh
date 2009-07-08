@@ -67,35 +67,57 @@ import org.apache.commons.net.ssh.util.SecurityUtils;
 /**
  * Secure Shell client API.
  * <p>
- * The default constructor initializes {@code SSHClient} with the available implementaions for
- * ciphers, signatures, MACs, etc. Optionally, it may be created with a {@link FactoryManager}
- * instance that has been initialized with implementations of requisite algorithms.
+ * The default constructor initializes {@code SSHClient} using {@link #getDefaultFactoryManager()}.
+ * Optionally, it may be created with a {@link FactoryManager} instance that has been initialized
+ * with implementations of the requisite algorithms.
  * <p>
  * Before connection is established, host key verification needs to be accounted for. This is done
  * by specifying one or more {@link HostKeyVerifier} objects. Database of known hostname-key pairs
  * in the OpenSSH {@code "known_hosts"} format can be loaded for host key verification.
  * <p>
- * Once connection has been established, user authentication can be completed by acquiring an
+ * Once connection has been established, user authentication can be completed by obtaining an
  * instance of {@link AuthBuilder}, or using any of the convenience methods provided in this class.
  * <p>
  * Example:
  * <p>
- * <code>
+ * 
+ * <pre>
  * client = new SSHClient();
  * client.initUserKnownHosts();
- * client.connect("localhost");
- * client.authPassword("username", "password");
+ * client.connect(&quot;localhost&quot;);
+ * client.authPassword(&quot;username&quot;, &quot;password&quot;);
  * // this is the part that remains ;-) 
  * client.disconnect();
- * </code>
+ * </pre>
  * 
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
 public class SSHClient extends SocketClient
 {
     
+    /**
+     * Creates a {@link FactoryManager} instance with all known (and available) implementations.
+     * <p>
+     * These are as follows. Italicised items are only available in the presence of <a
+     * href="http://www.bouncycastle.org/java.html">BouncyCastle</a> as a properly registered
+     * security provider.
+     * <ul>
+     * <li><b>Key exchange</b>: <i>diffie-hellman-group14-sha1</i>, diffie-hellman-group1-sha1</li>
+     * <li><b>Signature</b>: ssh-rsa, ssh-dss</li>
+     * <li><b>Cipher</b>: aes128-cbc, aes192-cbc, aes256-cbs, blowfish-cbc, 3des-cbc</li>
+     * <li><b>MAC</b>: hmac-sha1, hmac-sha1-96, hmac-md5, hmac-md5-96</li>
+     * </ul>
+     * 
+     * In addition, {@link FileKeyProvider}'s for PKCS and OpenSSH encoded key files are available
+     * only in the presence of BouncyCastle.
+     * 
+     * The BouncyCastle Psuedo-Random Number Generator (PRNG) is used if present, otherwise the JCE
+     * implementation.
+     * 
+     * @return an initialized {@link FactoryManager}
+     */
     @SuppressWarnings("unchecked")
-    protected static FactoryManager getDefaultFactoryManager()
+    public static FactoryManager getDefaultFactoryManager()
     {
         FactoryManager fm = new FactoryManager();
         
@@ -112,9 +134,9 @@ public class SSHClient extends SocketClient
         }
         
         List<NamedFactory<Cipher>> avail =
-                new LinkedList<NamedFactory<Cipher>>(Arrays.<NamedFactory<Cipher>> asList(new AES256CBC.Factory(),
+                new LinkedList<NamedFactory<Cipher>>(Arrays.<NamedFactory<Cipher>> asList(new AES128CBC.Factory(),
                                                                                           new AES192CBC.Factory(),
-                                                                                          new AES128CBC.Factory(),
+                                                                                          new AES256CBC.Factory(),
                                                                                           new BlowfishCBC.Factory(),
                                                                                           new TripleDESCBC.Factory()));
         for (Iterator<NamedFactory<Cipher>> i = avail.iterator(); i.hasNext();) {
@@ -146,7 +168,7 @@ public class SSHClient extends SocketClient
     protected final ConnectionService conn;
     
     /**
-     * Constructor; makes use of default implementations.
+     * Default constructor
      */
     public SSHClient()
     {
@@ -154,7 +176,7 @@ public class SSHClient extends SocketClient
     }
     
     /**
-     * Constructor; allows specifying a {@link FactoryManager} that should be used.
+     * Constructor that allows specifying the {@link FactoryManager}
      * 
      * @param factoryManager
      */
@@ -166,9 +188,10 @@ public class SSHClient extends SocketClient
     }
     
     /**
-     * Add a {@link HostKeyVerifier} for the host key.
+     * Add a {@link HostKeyVerifier} whose {@link HostKeyVerifier#verify} method will be invoked for
+     * verifying host key during connection establishment.
      * <p>
-     * Needless to say, this is applicable before connection is established.
+     * Needless to say, this is only relevant before connection is established.
      * 
      * @param hostKeyVerifier
      */
@@ -183,8 +206,24 @@ public class SSHClient extends SocketClient
      * @param username
      *            the username to authenticate
      * @param password
+     *            the {@link PasswordFinder} to use
+     * @throws SSHException
+     *             if an error occurs during the authentication process
+     */
+    public void authPassword(String username, PasswordFinder password) throws SSHException
+    {
+        getAuthBuilder().withUsername(username).authPassword(password).build().authenticate();
+    }
+    
+    /**
+     * Attempts authentication using the {@code "password"} authentication method.
+     * 
+     * @param username
+     *            the username to authenticate
+     * @param password
      *            the password to use
      * @throws SSHException
+     *             if an error occurs during the authentication process
      */
     public void authPassword(String username, String password) throws SSHException
     {
@@ -233,6 +272,7 @@ public class SSHClient extends SocketClient
     }
     
     /**
+     * 
      * Creates {@link KnownHosts} objects from the specified locations.
      * 
      * @param locations
@@ -338,8 +378,7 @@ public class SSHClient extends SocketClient
     }
     
     /**
-     * super._connectAction_ += exchange keys and negotiate algorithms via
-     * {@link Session#init(java.net.Socket)}
+     * On connection establishment, also initialize the SSH transport via {@link Session#init}
      */
     @Override
     protected void _connectAction_() throws IOException
