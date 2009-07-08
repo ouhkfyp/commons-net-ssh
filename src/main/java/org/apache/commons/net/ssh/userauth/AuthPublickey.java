@@ -28,11 +28,11 @@ import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
 /**
- * Implements the "publickey" SSH authentication method.
+ * Implements the {@code "publickey"} SSH authentication method.
  * <p>
- * It is initialised with a {@code Iterator<KeyProvider>}. It first sends a "feeler" request with
- * just the public key, and if the server responds with {@code SSH_MSG_USERAUTH_PK_OK} indicating
- * that the key is acceptable, it proceeds to send a request signed with the private key.
+ * It is initialised with a {@code KeyProvider>}. It first sends a "feeler" request with just the
+ * public key, and if the server responds with {@code SSH_MSG_USERAUTH_PK_OK} indicating that the
+ * key is acceptable, it proceeds to send a request signed with the private key.
  * 
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
@@ -44,13 +44,6 @@ public class AuthPublickey extends KeyedAuthMethod
      */
     public static final String NAME = "publickey";
     
-    /**
-     * 
-     * @param session
-     * @param nextService
-     * @param username
-     * @param keys
-     */
     public AuthPublickey(Session session, Service nextService, String username, KeyProvider kProv)
     {
         super(session, nextService, username, kProv);
@@ -72,18 +65,18 @@ public class AuthPublickey extends KeyedAuthMethod
             return res;
     }
     
+    private void sendSignedReq() throws UserAuthException, TransportException
+    {
+        log.debug("Sending signed request");
+        session.writePacket(putSig(buildReq(true)));
+    }
+    
     @Override
     protected Buffer buildReq() throws UserAuthException
     {
         return buildReq(false);
     }
     
-    /**
-     * 
-     * @param signed
-     * @return
-     * @throws UserAuthException
-     */
     protected Buffer buildReq(boolean signed) throws UserAuthException
     {
         try {
@@ -92,17 +85,6 @@ public class AuthPublickey extends KeyedAuthMethod
             throw new UserAuthException("Problem getting public key", ioe);
         }
         return putPubKey(super.buildReq().putBoolean(signed));
-    }
-    
-    /**
-     * 
-     * @throws UserAuthException
-     * @throws TransportException
-     */
-    private void sendSignedReq() throws UserAuthException, TransportException
-    {
-        log.debug("Sending signed request");
-        session.writePacket(putSig(buildReq(true)));
     }
     
 }

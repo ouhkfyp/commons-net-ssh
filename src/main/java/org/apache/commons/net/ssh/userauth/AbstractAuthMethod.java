@@ -34,10 +34,6 @@ import org.slf4j.LoggerFactory;
  * This abstract class for {@link AuthMethod} eases implementation.
  * 
  * @author shikhar
- * @see AuthNone
- * @see AuthPassword
- * @see AuthPublickey
- * @see AuthHostbased
  */
 public abstract class AbstractAuthMethod implements AuthMethod
 {
