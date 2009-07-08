@@ -38,7 +38,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A HostKeyVerifier implementation for OpenSSH-known_hosts-style files
+ * A {@link HostKeyVerifier} implementation for a {@code known_hosts} file i.e. in the format used
+ * by OpenSSH.
+ * <p>
+ * Hashed hostnames are correctly handled.
  * 
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
@@ -53,11 +56,19 @@ public class KnownHosts implements HostKeyVerifier
     private static class Entry
     {
         
-        final String[] hosts;
-        final KeyType type;
-        final String sKey;
-        PublicKey key;
+        private final String[] hosts;
+        private final KeyType type;
+        private final String sKey;
+        private PublicKey key;
         
+        /**
+         * Construct an entry from a string containing the line
+         * 
+         * @param line
+         *            the line from a known_hosts file
+         * @throws SSHException
+         *             if it could not be parsed for any reason
+         */
         Entry(String line) throws SSHException
         {
             String[] parts = line.split(" ");
@@ -70,7 +81,15 @@ public class KnownHosts implements HostKeyVerifier
             sKey = parts[2];
         }
         
-        String appliesTo(Set<String> possibilities)
+        /**
+         * Checks whether this entry is applicable to any of {@code possibilities}
+         * 
+         * @param possibilities
+         *            a set of possibilities to check against
+         * @return the possibility which was successfuly matched, or {@code null} if there was no
+         *         match
+         */
+        public String appliesTo(Set<String> possibilities)
         {
             if (hosts[0].startsWith("|1|")) { // hashed hostname
                 String[] splitted = hosts[0].split("\\|");
@@ -88,13 +107,21 @@ public class KnownHosts implements HostKeyVerifier
                     if (BufferUtils.equals(host, sha1.doFinal(possi.getBytes())))
                         return possi;
             } else
+                // unhashed; possibly comma-delim'ed
                 for (String host : hosts)
                     if (possibilities.contains(host))
                         return host;
             return null;
         }
         
-        PublicKey getKey()
+        /**
+         * Returns the public host key represented in this entry.
+         * <p>
+         * The key is cached so repeated calls to this method may be made without concern.
+         * 
+         * @return the host key
+         */
+        public PublicKey getKey()
         {
             if (key == null) {
                 byte[] decoded;
@@ -108,17 +135,30 @@ public class KnownHosts implements HostKeyVerifier
             return key;
         }
         
+        public KeyType getType()
+        {
+            return type;
+        }
+        
     }
     
     private final Logger log = LoggerFactory.getLogger(getClass());
-    
     private final List<Entry> entries = new LinkedList<Entry>();
     
+    /**
+     * Constructs a {@code KnownHosts} object from a file location
+     * 
+     * @param loc
+     *            the file location
+     * @throws IOException
+     *             if there is an error reading the file
+     */
     public KnownHosts(String loc) throws IOException
     {
         BufferedReader br = new BufferedReader(new FileReader(loc));
         String line;
         try {
+            // read in the file, storing each line as an entry
             while ((line = br.readLine()) != null)
                 try {
                     entries.add(new Entry(line));
@@ -135,6 +175,11 @@ public class KnownHosts implements HostKeyVerifier
         }
     }
     
+    /**
+     * Checks whether the specified host is known per the contents of the {@code known_hosts} file.
+     * 
+     * @return {@code true} on successful verfication or {@code false} on failure
+     */
     public boolean verify(InetAddress host, PublicKey key)
     {
         KeyType type = KeyType.fromKey(key);
@@ -148,9 +193,9 @@ public class KnownHosts implements HostKeyVerifier
         
         log.debug("Checking for any of {}", possibilities);
         
-        String match;
-        for (Entry e : entries)
-            if (e.type == type && (match = e.appliesTo(possibilities)) != null)
+        for (Entry e : entries) {
+            String match = e.appliesTo(possibilities);
+            if (e.getType() == type && match != null)
                 if (key.equals(e.getKey())) {
                     log.info("Matched against [{}]", match);
                     return true;
@@ -158,7 +203,7 @@ public class KnownHosts implements HostKeyVerifier
                     log.warn("Host key for {} has changed! ", match);
                     return false;
                 }
-        
+        }
         return false;
     }
 }
