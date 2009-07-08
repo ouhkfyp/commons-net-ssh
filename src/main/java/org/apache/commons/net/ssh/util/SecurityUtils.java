@@ -45,6 +45,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Static utility methods relating to security facilities.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
@@ -68,14 +69,28 @@ public class SecurityUtils
         }
     }
     
+    /**
+     * Identifier for the BouncyCastle JCE provider
+     */
+    public static final String BOUNCY_CASTLE = "BC";
+    
     private static final Logger LOG = LoggerFactory.getLogger(SecurityUtils.class);
     
-    public static final String BOUNCY_CASTLE = "BC";
+    // relate to BC registration 
     private static String securityProvider = null;
-    
     private static Boolean registerBouncyCastle;
     private static boolean registrationDone;
     
+    /**
+     * Attempts to detect how a key file is encoded.
+     * <p>
+     * Return values are consistent with the {@code NamedFactory} implementations in the {@code
+     * keyprovider} package.
+     * 
+     * @param location
+     * @return name of the key file format
+     * @throws IOException
+     */
     public static String detectKeyFileFormat(String location) throws IOException
     {
         BufferedReader br = new BufferedReader(new FileReader(location));
@@ -84,12 +99,22 @@ public class SecurityUtils
             throw new IOException("Empty file");
         if (firstLine.startsWith("-----BEGIN") && firstLine.endsWith("PRIVATE KEY-----"))
             if (new File(location + ".pub").exists())
-                return "OpenSSH"; // can delay asking for password since have unencrypted pubkey
+                // can delay asking for password since have unencrypted pubkey
+                return "OpenSSH";
             else
-                return "PKCS8"; // more general
+                // more general
+                return "PKCS8";
         return "unknown";
     }
     
+    /**
+     * 
+     * @param transformation
+     * @return
+     * @throws NoSuchAlgorithmException
+     * @throws NoSuchPaddingException
+     * @throws NoSuchProviderException
+     */
     public static synchronized Cipher getCipher(String transformation) throws NoSuchAlgorithmException,
             NoSuchPaddingException, NoSuchProviderException
     {
@@ -148,6 +173,15 @@ public class SecurityUtils
         return fp;
     }
     
+    /**
+     * Creates a new instance of {@link KeyAgreement} for given algorithm.
+     * 
+     * @param algorithm
+     *            key agreement algorithm
+     * @return new instance
+     * @throws NoSuchAlgorithmException
+     * @throws NoSuchProviderException
+     */
     public static synchronized KeyAgreement getKeyAgreement(String algorithm) throws NoSuchAlgorithmException,
             NoSuchProviderException
     {
@@ -158,6 +192,15 @@ public class SecurityUtils
             return KeyAgreement.getInstance(algorithm, getSecurityProvider());
     }
     
+    /**
+     * Creates a new instance of {@link KeyFactory} for the given algorithm.
+     * 
+     * @param algorithm
+     *            key factory algorithm e.g. RSA, DSA
+     * @return new instance
+     * @throws NoSuchAlgorithmException
+     * @throws NoSuchProviderException
+     */
     public static synchronized KeyFactory getKeyFactory(String algorithm) throws NoSuchAlgorithmException,
             NoSuchProviderException
     {
@@ -168,6 +211,15 @@ public class SecurityUtils
             return KeyFactory.getInstance(algorithm, getSecurityProvider());
     }
     
+    /**
+     * Creates a new instance of {@link KeyPairGenerator} for the given algorithm.
+     * 
+     * @param algorithm
+     *            key pair generator algorithm
+     * @return new instance
+     * @throws NoSuchAlgorithmException
+     * @throws NoSuchProviderException
+     */
     public static synchronized KeyPairGenerator getKeyPairGenerator(String algorithm) throws NoSuchAlgorithmException,
             NoSuchProviderException
     {
@@ -178,6 +230,15 @@ public class SecurityUtils
             return KeyPairGenerator.getInstance(algorithm, getSecurityProvider());
     }
     
+    /**
+     * Create a new instance of {@link Mac} for the given algorithm.
+     * 
+     * @param algorithm
+     *            MAC algorithm
+     * @return new instance
+     * @throws NoSuchAlgorithmException
+     * @throws NoSuchProviderException
+     */
     public static synchronized Mac getMAC(String algorithm) throws NoSuchAlgorithmException, NoSuchProviderException
     {
         register();
@@ -187,6 +248,15 @@ public class SecurityUtils
             return Mac.getInstance(algorithm, getSecurityProvider());
     }
     
+    /**
+     * Create a new instance of {@link MessageDigest} for the given algorithm.
+     * 
+     * @param algorithm
+     *            MessageDigest algorithm name
+     * @return
+     * @throws NoSuchAlgorithmException
+     * @throws NoSuchProviderException
+     */
     public static synchronized MessageDigest getMessageDigest(String algorithm) throws NoSuchAlgorithmException,
             NoSuchProviderException
     {
@@ -197,12 +267,27 @@ public class SecurityUtils
             return MessageDigest.getInstance(algorithm, getSecurityProvider());
     }
     
+    /**
+     * Get the registered security provider
+     * 
+     * @return the registered security provider
+     */
     public static synchronized String getSecurityProvider()
     {
         register();
         return securityProvider;
     }
     
+    /**
+     * 
+     * 
+     * 
+     * 
+     * @param algorithm
+     * @return
+     * @throws NoSuchAlgorithmException
+     * @throws NoSuchProviderException
+     */
     public static synchronized Signature getSignature(String algorithm) throws NoSuchAlgorithmException,
             NoSuchProviderException
     {
@@ -213,6 +298,12 @@ public class SecurityUtils
             return Signature.getInstance(algorithm, getSecurityProvider());
     }
     
+    /**
+     * Attempts registering BouncyCastle as security provider if it has not been previously
+     * attempted and returns whether the registration succeeded.
+     * 
+     * @return whether BC registered
+     */
     public static synchronized boolean isBouncyCastleRegistered()
     {
         register();
@@ -225,6 +316,12 @@ public class SecurityUtils
         registrationDone = false;
     }
     
+    /**
+     * Specifies the JCE security provider that should be used.
+     * 
+     * @param securityProvider
+     *            identifier for the security provider
+     */
     public static synchronized void setSecurityProvider(String securityProvider)
     {
         SecurityUtils.securityProvider = securityProvider;

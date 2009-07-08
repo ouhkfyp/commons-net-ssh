@@ -48,7 +48,7 @@ public interface Service
     
     /**
      * Asks this service to handle a particular packet.
-     * 
+     * <p>
      * Meant as a callback for the transport layer so it can deliver packets meant for the active
      * service.
      * 
@@ -62,7 +62,7 @@ public interface Service
     
     /**
      * Notifies this instance of an error in the transport layer.
-     * 
+     * <p>
      * Meant as a callback for transport layer.
      * 
      * @param ex
@@ -73,7 +73,7 @@ public interface Service
     /**
      * Notifies this service that a SSH_MSG_UNIMPLEMENTED was received for packet with given
      * sequence number.
-     * 
+     * <p>
      * Meant as a callback for transport layer.
      * 
      * @param seqNum

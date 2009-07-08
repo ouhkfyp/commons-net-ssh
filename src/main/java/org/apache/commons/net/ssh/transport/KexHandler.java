@@ -85,7 +85,8 @@ class KexHandler
     private State state = State.EXPECT_KEXINIT; // our initial state
     
     /*
-     * There must be a release (implying KEXINIT sent) before we process received KEXINIT and negotiate algorithms.
+     * There must be a release (implying KEXINIT sent) before we process received KEXINIT and
+     * negotiate algorithms.
      */
     private final Semaphore initSent = new Semaphore(0);
     
@@ -145,8 +146,8 @@ class KexHandler
     }
     
     /**
-     * Put new keys into use. This method will intialize the ciphers, digests, MACs and compression according to the
-     * negotiated server and client proposals.
+     * Put new keys into use. This method will intialize the ciphers, digests, MACs and compression
+     * according to the negotiated server and client proposals.
      */
     private void gotNewKeys()
     {
@@ -224,8 +225,8 @@ class KexHandler
     }
     
     /**
-     * Compute the negotiated proposals by merging the client and server proposal. The negotiated proposal will be
-     * stored in the {@link #negotiated} property.
+     * Compute the negotiated proposals by merging the client and server proposal. The negotiated
+     * proposal will be stored in the {@link #negotiated} property.
      */
     private void negotiate() throws TransportException
     {
@@ -254,8 +255,8 @@ class KexHandler
     }
     
     /**
-     * Private method used while putting new keys into use that will resize the key used to initialize the cipher to the
-     * needed length.
+     * Private method used while putting new keys into use that will resize the key used to
+     * initialize the cipher to the needed length.
      * 
      * @param E
      *            the key to resize
@@ -368,7 +369,7 @@ class KexHandler
         default:
             assert false;
         }
-        return state == State.KEX_DONE ? true : false;
+        return state == State.KEX_DONE;
     }
     
     void init() throws TransportException

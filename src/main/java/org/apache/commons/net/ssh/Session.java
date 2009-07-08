@@ -116,7 +116,7 @@ public interface Session
      * @throws SSHException
      *             if there is an error during session initialization or key exchange
      */
-    void init(Socket socket) throws IOException;
+    void init(Socket socket) throws SSHException;
     
     /**
      * 

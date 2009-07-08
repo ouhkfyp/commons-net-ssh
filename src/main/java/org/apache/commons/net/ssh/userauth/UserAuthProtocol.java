@@ -35,6 +35,10 @@ import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.LQString;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
+/**
+ * 
+ * @author shikhar
+ */
 public class UserAuthProtocol extends AbstractService implements UserAuthService
 {
     
@@ -158,11 +162,6 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         return session;
     }
     
-    public void gotUnimplemented(int seqNum)
-    {
-        // TODO Auto-generated method stub
-    }
-    
     public void handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
         switch (cmd)
@@ -206,6 +205,11 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 resLock.unlock();
             }
         }
+    }
+    
+    public void notifyUnimplemented(int seqNum)
+    {
+        // TODO Auto-generated method stub
     }
     
     @Override

@@ -3,6 +3,10 @@ package org.apache.commons.net.ssh;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * 
+ * @author shikhar
+ */
 public abstract class AbstractService implements Service
 {
     

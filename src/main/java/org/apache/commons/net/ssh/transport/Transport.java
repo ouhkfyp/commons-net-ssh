@@ -404,7 +404,7 @@ public class Transport implements Session
                         + service.getName());
             case SERVICE:
                 if (service != null)
-                    service.gotUnimplemented(seqNum);
+                    service.notifyUnimplemented(seqNum);
             }
         }
     }

@@ -30,6 +30,15 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * This abstract class for {@link AuthMethod} eases implementation.
+ * 
+ * @author shikhar
+ * @see AuthNone
+ * @see AuthPassword
+ * @see AuthPublickey
+ * @see AuthHostbased
+ */
 public abstract class AbstractAuthMethod implements AuthMethod
 {
     
@@ -38,24 +47,26 @@ public abstract class AbstractAuthMethod implements AuthMethod
     /** Transport layer */
     protected final Session session;
     
-    /** The next service we want to start on successful auth */
+    /** The next service we want to start on successful authentication */
     protected final Service nextService;
     
     /** Username for the account we are trying to authenticate */
     protected final String username;
     
     /** Allowed methods (may be {@code null} in case we haven't got an opportunity to set it) */
-    protected volatile Set<String> allowed;
+    protected Set<String> allowed;
     
     /**
+     * Constructor
+     * 
      * @param session
      *            transport layer
      * @param nextService
-     *            service to start on successful auth
+     *            service to start on successful authentication
      * @param username
      *            username for this authentication attempt
      */
-    public AbstractAuthMethod(Session session, Service nextService, String username)
+    protected AbstractAuthMethod(Session session, Service nextService, String username)
     {
         assert session != null && nextService != null && username != null;
         this.session = session;
@@ -63,42 +74,26 @@ public abstract class AbstractAuthMethod implements AuthMethod
         this.username = username;
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.apache.commons.net.ssh.userauth.AuthMethod#getAllowedMethods()
-     */
+    // Documented in interface
     public Set<String> getAllowedMethods()
     {
         return allowed;
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.apache.commons.net.ssh.userauth.AuthMethod#getNextService()
-     */
+    // Documented in AuthMethod
     public Service getNextService()
     {
         return nextService;
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.apache.commons.net.ssh.userauth.AuthMethod#getUsername()
-     */
+    // Documented in interface
     public String getUsername()
     {
         return username;
     }
     
-    /*
-     * (non-Javadoc)
+    /**
      * 
-     * @see
-     * org.apache.commons.net.ssh.userauth.AuthMethod#handle(org.apache.commons.net.ssh.Constants
-     * .Message, org.apache.commons.net.ssh.util.Buffer)
      */
     public Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
@@ -107,17 +102,19 @@ public abstract class AbstractAuthMethod implements AuthMethod
         case USERAUTH_SUCCESS:
             return Result.SUCCESS;
         case USERAUTH_FAILURE:
-            setAllowedMethods(buf.getString());
+            allowed = new HashSet<String>(Arrays.asList(buf.getString().split(",")));
+            log.debug("Allowed = {}", allowed.toString());
             return buf.getBoolean() ? Result.PARTIAL_SUCCESS : Result.FAILURE;
         default:
             return Result.UNKNOWN;
         }
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.apache.commons.net.ssh.userauth.AuthMethod#request()
+    /**
+     * Simply constructs a request packet with {@link #buildReq()} and writes it to the
+     * {@link #session}.
+     * <p>
+     * Subclasses should thus either override this method or {@link #buildReq()}.
      */
     public void request() throws UserAuthException, TransportException
     {
@@ -127,28 +124,18 @@ public abstract class AbstractAuthMethod implements AuthMethod
     
     /**
      * Make a SSH_MSG_USERAUTH_REQUEST packet replete with the generic fields common to all methods
+     * i.e. the username, next service name, and method name.
+     * <p>
+     * Subclasses may then add the fields that are specific to them.
      * 
      * @return {@link Buffer} containing the packet
      */
     protected Buffer buildReq() throws UserAuthException
     {
         return new Buffer(Message.USERAUTH_REQUEST) // SSH_MSG_USERAUTH_REQUEST
-                .putString(username) // username goes first
-                .putString(nextService.getName()) // the service that we'd like on success
-                .putString(getName()); // name of auth method
-    }
-    
-    /**
-     * Take the comma-delimted string containing allowed methods as indicated by the server, make a
-     * {@code Set<String>} out of them and set the {@link allowed} field with that.
-     * 
-     * @param commaDelimed
-     *            the pertinent comma-delimited field from the SSH_MSG_USERAUTH_PACKET
-     */
-    protected void setAllowedMethods(String commaDelimed)
-    {
-        allowed = new HashSet<String>(Arrays.asList(commaDelimed.split(",")));
-        log.debug("Allowed = {}", allowed.toString());
+                                                   .putString(username) // username goes first
+                                                   .putString(nextService.getName()) // the service that we'd like on success
+                                                   .putString(getName()); // name of auth method
     }
     
 }

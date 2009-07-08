@@ -27,9 +27,11 @@ import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
 /**
- * Represents an SSH authentication method for the SSH Authentication Protocol
+ * An authentication method for the <a href="http://www.ietf.org/rfc/rfc4252.txt">SSH Authentication
+ * Protocol</a>.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ * @see AbstractAuthMethod
  */
 public interface AuthMethod
 {
@@ -57,44 +59,43 @@ public interface AuthMethod
     
     /**
      * Authentication methods that may be allowed to continue. Only initialized in case the result
-     * of {@link #next(Buffer)} is {@link Result#FAILURE}, and otherwise will be <code>null</code>.
+     * of {@link #handle} is {@link Result#FAILURE}, and otherwise will be {@code null}.
      * 
-     * @return array of strings e.g. {"publickey", "password", "keyboard-interactive"}
+     * @return the methods allowoed to continue
      */
     Set<String> getAllowedMethods();
     
     /**
-     * The assigned name for this authentication method.
-     * 
-     * @return
+     * Returns the assigned name for this authentication method.
      */
     String getName();
     
     /**
-     * 
-     * @return
+     * Returns the next {@link Service} that will be started if authentication using this method is
+     * successful.
      */
     Service getNextService();
     
     /**
-     * The user this method is trying to authenticate / has authenticated.
-     * 
-     * @return
+     * Returns the username this method is trying to authenticate / has authenticated.
      */
     String getUsername();
     
     /**
-     * Ask this method to handle the received packet
+     * Asks this instance to handle the specified packet.
      * 
      * @param cmd
+     *            the SSH message identifier
      * @param buf
+     *            buffer containing rest of the packet
      * @return the determined {@link Result}
-     * @throws IOException
+     * @throws UserAuthException
+     * @throws TransportException
      */
     Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException;
     
     /**
-     * Request this method
+     * Request this method.
      * 
      * @throws IOException
      */
