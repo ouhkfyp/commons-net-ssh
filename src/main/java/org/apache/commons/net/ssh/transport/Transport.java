@@ -47,7 +47,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * 
  * Thread-safe {@link Session} implementation.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
@@ -78,6 +77,9 @@ public class Transport implements Session
     private final ReentrantLock stateLock = new ReentrantLock();
     private final Condition stateChange = stateLock.newCondition();
     
+    /** Currently active service i.e. ssh-userauth, ssh-connection */
+    private Service service;
+    /** Lock object for service */
     private final Object serviceLock = new Object();
     
     private Socket socket;
@@ -95,9 +97,6 @@ public class Transport implements Session
     
     /** Message identifier for last packet received */
     private Message cmd;
-    
-    /** Currently active service i.e. ssh-userauth, ssh-connection */
-    private Service service;
     
     /** True value tells inPump and outPump to stop */
     private volatile boolean stopPumping = false;
@@ -409,6 +408,17 @@ public class Transport implements Session
         }
     }
     
+    /**
+     * Reads the identification string from the SSH server. This is the very first string that is
+     * sent upon connection by the server. It takes the form of, e.g. "SSH-2.0-OpenSSH_ver".
+     * <p>
+     * Several concerns are taken care of here, e.g. verifying protocol version, correct line
+     * endings as specified in RFC and such.
+     * 
+     * @param buffer
+     * @return
+     * @throws IOException
+     */
     private String readIdentification(Buffer buffer) throws IOException
     {
         String ident;
@@ -451,6 +461,14 @@ public class Transport implements Session
         return ident;
     }
     
+    /**
+     * Sends a service request for the specified service
+     * 
+     * @param serviceName
+     *            name of the service being requested
+     * @throws TransportException
+     *             if there is an error while sending the request
+     */
     private void sendServiceRequest(String serviceName) throws TransportException
     {
         log.debug("Sending SSH_MSG_SERVICE_REQUEST for {}", serviceName);
@@ -464,11 +482,11 @@ public class Transport implements Session
     }
     
     /**
-     * Used by inPump and outPump to notify of an exception, since it would otherwise escape
-     * unnoticed.
+     * Used by inPump or outPump to notify of an uncaught exception that caused it to die, which
+     * would otherwise escape unnoticed.
      * 
-     * @param e
-     *            Exception
+     * @param ex
+     *            the exception
      */
     private synchronized void setError(Exception ex)
     {
@@ -477,13 +495,15 @@ public class Transport implements Session
         
         synchronized (serviceLock) {
             if (service != null) {
-                service.notifyError(exception);
+                try {
+                    service.notifyError(exception);
+                } catch (Exception ignored) {
+                }
                 service = null;
             }
         }
         
-        // will result in the exception being thrown in any thread that was waiting for state
-        // change; see waitFor()
+        // will result in exception being thrown in any thread that was waiting for state change
         setState(State.ERROR);
         
         stop();
@@ -505,20 +525,7 @@ public class Transport implements Session
     {
         // stop inPump and outPump
         stopPumping = true;
-        
-        if (socket != null)
-            try {
-                socket.close(); // any threads blocked on it will die, yay
-            } catch (IOException ignored) {
-                log.debug("stop() ignoring {}", ignored.toString());
-            }
-        
-        // can safely reset these refs, not needed
-        socket = null;
-        input = null;
-        output = null;
-        
-        // will wakeup any thread that was waiting for phase change, see waitFor()
+        // will wakeup any thread that was waiting for state change
         setState(State.STOPPED);
     }
     
@@ -527,7 +534,7 @@ public class Transport implements Session
      * 
      * @param s
      *            State
-     * @throws Exception
+     * @throws SSHException
      *             in case of error event while waiting
      */
     private void waitFor(State s) throws SSHException
@@ -538,7 +545,7 @@ public class Transport implements Session
                 try {
                     stateChange.await();
                 } catch (InterruptedException e) {
-                    throw new SSHException(e);
+                    throw new TransportException(e);
                 }
             log.debug("Woke up to {}", state.toString());
             if (state != s)
@@ -552,10 +559,20 @@ public class Transport implements Session
     }
     
     /**
-     * Gets called in the context of inPump via EncDec#decode()
+     * This is where all incoming packets are handled. If they pertain to the transport layer, they
+     * are handled here; otherwise they are delegated to the active service instance if any via
+     * {@link Service#handle}.
+     * <p>
+     * Even among the transport layer specific packets, key exchange packets are delegated to
+     * {@link KexHandler#handle}.
+     * <p>
+     * This method is called in the context of the {@link #inPump} thread via {@link EncDec#munch}
+     * when a full packet has been decoded.
      * 
      * @param packet
+     *            buffer containg the packet
      * @throws SSHException
+     *             if an error occurs during handling
      */
     void handle(Buffer packet) throws SSHException
     {
@@ -586,19 +603,22 @@ public class Transport implements Session
             switch (state)
             {
             case KEX:
-                if (kex.handle(cmd, packet)) // key exchange completed
-                    setState(State.KEX_DONE);
+                if (kex.handle(cmd, packet))
+                    // key exchange completed
+                    synchronized (serviceLock) {
+                        // if service != null => re-exchange completed
+                        setState(service == null ? State.KEX_DONE : State.SERVICE);
+                    }
                 break;
             case SERVICE_REQ:
-                if (cmd != Message.SERVICE_ACCEPT) {
-                    disconnect(DisconnectReason.PROTOCOL_ERROR,
-                               "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
-                    return;
-                }
+                if (cmd != Message.SERVICE_ACCEPT)
+                    throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
+                                                 "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
                 setState(State.SERVICE);
                 break;
             case SERVICE:
                 if (cmd == Message.KEXINIT) {
+                    // re-exchange
                     setState(State.KEX);
                     kex.init();
                     kex.handle(cmd, packet);
@@ -618,6 +638,14 @@ public class Transport implements Session
         }
     }
     
+    /**
+     * Tries to validate host key with all the host key verifiers known to this instance (
+     * {@link #hkvs})
+     * 
+     * @param key
+     *            the host key to verify
+     * @return {@code true} if host key could be verified, {@code false} if not
+     */
     boolean verifyHost(PublicKey key)
     {
         HostKeyVerifier hkv;
