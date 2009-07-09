@@ -18,6 +18,6 @@ This indicates re-exchange should start. We prevent any other packets through wh
 
 6. disconnect() results in ending up in STOPPED
 
-Also, at any point if there is an uncaught excepiton in one of the I/O threads, we are in ERROR state and cleanup and finally transition to STOPPED.
+_At any point if there is an uncaught excepiton in one of the I/O threads, we are in ERROR state - here we notify active service (if any) transition to STOPPED._
 
 http://lh5.ggpht.com/_E6UWPPTmHCk/SlXMlz2ExcI/AAAAAAAAABg/MtHM12wIoDU/s800/transport%20-%20state%20dia.png
