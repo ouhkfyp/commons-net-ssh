@@ -93,7 +93,7 @@ public class Transport implements Session
     private final Queue<HostKeyVerifier> hkvs = new LinkedList<HostKeyVerifier>();
     
     /** For key (re)exchange */
-    private final KexHandler kex;
+    private final Negotiator kex;
     
     /** Message identifier for last packet received */
     private Message cmd;
@@ -195,30 +195,38 @@ public class Transport implements Session
     /** Server version identification string */
     String serverID;
     
+    /**
+     * 
+     * @param factoryManager
+     */
     public Transport(FactoryManager factoryManager)
     {
         assert factoryManager != null;
         fm = factoryManager;
         prng = factoryManager.getRandomFactory().create();
         bin = new EncDec(this);
-        kex = new KexHandler(this);
+        kex = new Negotiator(this);
     }
     
+    // Documented in interface
     public synchronized void addHostKeyVerifier(HostKeyVerifier hkv)
     {
         hkvs.add(hkv);
     }
     
+    // Documented in interface
     public boolean disconnect()
     {
         return disconnect(DisconnectReason.BY_APPLICATION);
     }
     
+    // Documented in interface
     public boolean disconnect(DisconnectReason reason)
     {
         return disconnect(reason, "");
     }
     
+    // Documented in interface
     public boolean disconnect(DisconnectReason reason, String msg)
     {
         log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
@@ -236,31 +244,37 @@ public class Transport implements Session
         }
     }
     
+    // Documented in interface
     public String getClientVersion()
     {
         return clientID.substring(8);
     }
     
+    // Documented in interface
     public FactoryManager getFactoryManager()
     {
         return fm;
     }
     
+    // Documented in interface
     public byte[] getID()
     {
         return kex.sessionID;
     }
     
+    // Documented in interface
     public long getLastSeqNum()
     {
         return bin.seqi - 1;
     }
     
+    // Documented in interface
     public String getServerVersion()
     {
         return serverID == null ? serverID : serverID.substring(8);
     }
     
+    // Documented in interface
     public Service getService()
     {
         synchronized (serviceLock) {
@@ -268,6 +282,7 @@ public class Transport implements Session
         }
     }
     
+    // Documented in interface
     public void init(Socket socket) throws TransportException
     {
         try {
@@ -300,6 +315,7 @@ public class Transport implements Session
         }
     }
     
+    // Documented in interface
     public boolean isRunning()
     {
         stateLock.lock();
@@ -310,6 +326,7 @@ public class Transport implements Session
         }
     }
     
+    // Documented in interface
     public synchronized void reqService(Service service) throws TransportException
     {
         synchronized (serviceLock) {
@@ -325,32 +342,19 @@ public class Transport implements Session
         }
     }
     
-    /**
-     * Send SSH_MSG_UNIMPLEMENTED for the specified sequence number.
-     * 
-     * @throws IOException
-     *             if an error occured sending the packet
-     */
-    public long sendUnimplemented(long seqNum) throws IOException
+    // Documented in interface 
+    public long sendUnimplemented(long seqNum) throws TransportException
     {
         return writePacket(new Buffer(Message.UNIMPLEMENTED).putInt(seqNum));
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see Session#setAuthenticated()
-     */
+    // Documented in interface
     public void setAuthenticated()
     {
         authed = true;
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see Session#setService(Service)
-     */
+    // Documented in interface
     public void setService(Service service)
     {
         synchronized (serviceLock) {
@@ -359,19 +363,15 @@ public class Transport implements Session
         }
     }
     
-    /*
-     * (non-Javadoc)
-     * 
-     * @see Session#writePacket(Buffer)
-     */
+    // Documented in interface
     public long writePacket(Buffer payload) throws TransportException
     {
         /*
          * Synchronize all write requests as needed by the encoding algorithm and also queue the
          * write request here to ensure packets are sent in the correct order.
          * 
-         * Besides with another thread that is writing a packet, writeLock may also be held by
-         * KexHandler key re-exchange is ongoing.
+         * NOTE: besides a thread invoking this method, writeLock may also be held by KexHandler in
+         * the context of the inPump thread while key re-exchange is ongoing.
          */
         writeLock.lock();
         try {
@@ -390,6 +390,12 @@ public class Transport implements Session
         }
     }
     
+    /**
+     * Got an SSH_MSG_UNIMPLEMENTED, so lets see where we're at and act accordingly.
+     * 
+     * @param seqNum
+     * @throws TransportException
+     */
     private void gotUnimplemented(int seqNum) throws TransportException
     {
         synchronized (serviceLock) {
@@ -402,8 +408,10 @@ public class Transport implements Session
                 throw new TransportException("Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
                         + service.getName());
             case SERVICE:
-                if (service != null)
-                    service.notifyUnimplemented(seqNum);
+                synchronized (serviceLock) {
+                    if (service != null)
+                        service.notifyUnimplemented(seqNum);
+                }
             }
         }
     }
@@ -564,7 +572,7 @@ public class Transport implements Session
      * {@link Service#handle}.
      * <p>
      * Even among the transport layer specific packets, key exchange packets are delegated to
-     * {@link KexHandler#handle}.
+     * {@link Negotiator#handle}.
      * <p>
      * This method is called in the context of the {@link #inPump} thread via {@link EncDec#munch}
      * when a full packet has been decoded.
