@@ -34,10 +34,14 @@ public interface Session
 {
     
     /**
-     * Specify a callback for host key verification.
+     * Add a callback for host key verification.
+     * <p>
+     * Any of the {@link HostKeyVerifier} implementations added this way can deem a host key to be
+     * acceptable, allowing the connection to proceed. Otherwise, a {@link TransportException} will
+     * result during session initialization.
      * 
      * @param hkv
-     *            the implementation whose {@link HostKeyVerifier#verify} method will be invoked
+     *            object whose {@link HostKeyVerifier#verify} method will be invoked
      */
     void addHostKeyVerifier(HostKeyVerifier hkv);
     
@@ -69,7 +73,8 @@ public interface Session
     boolean disconnect(DisconnectReason reason, String msg);
     
     /**
-     * Returns the version string used by this client to identify itself to an SSH server.
+     * Returns the version string used by this client to identify itself to an SSH server, e.g.
+     * "NET_3.0"
      * 
      * @return client's version string
      */
@@ -108,8 +113,9 @@ public interface Session
     String getServerVersion();
     
     /**
+     * Returns the currently active {@link Service} instance.
      * 
-     * @return currently active service
+     * @return the currently active service
      */
     Service getService();
     
@@ -121,14 +127,19 @@ public interface Session
      * authentication).
      * 
      * @param socket
-     *            the socket on which connection to SSH server has been already established
+     *            the socket on which connection to SSH server has already been established
      * @throws SSHException
      *             if there is an error during session initialization or key exchange
      */
     void init(Socket socket) throws SSHException;
     
     /**
-     * @return whether alive
+     * Whether this session is active.
+     * <p>
+     * The session is considered to be running if it has been initialized, is not in an error state
+     * and has not been disconnected.
+     * 
+     * @return {@code true} or {@code false} indicating whether the session is running
      */
     boolean isRunning();
     
@@ -143,6 +154,15 @@ public interface Session
      *             if the request failed for any reason
      */
     void reqService(Service service) throws TransportException;
+    
+    /**
+     * Send SSH_MSG_UNIMPLEMENTED for the specified sequence number.
+     * 
+     * @return the sequence number of packet sent
+     * @throws TransportException
+     *             if an error occured sending the packet
+     */
+    long sendUnimplemented(long seqNum) throws TransportException;
     
     /**
      * This method <b>must</b> be called after the session has been authenticated, so that delayed

@@ -111,12 +111,14 @@ public class PKCS8KeyFile implements FileKeyProvider
         PEMReader r = null;
         Object o = null;
         for (;;) {
+            // while the PasswordFinder tells us we should retry
             try {
                 r = new PEMReader(new InputStreamReader(new FileInputStream(location)), pFinder);
                 o = r.readObject();
             } catch (IOException e) {
                 if (e.toString().contains("javax.crypto.BadPaddingException")) // screen-scraping sucks
                     if (pwdf.retry(resource))
+                        // PasswordFinder is telling us to retry
                         continue;
                 throw e;
             } finally {
@@ -124,6 +126,7 @@ public class PKCS8KeyFile implements FileKeyProvider
                     if (r != null)
                         r.close();
                 } catch (IOException ignored) {
+                    log.debug("strangeness - {}", ignored.toString());
                 }
             }
             break;
