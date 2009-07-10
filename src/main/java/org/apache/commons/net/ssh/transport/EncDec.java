@@ -62,7 +62,8 @@ class EncDec
     private int decoderLength;
     
     /**
-     * How many bytes do we need, before a call to decode() can succeed at decoding packet length / the whole packet?
+     * How many bytes do we need, before a call to decode() can succeed at decoding at least packet
+     * length, OR the whole packet?
      */
     private int needed = inCipherSize;
     
@@ -72,10 +73,11 @@ class EncDec
     }
     
     /**
-     * Decodes incoming buffer; when a packet has been decoded hooks in to {@link Transport#handle(Buffer)}.
+     * Decodes incoming buffer; when a packet has been decoded hooks in to
+     * {@link Transport#handle(Buffer)}.
      * <p>
-     * Returns advised number of bytes that should be made available in decoderBuffer before the method should be called
-     * again.
+     * Returns advised number of bytes that should be made available in decoderBuffer before the
+     * method should be called again.
      * 
      * @return number of bytes needed before further decoding possible
      */
@@ -175,7 +177,7 @@ class EncDec
     }
     
     /**
-     * Encode a buffer into the SSH binary sprotocol as per the negotiated algorithms.
+     * Encode a buffer into the SSH binary protocol as per the negotiated algorithms.
      * 
      * @param buffer
      *            the buffer to encode
@@ -184,7 +186,8 @@ class EncDec
      */
     long encode(Buffer buffer) throws TransportException
     {
-        long seq = seqo;
+        long seq = seqo; // seq num for this packet
+        
         // Check that the packet has some free space for the header
         if (buffer.rpos() < 5) {
             log.warn("Performance cost: when sending a packet, ensure that "
@@ -194,17 +197,21 @@ class EncDec
             nb.putBuffer(buffer);
             buffer = nb;
         }
+        
         // Grab the length of the packet (excluding the 5 header bytes)
         int len = buffer.available();
         int off = buffer.rpos() - 5;
+        
         // Debug log the packet
         if (log.isDebugEnabled())
             log.trace("Sending packet #{}: {}", seqo, buffer.printHex());
+        
         // Compress the packet if needed
         if (outCompression != null && (transport.authed || !outCompression.isDelayed())) {
             outCompression.compress(buffer);
             len = buffer.available();
         }
+        
         // Compute padding length
         int bsize = outCipherSize;
         int oldLen = len;
@@ -213,13 +220,16 @@ class EncDec
         if (pad < bsize)
             pad += bsize;
         len = len + pad - 4;
+        
         // Write 5 header bytes
         buffer.wpos(off);
         buffer.putInt(len);
         buffer.putByte((byte) pad);
+        
         // Fill padding
         buffer.wpos(off + oldLen + 5 + pad);
         transport.prng.fill(buffer.array(), buffer.wpos() - pad, pad);
+        
         // Compute MAC
         if (outMAC != null) {
             int macSize = outMAC.getBlockSize();
@@ -229,23 +239,28 @@ class EncDec
             outMAC.update(buffer.array(), off, l);
             outMAC.doFinal(buffer.array(), l);
         }
+        
         // Encrypt packet, excluding mac
         if (outCipher != null)
             outCipher.update(buffer.array(), off, len + 4);
+        
         // Increment outgoing packet sequence number (i.e. applicable to next packet)
         if (seqo == 4294967296L) {
             log.debug("Wrapping outgoing sequence number to 0");
             seqo = 0;
         } else
             seqo++;
+        
         buffer.rpos(off); // Make buffer ready to be read
+        
         return seq;
     }
     
     /**
      * Call this method for every byte received.
      * <p>
-     * When enough data has been received to decode a complete packet, {@link Transport#handle(Buffer)} will be called.
+     * When enough data has been received to decode a complete packet,
+     * {@link Transport#handle(Buffer)} will be called.
      */
     void munch(byte b) throws IOException
     {

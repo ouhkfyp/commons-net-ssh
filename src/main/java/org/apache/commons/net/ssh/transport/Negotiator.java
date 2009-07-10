@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-class KexHandler
+class Negotiator
 {
     
     private enum State
@@ -80,7 +80,7 @@ class KexHandler
     private String[] negotiated; // negotiated algorithms
     private byte[] I_C; // the payload of our SSH_MSG_KEXINIT
     private byte[] I_S; // the payload of server's SSH_MSG_KEXINIT
-    private KeyExchange kex;
+    private KeyExchange kex; // the negotiated algorithm
     
     private State state = State.EXPECT_KEXINIT; // our initial state
     
@@ -90,7 +90,7 @@ class KexHandler
      */
     private final Semaphore initSent = new Semaphore(0);
     
-    KexHandler(Transport transport)
+    Negotiator(Transport transport)
     {
         this.transport = transport;
         fm = transport.getFactoryManager();
@@ -106,12 +106,12 @@ class KexHandler
         return new String[] { NamedFactory.Utils.getNames(fm.getKeyExchangeFactories()), // PROPOSAL_KEX_ALGS 
                 NamedFactory.Utils.getNames(fm.getSignatureFactories()), // PROPOSAL_SERVER_HOST_KEY_ALGS 
                 NamedFactory.Utils.getNames(fm.getCipherFactories()), // PROPOSAL_ENC_ALGS_CTOS
-                NamedFactory.Utils.getNames(fm.getCipherFactories()), // PROPOSAL_ENC_ALGS_CTOS
+                NamedFactory.Utils.getNames(fm.getCipherFactories()), // PROPOSAL_ENC_ALGS_STOC
                 NamedFactory.Utils.getNames(fm.getMACFactories()), // PROPOSAL_MAC_ALGS_CTOS
                 NamedFactory.Utils.getNames(fm.getMACFactories()), // PROPOSAL_MAC_ALGS_STOC
-                NamedFactory.Utils.getNames(fm.getCompressionFactories()), // PROPOSAL_MAC_ALGS_STOC
+                NamedFactory.Utils.getNames(fm.getCompressionFactories()), // PROPOSAL_MAC_ALGS_CTOS
                 NamedFactory.Utils.getNames(fm.getCompressionFactories()), // PROPOSAL_COMP_ALGS_STOC
-                "", // PROPOSAL_COMP_ALGS_STOC (optional) 
+                "", // PROPOSAL_LANG_CTOS (optional) 
                 "" }; // PROPOSAL_LANG_STOC (optional)
     }
     
@@ -151,7 +151,7 @@ class KexHandler
      */
     private void gotNewKeys()
     {
-        byte[] IVc2s;
+        byte[] IVc2s; // IV = initialization vector
         byte[] IVs2c;
         byte[] Ec2s;
         byte[] Es2c;
