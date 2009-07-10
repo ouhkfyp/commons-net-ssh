@@ -547,8 +547,6 @@ public class Transport implements Session
             log.debug("Woke up to {}", state.toString());
             if (state == State.DEAD)
                 throw causeOfDeath;
-            else
-                throw new TransportException(DisconnectReason.BY_APPLICATION);
         } finally {
             stateLock.unlock();
         }
