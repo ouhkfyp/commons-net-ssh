@@ -23,7 +23,7 @@ import java.security.SecureRandom;
 import org.apache.commons.net.ssh.NamedFactory;
 
 /**
- * A <code>Random</code> implementation using the built-in {@link SecureRandom} PRNG.
+ * A {@link Random} implementation using the built-in {@link SecureRandom} PRNG.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
@@ -31,7 +31,7 @@ public class JCERandom implements Random
 {
     
     /**
-     * Named factory for the BouncyCastle <code>Random</code>
+     * Named factory for the JCE {@link Random}
      */
     public static class Factory implements NamedFactory<Random>
     {
@@ -56,6 +56,16 @@ public class JCERandom implements Random
         random = new SecureRandom();
     }
     
+    /**
+     * Fill the given byte-array with random bytes from this PRNG.
+     * 
+     * @param foo
+     *            the byte-array
+     * @param start
+     *            the offset to start at
+     * @param len
+     *            the number of bytes to fill
+     */
     public synchronized void fill(byte[] foo, int start, int len)
     {
         if (start == 0 && len == foo.length)

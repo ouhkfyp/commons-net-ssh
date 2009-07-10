@@ -78,8 +78,9 @@ public interface Service
      * Meant to be invoked as a callback by the transport layer.
      * 
      * @param seqNum
+     * @throws SSHException
      */
-    void notifyUnimplemented(int seqNum);
+    void notifyUnimplemented(long seqNum) throws SSHException;
     
     /**
      * Request and install this service with the associated session.

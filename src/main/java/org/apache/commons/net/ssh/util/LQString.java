@@ -45,7 +45,7 @@ public class LQString
     }
     
     /**
-     * Returns the RFC 3066 language tag.
+     * Returns the language tag.
      * 
      * @return langauge tag
      */

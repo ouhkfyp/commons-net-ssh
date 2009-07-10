@@ -25,7 +25,7 @@ import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.util.Constants.KeyType;
 
 /**
- * DSA <code>Signature</code>
+ * DSA {@link Signature}
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
@@ -80,10 +80,10 @@ public class SignatureDSA extends AbstractSignature
         
         // result must be 40 bytes, but length of r and s may not be 20 bytes
         
-        System.arraycopy(r, r.length > 20 ? 1 : 0, result, r.length > 20 ? 0 : 20 - r.length,
-                r.length > 20 ? 20 : r.length);
-        System.arraycopy(s, s.length > 20 ? 1 : 0, result, s.length > 20 ? 20 : 40 - s.length,
-                s.length > 20 ? 20 : s.length);
+        System.arraycopy(r, r.length > 20 ? 1 : 0, result, r.length > 20 ? 0 : 20 - r.length, r.length > 20 ? 20
+                : r.length);
+        System.arraycopy(s, s.length > 20 ? 1 : 0, result, s.length > 20 ? 20 : 40 - s.length, s.length > 20 ? 20
+                : s.length);
         
         return result;
     }

@@ -49,7 +49,6 @@ public class AuthBuilder
      * Specifies that {@code "hostbased"} authentication should be tried.
      * 
      * @param hostuser
-     *            (null-ok) the user
      * @param hostname
      * @param kProv
      * @return {@code this}
@@ -61,15 +60,16 @@ public class AuthBuilder
     }
     
     /**
-     * Specifies that the given {@code method} should be tried.
+     * Specifies that the given {@code method}'s should be tried.
      * 
      * @param method
      *            authentication method
      * @return {@code this}
      */
-    public AuthBuilder authMethod(AuthMethod method)
+    public AuthBuilder authMethod(AuthMethod... methods)
     {
-        methods.add(method);
+        for (AuthMethod meth : methods)
+            this.methods.add(meth);
         return this;
     }
     

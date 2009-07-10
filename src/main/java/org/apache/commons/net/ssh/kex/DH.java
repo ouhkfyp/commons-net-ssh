@@ -97,19 +97,9 @@ public class DH
         return K_array;
     }
     
-    void setF(BigInteger f)
-    {
-        this.f = f;
-    }
-    
     public void setF(byte[] f)
     {
         setF(new BigInteger(f));
-    }
-    
-    void setG(BigInteger g)
-    {
-        this.g = g;
     }
     
     public void setG(byte[] g)
@@ -117,13 +107,24 @@ public class DH
         setG(new BigInteger(g));
     }
     
+    public void setP(byte[] p)
+    {
+        setP(new BigInteger(p));
+    }
+    
+    void setF(BigInteger f)
+    {
+        this.f = f;
+    }
+    
+    void setG(BigInteger g)
+    {
+        this.g = g;
+    }
+    
     void setP(BigInteger p)
     {
         this.p = p;
     }
     
-    public void setP(byte[] p)
-    {
-        setP(new BigInteger(p));
-    }
 }
