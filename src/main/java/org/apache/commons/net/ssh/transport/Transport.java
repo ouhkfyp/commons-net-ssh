@@ -1,5 +1,5 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
+ * Licensed to the Apache Software Founation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
@@ -41,6 +41,7 @@ import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.IOUtils;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
@@ -65,17 +66,24 @@ public class Transport implements Session
         KEX_DONE, // indicates kex done
         SERVICE_REQ, // a service has been requested
         SERVICE, // service request was successful; delegate handling to active service
-        ERROR, // indicates an error event in one of the threads
-        STOPPED, // indicates this session has been stopped
+        DEAD, // indicates this session has terminated, _possibly_ because of an error
     }
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
     private final FactoryManager fm;
     
+    /**
+     * Current state of this session
+     */
     private State state;
     private final ReentrantLock stateLock = new ReentrantLock();
     private final Condition stateChange = stateLock.newCondition();
+    
+    /**
+     * This field is set if we died because of an error
+     */
+    private SSHException causeOfDeath;
     
     /** Currently active service i.e. ssh-userauth, ssh-connection */
     private Service service;
@@ -99,12 +107,7 @@ public class Transport implements Session
     private Message cmd;
     
     /** True value tells inPump and outPump to stop */
-    private volatile boolean stopPumping = false;
-    
-    /**
-     * If an error occurs in one of the threads spawned by this class, it is set in this field.
-     */
-    private SSHException exception;
+    private volatile boolean stopPumping;
     
     /**
      * Outgoing data is put here. Since it is a SynchronousQueue, until {@link #outPump} is
@@ -131,19 +134,8 @@ public class Transport implements Session
                     try {
                         bin.munch((byte) input.read());
                     } catch (Exception e) {
-                        if (!stopPumping) {
-                            if (e instanceof SSHException && !(cmd == Message.DISCONNECT)) {
-                                /*
-                                 * send SSH_MSG_DISCONNECT if we have the required info in the
-                                 * exception (and the exception didn't arise from receiving a
-                                 * SSH_MSG_DISCONNECT ourself! :P)
-                                 */
-                                DisconnectReason reason = ((SSHException) e).getDisconnectReason();
-                                if (!reason.equals(DisconnectReason.UNKNOWN))
-                                    disconnect(reason, ((SSHException) e).getMessage());
-                            }
-                            setError(e);
-                        }
+                        if (!stopPumping)
+                            die(SSHException.chain(e));
                     }
                 log.debug("Stopping");
             }
@@ -171,7 +163,7 @@ public class Transport implements Session
                         output.write(outQ.take());
                     } catch (Exception e) {
                         if (!stopPumping)
-                            setError(e);
+                            die(e);
                     }
                 log.debug("Stopping");
             }
@@ -234,13 +226,13 @@ public class Transport implements Session
             writePacket(new Buffer(Message.DISCONNECT) //
                                                       .putInt(reason.toInt()) //
                                                       .putString(msg) //
-                                                      .putString(""));
+                                                      .putString("")); // lang tag
             return true;
         } catch (TransportException e) {
             log.error("disconnect() - {}", e.toString());
             return false;
         } finally {
-            stop();
+            die();
         }
     }
     
@@ -305,12 +297,7 @@ public class Transport implements Session
             
             kex.init();
             waitFor(State.KEX_DONE);
-        } catch (Exception e) {
-            log.debug("init() had {}", e.toString());
-            try {
-                socket.close();
-            } catch (IOException x) {
-            }
+        } catch (IOException e) {
             throw TransportException.chain(e);
         }
     }
@@ -318,11 +305,8 @@ public class Transport implements Session
     // Documented in interface
     public boolean isRunning()
     {
-        stateLock.lock();
-        try {
-            return !(state == State.ERROR || state == State.STOPPED);
-        } finally {
-            stateLock.unlock();
+        synchronized (stateLock) {
+            return state != null && state != State.DEAD;
         }
     }
     
@@ -390,28 +374,69 @@ public class Transport implements Session
         }
     }
     
+    private synchronized void die()
+    {
+        // Stop inPump and outPump
+        stopPumping = true;
+        IOUtils.closeQuietly(input, output);
+        // Wakeup any thread that was waiting for state change
+        setState(State.DEAD);
+    }
+    
+    private synchronized void die(Exception ex)
+    {
+        if (causeOfDeath == null) {
+            
+            log.error("Dying because - {}", ex.toString());
+            causeOfDeath = SSHException.chain(ex);
+            
+            // Takes care of notifying service
+            synchronized (serviceLock) {
+                if (service != null) {
+                    try {
+                        service.notifyError(causeOfDeath);
+                    } catch (Exception ignored) {
+                        log.debug("service spewed - {}", ignored.toString());
+                    }
+                    service = null;
+                }
+            }
+            
+            if (causeOfDeath.getDisconnectReason() != DisconnectReason.UNKNOWN && cmd != Message.DISCONNECT)
+                /*
+                 * Send SSH_MSG_DISCONNECT if we have the required info in the exception, and the
+                 * exception does not arise from receiving a SSH_MSG_DISCONNECT ourself!
+                 */
+                disconnect(causeOfDeath.getDisconnectReason(), causeOfDeath.getMessage());
+            else
+                die();
+            
+        } else
+            log.debug("die() - got called more than once - {}", ex.toString());
+    }
+    
     /**
      * Got an SSH_MSG_UNIMPLEMENTED, so lets see where we're at and act accordingly.
      * 
      * @param seqNum
      * @throws TransportException
      */
-    private void gotUnimplemented(int seqNum) throws TransportException
+    private void gotUnimplemented(long seqNum) throws SSHException
     {
         synchronized (serviceLock) {
             switch (state)
             {
             case KEX:
-                // maybe KexHandler should judge this. but ok for now.
                 throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
             case SERVICE_REQ:
                 throw new TransportException("Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
                         + service.getName());
             case SERVICE:
-                synchronized (serviceLock) {
-                    if (service != null)
-                        service.notifyUnimplemented(seqNum);
-                }
+                if (service != null)
+                    // the service might throw an exception, but that's okay and encouraged
+                    service.notifyUnimplemented(seqNum);
+            default:
+                log.debug("Ignoring unimplemented message");
             }
         }
     }
@@ -489,34 +514,6 @@ public class Transport implements Session
         }
     }
     
-    /**
-     * Used by inPump or outPump to notify of an uncaught exception that caused it to die, which
-     * would otherwise escape unnoticed.
-     * 
-     * @param ex
-     *            the exception
-     */
-    private synchronized void setError(Exception ex)
-    {
-        log.error("setError() - {}", ex.toString());
-        exception = SSHException.chain(ex);
-        
-        synchronized (serviceLock) {
-            if (service != null) {
-                try {
-                    service.notifyError(exception);
-                } catch (Exception ignored) {
-                }
-                service = null;
-            }
-        }
-        
-        // will result in exception being thrown in any thread that was waiting for state change
-        setState(State.ERROR);
-        
-        stop();
-    }
-    
     private void setState(State newState)
     {
         log.debug("Changing state  [ {} -> {} ]", state, newState);
@@ -527,14 +524,6 @@ public class Transport implements Session
         } finally {
             stateLock.unlock();
         }
-    }
-    
-    private void stop()
-    {
-        // stop inPump and outPump
-        stopPumping = true;
-        // will wakeup any thread that was waiting for state change
-        setState(State.STOPPED);
     }
     
     /**
@@ -549,18 +538,17 @@ public class Transport implements Session
     {
         stateLock.lock();
         try {
-            while (state != s && state != State.ERROR && state != State.STOPPED)
+            while (state != s && state != State.DEAD)
                 try {
                     stateChange.await();
                 } catch (InterruptedException e) {
                     throw new TransportException(e);
                 }
             log.debug("Woke up to {}", state.toString());
-            if (state != s)
-                if (state == State.ERROR)
-                    throw exception;
-                else if (state == State.STOPPED)
-                    throw new TransportException(DisconnectReason.BY_APPLICATION);
+            if (state == State.DEAD)
+                throw causeOfDeath;
+            else
+                throw new TransportException(DisconnectReason.BY_APPLICATION);
         } finally {
             stateLock.unlock();
         }
@@ -588,13 +576,16 @@ public class Transport implements Session
         log.debug("Received packet {}", cmd);
         switch (cmd)
         {
+        /*
+         * Generic tranport layer packets
+         */
         case DISCONNECT:
             DisconnectReason code = DisconnectReason.fromInt(packet.getInt());
             String message = packet.getString();
             log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, message);
             throw new TransportException(code, message);
         case UNIMPLEMENTED:
-            int seqNum = packet.getInt();
+            long seqNum = packet.getLong();
             log.info("Received SSH_MSG_UNIMPLEMENTED #{}", seqNum);
             gotUnimplemented(seqNum);
             break;
@@ -613,10 +604,8 @@ public class Transport implements Session
             case KEX:
                 if (kex.handle(cmd, packet))
                     // key exchange completed
-                    synchronized (serviceLock) {
-                        // if service != null => re-exchange completed
-                        setState(service == null ? State.KEX_DONE : State.SERVICE);
-                    }
+                    // if service != null => re-exchange completed
+                    setState(getService() == null ? State.KEX_DONE : State.SERVICE);
                 break;
             case SERVICE_REQ:
                 if (cmd != Message.SERVICE_ACCEPT)
