@@ -18,10 +18,6 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.TransportException;
@@ -31,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This abstract class for {@link AuthMethod} eases implementation.
+ * This abstract class for {@link AuthMethod} implements common or default functionality.
  * 
  * @author shikhar
  */
@@ -50,7 +46,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
     protected final String username;
     
     /** Allowed methods (may be {@code null} in case we haven't got an opportunity to set it) */
-    protected Set<String> allowed;
+    protected String allowed;
     
     /**
      * Constructor
@@ -71,7 +67,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
     }
     
     // Documented in interface
-    public Set<String> getAllowedMethods()
+    public String getAllowed()
     {
         return allowed;
     }
@@ -88,9 +84,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
         return username;
     }
     
-    /**
-     * 
-     */
+    // Documented in interface
     public Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
         switch (cmd)
@@ -98,7 +92,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
         case USERAUTH_SUCCESS:
             return Result.SUCCESS;
         case USERAUTH_FAILURE:
-            allowed = new HashSet<String>(Arrays.asList(buf.getString().split(",")));
+            allowed = buf.getString();
             log.debug("Allowed = {}", allowed.toString());
             return buf.getBoolean() ? Result.PARTIAL_SUCCESS : Result.FAILURE;
         default:

@@ -1,9 +1,11 @@
 package org.apache.commons.net.ssh;
 
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * An abstract class for {@link Service} that implements common or default functionality.
  * 
  * @author shikhar
  */
@@ -31,6 +33,11 @@ public abstract class AbstractService implements Service
         this.exception = exception;
         if (currentThread != null && shouldInterrupt())
             currentThread.interrupt();
+    }
+    
+    public void notifyUnimplemented(long seqNum) throws SSHException
+    {
+        throw new SSHException(DisconnectReason.PROTOCOL_ERROR, "Unexpected: SSH_MSG_UNIMPLEMENTED");
     }
     
     public void request() throws TransportException

@@ -22,8 +22,9 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 
 /**
- * Signature interface for SSH used to sign or verify packets Usually wraps a javax.crypto.Signature
- * object
+ * Signature interface for SSH used to sign or verify packets.
+ * <p>
+ * Usually wraps a javax.crypto.Signature object.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
@@ -35,7 +36,9 @@ public interface Signature
      * null, only signature verification can be performed.
      * 
      * @param pubkey
+     *            (null-ok) specify in case verification is needed
      * @param prvkey
+     *            (null-ok) specify in case signing is needed
      */
     void init(PublicKey pubkey, PrivateKey prvkey);
     
@@ -46,14 +49,23 @@ public interface Signature
      */
     byte[] sign();
     
+    /**
+     * Convenience method for {@code update(H, 0, H.length);}
+     * 
+     * @param H
+     *            the byte-array to update with
+     */
     void update(byte[] H);
     
     /**
      * Update the computed signature with the given data
      * 
      * @param H
+     *            byte-array to update with
      * @param off
+     *            offset within the array
      * @param len
+     *            length until which to compute
      */
     void update(byte[] H, int off, int len);
     

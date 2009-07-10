@@ -68,8 +68,8 @@ import org.apache.commons.net.ssh.util.SecurityUtils;
  * Secure Shell client API.
  * <p>
  * The default constructor initializes {@code SSHClient} using {@link #getDefaultFactoryManager()}.
- * Optionally, it may be created with a {@link FactoryManager} instance that has been initialized
- * with implementations of the requisite algorithms.
+ * Optionally, {@code SSHClient} may be constructed with a {@link FactoryManager} instance that has
+ * been initialized with implementations of the requisite algorithms.
  * <p>
  * Before connection is established, host key verification needs to be accounted for. This is done
  * by specifying one or more {@link HostKeyVerifier} objects. Database of known hostname-key pairs
@@ -111,8 +111,8 @@ public class SSHClient extends SocketClient
      * In addition, {@link FileKeyProvider}'s for PKCS and OpenSSH encoded key files are available
      * only in the presence of BouncyCastle.
      * 
-     * The BouncyCastle Psuedo-Random Number Generator (PRNG) is used if present, otherwise the JCE
-     * implementation.
+     * The BouncyCastle Psuedo-Random Number Generator (PRNG) is set if present, otherwise the JCE
+     * PRNG.
      * 
      * @return an initialized {@link FactoryManager}
      */
@@ -293,7 +293,7 @@ public class SSHClient extends SocketClient
      * {@link #initKnownHosts(String...)} is a more generic method.
      * 
      * @throws IOException
-     *             if there is an error loading from <b>both</b> these locations
+     *             if there is an error loading from <b>both</b> locations
      */
     public void initUserKnownHosts() throws IOException
     {
@@ -312,7 +312,7 @@ public class SSHClient extends SocketClient
                 b = true;
             }
         }
-        if (!(a || b))
+        if (a && b)
             throw new IOException("Could not load user known_hosts");
     }
     

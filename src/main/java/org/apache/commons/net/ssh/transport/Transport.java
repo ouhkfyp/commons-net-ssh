@@ -62,7 +62,7 @@ public class Transport implements Session
      */
     private enum State
     {
-        KEX, // delegate message handling to KexHandler
+        KEX, // delegate message handling to Negotiator
         KEX_DONE, // indicates kex done
         SERVICE_REQ, // a service has been requested
         SERVICE, // service request was successful; delegate handling to active service
@@ -101,7 +101,7 @@ public class Transport implements Session
     private final Queue<HostKeyVerifier> hkvs = new LinkedList<HostKeyVerifier>();
     
     /** For key (re)exchange */
-    private final Negotiator kex;
+    private final Negotiator neg;
     
     /** Message identifier for last packet received */
     private Message cmd;
@@ -197,7 +197,7 @@ public class Transport implements Session
         fm = factoryManager;
         prng = factoryManager.getRandomFactory().create();
         bin = new EncDec(this);
-        kex = new Negotiator(this);
+        neg = new Negotiator(this);
     }
     
     // Documented in interface
@@ -251,7 +251,7 @@ public class Transport implements Session
     // Documented in interface
     public byte[] getID()
     {
-        return kex.sessionID;
+        return neg.sessionID;
     }
     
     // Documented in interface
@@ -295,7 +295,7 @@ public class Transport implements Session
             outPump.start();
             inPump.start();
             
-            kex.init();
+            neg.init();
             waitFor(State.KEX_DONE);
         } catch (IOException e) {
             throw TransportException.chain(e);
@@ -354,7 +354,7 @@ public class Transport implements Session
          * Synchronize all write requests as needed by the encoding algorithm and also queue the
          * write request here to ensure packets are sent in the correct order.
          * 
-         * NOTE: besides a thread invoking this method, writeLock may also be held by KexHandler in
+         * NOTE: besides a thread invoking this method, writeLock may also be held by Negotiator in
          * the context of the inPump thread while key re-exchange is ongoing.
          */
         writeLock.lock();
@@ -602,7 +602,7 @@ public class Transport implements Session
             switch (state)
             {
             case KEX:
-                if (kex.handle(cmd, packet))
+                if (neg.handle(cmd, packet))
                     // key exchange completed
                     // if service != null => re-exchange completed
                     setState(getService() == null ? State.KEX_DONE : State.SERVICE);
@@ -617,8 +617,8 @@ public class Transport implements Session
                 if (cmd == Message.KEXINIT) {
                     // re-exchange
                     setState(State.KEX);
-                    kex.init();
-                    kex.handle(cmd, packet);
+                    neg.init();
+                    neg.handle(cmd, packet);
                 } else
                     synchronized (serviceLock) {
                         if (service != null)

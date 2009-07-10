@@ -19,7 +19,6 @@
 package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
-import java.util.Set;
 
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.TransportException;
@@ -59,12 +58,13 @@ public interface AuthMethod
     }
     
     /**
-     * Authentication methods that may be allowed to continue. Only initialized in case the result
-     * of {@link #handle} is {@link Result#FAILURE}, and otherwise will be {@code null}.
+     * Comma-delimited string of authentication methods that may be allowed to continue. MUST be
+     * initialized to the correct field from a SSH_MSG_USERAUTH_FAILURE packet if it was received,
+     * but otherwise may be {@code null}.
      * 
      * @return the methods allowoed to continue
      */
-    Set<String> getAllowedMethods();
+    String getAllowed();
     
     /**
      * Returns the assigned name for this authentication method.

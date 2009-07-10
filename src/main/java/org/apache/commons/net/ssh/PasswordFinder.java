@@ -39,8 +39,15 @@ public interface PasswordFinder
         
         public enum Type
         {
-            ACCOUNT, // corresponding detail = "username"
-            KEYFILE, // corresponding detail = "file location" e.g. cannonical path
+            /**
+             * The password-protected resource is an account
+             */
+            ACCOUNT,
+
+            /**
+             * The password-protected resource is a private key file
+             */
+            KEYFILE,
         }
         
         private final Type type;

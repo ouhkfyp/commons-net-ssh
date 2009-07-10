@@ -37,8 +37,6 @@ public interface UserAuthService extends Service
     
     /**
      * Attempts authentication.
-     * <p>
-     * This interface does not specify how the attempt is accomplished, save for the return values.
      * 
      * @return {@code true} if authentication succeeded completely, {@code false} if authentiation
      *         was partially successful
@@ -52,7 +50,7 @@ public interface UserAuthService extends Service
     /**
      * Returns the authentication banner (if any)
      * 
-     * @return the banner, or {@code null} if it has not been received
+     * @return the banner, or {@code null} if none was received
      */
     LQString getBanner();
     
