@@ -216,7 +216,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 switch (res)
                 {
                 case SUCCESS:
-                    session.setAuthenticated(); // notify session so that delayed comression may becoome effective if applicable
+                    session.setAuthenticated(); // notify session so that delayed comression may become effective if applicable
                     session.setService(method.getNextService()); // we aren't in charge anymore, next service is
                     resCond.signal();
                     break;
@@ -229,7 +229,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                     resCond.signal();
                     break;
                 case CONTINUED:
-                    // let resCond waiter keep waiting, since the current method has not yet concluded
+                    // let resCond awaiter keep waiting, since the current method has not yet concluded
                     break;
                 case UNKNOWN:
                     throw new UserAuthException("Could not decipher packet");

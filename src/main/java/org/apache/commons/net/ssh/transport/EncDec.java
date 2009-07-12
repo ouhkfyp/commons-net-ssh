@@ -99,7 +99,7 @@ class EncDec
                     if (inCipher != null)
                         inCipher.update(decoderBuffer.array(), 0, inCipherSize);
                     // Read packet length
-                    decoderLength = decoderBuffer.getInt();
+                    decoderLength = (int) decoderBuffer.getInt();
                     // Check packet length validity
                     if (decoderLength < 5 || decoderLength > 256 * 1024) {
                         log.info("Error decoding packet (invalid length) {}", decoderBuffer.printHex());
@@ -136,11 +136,7 @@ class EncDec
                             throw new TransportException(DisconnectReason.MAC_ERROR, "MAC Error");
                     }
                     // Increment incoming packet sequence number (i.e. applicable to next packet)
-                    if (seqi == 4294967296L) {
-                        log.debug("Wrapping incoming sequence number to 0");
-                        seqi = 0;
-                    } else
-                        seqi++;
+                    seqi = seqi + 1 & 0xffffffffL;
                     // Get padding
                     byte pad = decoderBuffer.getByte();
                     Buffer buf;
@@ -246,11 +242,7 @@ class EncDec
             outCipher.update(buffer.array(), off, len + 4);
         
         // Increment outgoing packet sequence number (i.e. applicable to next packet)
-        if (seqo == 4294967296L) {
-            log.debug("Wrapping outgoing sequence number to 0");
-            seqo = 0;
-        } else
-            seqo++;
+        seqo = seqo + 1 & 0xffffffffL;
         
         buffer.rpos(off); // Make buffer ready to be read
         

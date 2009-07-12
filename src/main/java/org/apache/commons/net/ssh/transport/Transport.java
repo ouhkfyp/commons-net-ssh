@@ -129,7 +129,7 @@ public class Transport implements Session
                 try {
                     while (!Thread.currentThread().isInterrupted())
                         ed.munch((byte) input.read());
-                } catch (Exception e) {
+                } catch (IOException e) {
                     if (!Thread.currentThread().isInterrupted())
                         die(e);
                 }
@@ -156,7 +156,8 @@ public class Transport implements Session
                             outQ.poll(100, TimeUnit.MILLISECONDS))
                         if (data != null)
                             output.write(data);
-                } catch (Exception e) {
+                } catch (InterruptedException ignore) {
+                } catch (IOException e) {
                     if (!Thread.currentThread().isInterrupted())
                         die(e);
                 }
@@ -373,7 +374,10 @@ public class Transport implements Session
     
     private synchronized void die()
     {
-        (Thread.currentThread() == inPump ? outPump : inPump).interrupt();
+        if (Thread.currentThread() != inPump)
+            inPump.interrupt();
+        if (Thread.currentThread() != outPump)
+            outPump.interrupt();
         try {
             socket.close(); // Shock a thread into waking up if blocked on I/O
         } catch (IOException ignored) {
@@ -581,12 +585,12 @@ public class Transport implements Session
          * Generic tranport layer packets
          */
         case DISCONNECT:
-            DisconnectReason code = DisconnectReason.fromInt(packet.getInt());
+            DisconnectReason code = DisconnectReason.fromInt((int) packet.getInt());
             String message = packet.getString();
             log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, message);
             throw new TransportException(code, message);
         case UNIMPLEMENTED:
-            long seqNum = packet.getLong();
+            long seqNum = packet.getInt();
             log.info("Received SSH_MSG_UNIMPLEMENTED #{}", seqNum);
             gotUnimplemented(seqNum);
             break;
