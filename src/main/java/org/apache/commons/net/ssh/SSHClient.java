@@ -135,19 +135,25 @@ public class SSHClient extends SocketClient
         
         List<NamedFactory<Cipher>> avail =
                 new LinkedList<NamedFactory<Cipher>>(Arrays.<NamedFactory<Cipher>> asList(new AES128CBC.Factory(),
-                                                                                          new AES192CBC.Factory(),
-                                                                                          new AES256CBC.Factory(),
                                                                                           new BlowfishCBC.Factory(),
-                                                                                          new TripleDESCBC.Factory()));
-        for (Iterator<NamedFactory<Cipher>> i = avail.iterator(); i.hasNext();) {
-            final NamedFactory<Cipher> f = i.next();
-            try {
-                final Cipher c = f.create();
-                final byte[] key = new byte[c.getBlockSize()];
-                final byte[] iv = new byte[c.getIVSize()];
-                c.init(Cipher.Mode.Encrypt, key, iv);
-            } catch (Exception e) {
-                i.remove();
+                                                                                          new TripleDESCBC.Factory(),
+                                                                                          new AES192CBC.Factory(),
+                                                                                          new AES256CBC.Factory()));
+        
+        { /*
+           * @see https://issues.apache.org/jira/browse/SSHD-24:
+           * "AES256 and AES192 requires unlimited cryptography extension"
+           */
+            for (Iterator<NamedFactory<Cipher>> i = avail.iterator(); i.hasNext();) {
+                final NamedFactory<Cipher> f = i.next();
+                try {
+                    final Cipher c = f.create();
+                    final byte[] key = new byte[c.getBlockSize()];
+                    final byte[] iv = new byte[c.getIVSize()];
+                    c.init(Cipher.Mode.Encrypt, key, iv);
+                } catch (Exception e) {
+                    i.remove();
+                }
             }
         }
         
@@ -198,6 +204,11 @@ public class SSHClient extends SocketClient
     public void addHostKeyVerifier(HostKeyVerifier hostKeyVerifier)
     {
         trans.addHostKeyVerifier(hostKeyVerifier);
+    }
+    
+    public void addHostKeyVerifier(String fingerprint)
+    {
+        addHostKeyVerifier(HostKeyVerifier.Util.makeForFingerprint(fingerprint));
     }
     
     /**
@@ -283,7 +294,7 @@ public class SSHClient extends SocketClient
     public void initKnownHosts(String... locations) throws IOException
     {
         for (String loc : locations)
-            trans.addHostKeyVerifier(new KnownHosts(loc));
+            addHostKeyVerifier(new KnownHosts(loc));
     }
     
     /**

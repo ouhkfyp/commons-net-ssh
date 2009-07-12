@@ -21,6 +21,8 @@ package org.apache.commons.net.ssh;
 import java.net.InetAddress;
 import java.security.PublicKey;
 
+import org.apache.commons.net.ssh.util.SecurityUtils;
+
 /**
  * Interface for host key verification.
  * 
@@ -28,6 +30,24 @@ import java.security.PublicKey;
  */
 public interface HostKeyVerifier
 {
+    
+    class Util
+    {
+        
+        public static HostKeyVerifier makeForFingerprint(final String fp)
+        {
+            return new HostKeyVerifier()
+                {
+                    
+                    public boolean verify(InetAddress address, PublicKey key)
+                    {
+                        return SecurityUtils.getFingerprint(key).equals(fp);
+                    }
+                    
+                };
+        }
+        
+    }
     
     /**
      * This callback is invoked when the server's host key needs to be verified. The return value

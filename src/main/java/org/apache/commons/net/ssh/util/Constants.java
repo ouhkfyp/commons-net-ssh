@@ -213,6 +213,11 @@ public interface Constants
         {
             return b;
         }
+        
+        public short toInt()
+        {
+            return b;
+        }
     }
     
     //    enum OpenError
