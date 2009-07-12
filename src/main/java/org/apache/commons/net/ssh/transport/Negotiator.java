@@ -222,13 +222,13 @@ class Negotiator
         s2ccomp = NamedFactory.Utils.create(fm.getCompressionFactories(), negotiated[PROPOSAL_COMP_ALGS_STOC]);
         c2scomp = NamedFactory.Utils.create(fm.getCompressionFactories(), negotiated[PROPOSAL_COMP_ALGS_CTOS]);
         
-        transport.bin.setClientToServer(c2scipher, c2smac, c2scomp);
-        transport.bin.setServerToClient(s2ccipher, s2cmac, s2ccomp);
+        transport.ed.setClientToServer(c2scipher, c2smac, c2scomp);
+        transport.ed.setServerToClient(s2ccipher, s2cmac, s2ccomp);
     }
     
     /**
      * Compute the negotiated proposals by merging the client and server proposal. The negotiated
-     * proposal will be stored in the {@link #negotiated} property.
+     * proposal will be stored in the {@link #negotiated} field.
      */
     private void negotiate() throws TransportException
     {
@@ -355,15 +355,12 @@ class Negotiator
             log.info("Received SSH_MSG_NEWKEYS");
             gotNewKeys();
             state = State.KEX_DONE;
-            if (transport.writeLock.isHeldByCurrentThread()) // is held for re-exchange, se below
-                transport.writeLock.unlock();
             break;
         case KEX_DONE:
             if (cmd != Message.KEXINIT)
                 throw new IllegalStateException("Asked to handle " + cmd
                         + ", was expecting SSH_MSG_KEXINIT for key re-exchange");
             log.info("Received SSH_MSG_KEXINIT, initiating re-exchange");
-            transport.writeLock.lock(); // prevent other packets being sent while re-ex is ongoing
             sendKexInit();
             gotKexInit(buffer);
             state = State.EXPECT_FOLLOWUP;

@@ -34,6 +34,7 @@ import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.userauth.AuthMethod.Result;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.LQString;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
 /**
@@ -189,6 +190,8 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     // Documented in interface
     public void handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
+        if (cmd.toInt() < 50 || cmd.toInt() > 79)
+            throw new TransportException(DisconnectReason.PROTOCOL_ERROR);
         /*
          * Here we are being asked to handle a packet that is meant for the ssh-userauth service.
          * 

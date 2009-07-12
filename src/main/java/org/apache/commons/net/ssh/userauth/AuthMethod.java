@@ -37,7 +37,7 @@ public interface AuthMethod
 {
     
     /**
-     * The result of this method
+     * The intermediate or final result of this method
      */
     enum Result
     {

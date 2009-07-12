@@ -41,7 +41,6 @@ import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.IOUtils;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
@@ -98,16 +97,13 @@ public class Transport implements Session
      * {@link HostKeyVerifier#verify(InetAddress, PublicKey)} is invoked by
      * {@link #verifyHost(PublicKey)} when we are ready to verify the the server's host key.
      */
-    private final Queue<HostKeyVerifier> hkvs = new LinkedList<HostKeyVerifier>();
+    private final Queue<HostKeyVerifier> hostVerifiers = new LinkedList<HostKeyVerifier>();
     
     /** For key (re)exchange */
-    private final Negotiator neg;
+    private final Negotiator negotiator;
     
     /** Message identifier for last packet received */
     private Message cmd;
-    
-    /** True value tells inPump and outPump to stop */
-    private volatile boolean stopPumping;
     
     /**
      * Outgoing data is put here. Since it is a SynchronousQueue, until {@link #outPump} is
@@ -123,20 +119,20 @@ public class Transport implements Session
     private final Thread inPump = new Thread()
         {
             {
-                setDaemon(true);
                 setName("inPump");
+                //setDaemon(true);
             }
             
             @Override
             public void run()
             {
-                while (!stopPumping)
-                    try {
-                        bin.munch((byte) input.read());
-                    } catch (Exception e) {
-                        if (!stopPumping)
-                            die(SSHException.chain(e));
-                    }
+                try {
+                    while (!Thread.currentThread().isInterrupted())
+                        ed.munch((byte) input.read());
+                } catch (Exception e) {
+                    if (!Thread.currentThread().isInterrupted())
+                        die(e);
+                }
                 log.debug("Stopping");
             }
         };
@@ -144,36 +140,35 @@ public class Transport implements Session
     /**
      * This thread waits for {@link #outQ} to offer some byte[] and sends the deliciousness over the
      * output stream for this session.
-     * <p>
-     * Runs so long as it's not told to {@link #stopPumping} or an Exception is caught. In the
-     * latter case, it calls {@link #setError(Exception)}
      */
     private final Thread outPump = new Thread()
         {
             {
-                setDaemon(true);
                 setName("outPump");
+                //setDaemon(true);
             }
             
             @Override
             public void run()
             {
-                while (!stopPumping)
-                    try {
-                        output.write(outQ.take());
-                    } catch (Exception e) {
-                        if (!stopPumping)
-                            die(e);
-                    }
+                try {
+                    for (byte[] data = null; !Thread.currentThread().isInterrupted(); data =
+                            outQ.poll(100, TimeUnit.MILLISECONDS))
+                        if (data != null)
+                            output.write(data);
+                } catch (Exception e) {
+                    if (!Thread.currentThread().isInterrupted())
+                        die(e);
+                }
                 log.debug("Stopping");
             }
         };
     
     /** Lock supporting correct encoding and queuing of packets */
-    final ReentrantLock writeLock = new ReentrantLock();
+    private final ReentrantLock writeLock = new ReentrantLock();
     
     /** For encoding and decoding SSH packets */
-    final EncDec bin;
+    final EncDec ed;
     
     /** Psuedo-random number generator as retrieved from the factory manager */
     final Random prng;
@@ -196,14 +191,14 @@ public class Transport implements Session
         assert factoryManager != null;
         fm = factoryManager;
         prng = factoryManager.getRandomFactory().create();
-        bin = new EncDec(this);
-        neg = new Negotiator(this);
+        ed = new EncDec(this);
+        negotiator = new Negotiator(this);
     }
     
     // Documented in interface
     public synchronized void addHostKeyVerifier(HostKeyVerifier hkv)
     {
-        hkvs.add(hkv);
+        hostVerifiers.add(hkv);
     }
     
     // Documented in interface
@@ -221,6 +216,8 @@ public class Transport implements Session
     // Documented in interface
     public boolean disconnect(DisconnectReason reason, String msg)
     {
+        if (msg == null)
+            msg = "";
         log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
         try {
             writePacket(new Buffer(Message.DISCONNECT) //
@@ -251,13 +248,13 @@ public class Transport implements Session
     // Documented in interface
     public byte[] getID()
     {
-        return neg.sessionID;
+        return negotiator.sessionID;
     }
     
     // Documented in interface
     public long getLastSeqNum()
     {
-        return bin.seqi - 1;
+        return ed.seqi - 1;
     }
     
     // Documented in interface
@@ -295,7 +292,7 @@ public class Transport implements Session
             outPump.start();
             inPump.start();
             
-            neg.init();
+            negotiator.init();
             waitFor(State.KEX_DONE);
         } catch (IOException e) {
             throw TransportException.chain(e);
@@ -341,10 +338,10 @@ public class Transport implements Session
     // Documented in interface
     public void setService(Service service)
     {
-        synchronized (serviceLock) {
-            log.info("Setting active service to {}", service.getName());
-            this.service = service;
-        }
+        if (state != State.SERVICE)
+            throw new IllegalStateException();
+        log.info("Setting active service to {}", service.getName());
+        this.service = service;
     }
     
     // Documented in interface
@@ -359,7 +356,7 @@ public class Transport implements Session
          */
         writeLock.lock();
         try {
-            long seq = bin.encode(payload);
+            long seq = ed.encode(payload);
             byte[] data = payload.getCompactData();
             try {
                 while (!outQ.offer(data, 1L, TimeUnit.SECONDS))
@@ -376,15 +373,19 @@ public class Transport implements Session
     
     private synchronized void die()
     {
-        // Stop inPump and outPump
-        stopPumping = true;
-        IOUtils.closeQuietly(input, output);
+        (Thread.currentThread() == inPump ? outPump : inPump).interrupt();
+        try {
+            socket.close(); // Shock a thread into waking up if blocked on I/O
+        } catch (IOException ignored) {
+            log.debug("ignored - {}", ignored.toString());
+        }
         // Wakeup any thread that was waiting for state change
         setState(State.DEAD);
     }
     
     private synchronized void die(Exception ex)
     {
+        
         if (causeOfDeath == null) {
             
             log.error("Dying because - {}", ex.toString());
@@ -402,17 +403,19 @@ public class Transport implements Session
                 }
             }
             
-            if (causeOfDeath.getDisconnectReason() != DisconnectReason.UNKNOWN && cmd != Message.DISCONNECT)
-                /*
-                 * Send SSH_MSG_DISCONNECT if we have the required info in the exception, and the
-                 * exception does not arise from receiving a SSH_MSG_DISCONNECT ourself!
-                 */
+            if (Thread.currentThread() != outPump && causeOfDeath.getDisconnectReason() != DisconnectReason.UNKNOWN
+                    && cmd != Message.DISCONNECT)
+                // Send SSH_MSG_DISCONNECT if - 
+                // a) outPump can send (currentThread != outPump)
+                // b) have the required info in the exception (disconnectReadon != unknown)
+                // c) exception does not arise from receiving a SSH_MSG_DISCONNECT ourself (cmd != disconnect)
                 disconnect(causeOfDeath.getDisconnectReason(), causeOfDeath.getMessage());
             else
+                // simply terminate
                 die();
             
         } else
-            log.debug("die() - got called more than once - {}", ex.toString());
+            log.debug("die() - got called more than once -- {}", ex.toString());
     }
     
     /**
@@ -600,23 +603,25 @@ public class Transport implements Session
             switch (state)
             {
             case KEX:
-                if (neg.handle(cmd, packet))
-                    // key exchange completed
-                    // if service != null => re-exchange completed
-                    setState(getService() == null ? State.KEX_DONE : State.SERVICE);
+                if (negotiator.handle(cmd, packet))
+                    if (getService() == null) // initial kex done
+                        setState(State.KEX_DONE);
+                    else { // re-exchange done
+                        writeLock.unlock();
+                        setState(State.SERVICE);
+                    }
                 break;
             case SERVICE_REQ:
                 if (cmd != Message.SERVICE_ACCEPT)
-                    throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
-                                                 "Protocol error: expected packet SSH_MSG_SERVICE_ACCEPT, got " + cmd);
+                    throw new TransportException(DisconnectReason.PROTOCOL_ERROR, "Expected SSH_MSG_SERVICE_ACCEPT");
                 setState(State.SERVICE);
                 break;
             case SERVICE:
-                if (cmd == Message.KEXINIT) {
-                    // re-exchange
+                if (cmd == Message.KEXINIT) { // re-exchange
                     setState(State.KEX);
-                    neg.init();
-                    neg.handle(cmd, packet);
+                    writeLock.lock(); // prevent other packets being sent while re-ex is ongoing
+                    negotiator.init();
+                    negotiator.handle(cmd, packet);
                 } else
                     synchronized (serviceLock) {
                         if (service != null)
@@ -624,7 +629,7 @@ public class Transport implements Session
                     }
                 break;
             case KEX_DONE:
-                log.info("Hmm? Unknown packet received while in KEX_DONE");
+                log.warn("Unknown packet received while in KEX_DONE");
                 break;
             default:
                 assert false;
@@ -635,7 +640,7 @@ public class Transport implements Session
     
     /**
      * Tries to validate host key with all the host key verifiers known to this instance (
-     * {@link #hkvs})
+     * {@link #hostVerifiers})
      * 
      * @param key
      *            the host key to verify
@@ -643,8 +648,8 @@ public class Transport implements Session
      */
     boolean verifyHost(PublicKey key)
     {
-        HostKeyVerifier hkv;
-        while ((hkv = hkvs.poll()) != null) {
+        while (!hostVerifiers.isEmpty()) {
+            HostKeyVerifier hkv = hostVerifiers.remove();
             log.debug("Verifiying host key with [{}]", hkv);
             if (hkv.verify(socket.getInetAddress(), key))
                 return true;
