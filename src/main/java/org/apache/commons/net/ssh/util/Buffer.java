@@ -177,7 +177,7 @@ public final class Buffer
      */
     public byte[] getBytes()
     {
-        int len = getInt();
+        int len = (int) getInt();
         if (len < 0 || len > 32768)
             throw new IllegalStateException("Bad item length: " + len);
         byte[] b = new byte[len];
@@ -210,21 +210,12 @@ public final class Buffer
             return new byte[0];
     }
     
-    public int getInt()
-    {
-        ensureAvailable(4);
-        int i =
-                data[rpos++] << 24 & 0xff000000 | data[rpos++] << 16 & 0x00ff0000 | data[rpos++] << 8 & 0x0000ff00
-                        | data[rpos++] & 0x000000ff;
-        return i;
-    }
-    
-    public long getLong()
+    public long getInt()
     {
         ensureAvailable(4);
         long i =
-                data[rpos++] << 24 & 0xff000000 | data[rpos++] << 16 & 0x00ff0000 | data[rpos++] << 8 & 0x0000ff00
-                        | data[rpos++] & 0x000000ff;
+                data[rpos++] << 24 & 0xff000000L | data[rpos++] << 16 & 0x00ff0000L | data[rpos++] << 8 & 0x0000ff00L
+                        | data[rpos++] & 0x000000ffL;
         return i;
     }
     
@@ -311,7 +302,7 @@ public final class Buffer
      */
     public String getString()
     {
-        int len = getInt();
+        int len = (int) getInt();
         if (len < 0 || len > 32768)
             throw new IllegalStateException("Bad item length: " + len);
         ensureAvailable(len);
@@ -431,22 +422,6 @@ public final class Buffer
     
     /**
      * Writes an integer
-     * 
-     * @param i
-     * @return this
-     */
-    public Buffer putInt(int i)
-    {
-        ensureCapacity(4);
-        data[wpos++] = (byte) (i >> 24);
-        data[wpos++] = (byte) (i >> 16);
-        data[wpos++] = (byte) (i >> 8);
-        data[wpos++] = (byte) i;
-        return this;
-    }
-    
-    /**
-     * Writes a Java long as an SSH uint32
      * 
      * @param i
      * @return this
