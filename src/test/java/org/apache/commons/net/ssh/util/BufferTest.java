@@ -20,7 +20,7 @@ import org.junit.Test;
 public class BufferTest
 {
     private Buffer posBuf;
-    private Buffer buf;
+    private Buffer handyBuf;
     
     @Before()
     public void setUp() throws UnsupportedEncodingException, GeneralSecurityException
@@ -28,36 +28,37 @@ public class BufferTest
         // for position test
         byte[] data = "Hello".getBytes("UTF-8");
         posBuf = new Buffer(data);
+        handyBuf = new Buffer();
     }
     
     @Test
     public void testCommand()
     {
         // message identifier
-        assertEquals(buf.putCommand(Message.IGNORE).getCommand(), Message.IGNORE);
+        assertEquals(handyBuf.putCommand(Message.IGNORE).getCommand(), Message.IGNORE);
     }
     
     @Test
     public void testDataTypes()
     {
         // bool
-        assertEquals(buf.putBoolean(true).getBoolean(), true);
+        assertEquals(handyBuf.putBoolean(true).getBoolean(), true);
         
         // byte
-        assertEquals(buf.putByte((byte) 10).getByte(), (byte) 10);
+        assertEquals(handyBuf.putByte((byte) 10).getByte(), (byte) 10);
         
         // byte array
-        assertArrayEquals(buf.putBytes("some string".getBytes()).getBytes(), "some string".getBytes());
+        assertArrayEquals(handyBuf.putBytes("some string".getBytes()).getBytes(), "some string".getBytes());
         
         // mpint
         BigInteger bi = new BigInteger("1111111111111111111111111111111");
-        assertEquals(buf.putMPInt(bi).getMPInt(), bi);
+        assertEquals(handyBuf.putMPInt(bi).getMPInt(), bi);
         
         // string
-        assertEquals(buf.putString("some string").getString(), "some string");
+        assertEquals(handyBuf.putString("some string").getString(), "some string");
         
         // uint32
-        assertEquals(buf.putUInt(0xffffffffL).getUInt(), 0xffffffffL);
+        assertEquals(handyBuf.putInt(0xffffffffL).getInt(), 0xffffffffL);
     }
     
     @Test
