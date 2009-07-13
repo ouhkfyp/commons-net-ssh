@@ -107,10 +107,10 @@ public class SSHClient extends SocketClient
      * <li><b>Cipher</b>: aes128-cbc, aes192-cbc, aes256-cbs, blowfish-cbc, 3des-cbc</li>
      * <li><b>MAC</b>: hmac-sha1, hmac-sha1-96, hmac-md5, hmac-md5-96</li>
      * </ul>
-     * 
+     * <p>
      * In addition, {@link FileKeyProvider}'s for PKCS and OpenSSH encoded key files are available
      * only in the presence of BouncyCastle.
-     * 
+     * <p>
      * The BouncyCastle Psuedo-Random Number Generator (PRNG) is set if present, otherwise the JCE
      * PRNG.
      * 

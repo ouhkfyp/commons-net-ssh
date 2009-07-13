@@ -111,11 +111,12 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             }
             
             resLock.lock();
-            enterInterruptibleContext();
             try {
+                enterInterruptibleContext();
                 // wait until we have the result of this method
                 for (res = Result.CONTINUED; res == Result.CONTINUED; resCond.await())
                     ;
+                leaveInterruptibleContext();
             } catch (InterruptedException ie) {
                 log.debug("Got interrupted");
                 if (exception != null) // were interrupted by AbstractService#notifyError
@@ -127,7 +128,6 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                     throw new UserAuthException(ie);
             } finally {
                 resLock.unlock();
-                leaveInterruptibleContext();
             }
             
             switch (res)

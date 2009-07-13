@@ -213,9 +213,10 @@ public final class Buffer
     public long getInt()
     {
         ensureAvailable(4);
-        long i =
-                data[rpos++] << 24 & 0xff000000L | data[rpos++] << 16 & 0x00ff0000L | data[rpos++] << 8 & 0x0000ff00L
-                        | data[rpos++] & 0x000000ffL;
+        long i = data[rpos++] << 24 & 0xff000000L // 
+                | data[rpos++] << 16 & 0x00ff0000L //
+                | data[rpos++] << 8 & 0x0000ff00L //
+                | data[rpos++] & 0x000000ffL;
         return i;
     }
     
@@ -423,16 +424,18 @@ public final class Buffer
     /**
      * Writes an integer
      * 
-     * @param i
+     * @param uint32
      * @return this
      */
-    public Buffer putInt(long i)
+    public Buffer putInt(long uint32)
     {
         ensureCapacity(4);
-        data[wpos++] = (byte) (i >> 24);
-        data[wpos++] = (byte) (i >> 16);
-        data[wpos++] = (byte) (i >> 8);
-        data[wpos++] = (byte) i;
+        if (uint32 < 0 || uint32 > 0xffffffffL)
+            throw new BufferException("Invalid value: " + uint32);
+        data[wpos++] = (byte) (uint32 >> 24);
+        data[wpos++] = (byte) (uint32 >> 16);
+        data[wpos++] = (byte) (uint32 >> 8);
+        data[wpos++] = (byte) uint32;
         return this;
     }
     

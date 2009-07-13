@@ -200,7 +200,7 @@ public class KnownHosts implements HostKeyVerifier
                     log.info("Matched against [{}]", match);
                     return true;
                 } else {
-                    log.warn("Host key for {} has changed! ", match);
+                    log.warn("Host key for {} has changed!", match);
                     return false;
                 }
         }

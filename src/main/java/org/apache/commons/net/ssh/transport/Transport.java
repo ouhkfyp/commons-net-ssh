@@ -290,8 +290,8 @@ public class Transport implements Session
             
             setState(State.KEX);
             
-            outPump.start();
             inPump.start();
+            outPump.start();
             
             negotiator.init();
             waitFor(State.KEX_DONE);
@@ -303,8 +303,11 @@ public class Transport implements Session
     // Documented in interface
     public boolean isRunning()
     {
-        synchronized (stateLock) {
+        stateLock.lock();
+        try {
             return state != null && state != State.DEAD;
+        } finally {
+            stateLock.unlock();
         }
     }
     
