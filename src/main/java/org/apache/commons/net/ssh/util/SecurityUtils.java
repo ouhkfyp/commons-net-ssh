@@ -100,6 +100,7 @@ public class SecurityUtils
     {
         BufferedReader br = new BufferedReader(new FileReader(location));
         String firstLine = br.readLine();
+        IOUtils.closeQuietly(br);
         if (firstLine == null)
             throw new IOException("Empty file");
         if (firstLine.startsWith("-----BEGIN") && firstLine.endsWith("PRIVATE KEY-----"))
