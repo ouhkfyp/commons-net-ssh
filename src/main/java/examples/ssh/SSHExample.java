@@ -1,6 +1,7 @@
 package examples.ssh;
 
 import org.apache.commons.net.ssh.SSHClient;
+import org.apache.commons.net.ssh.keyprovider.KeyProvider;
 import org.apache.log4j.BasicConfigurator;
 
 public class SSHExample
@@ -12,22 +13,22 @@ public class SSHExample
     
     public static void main(String[] args) throws Exception
     {
-        SSHClient client = new SSHClient();
-        client.initUserKnownHosts();
         
+        SSHClient client = new SSHClient();
+        
+        client.initUserKnownHosts();
+        //client.addHostKeyVerifier("c1:32:d6:5d:28:ed:c5:2c:8a:96:47:d8:dc:56:e3:80");
         client.connect("localhost");
         
-        client.authPassword("bobo", "abcdef");
-        
-        //        // PUBLICKEY AUTH
-        //        KeyProvider fkp = client.loadKeyFile("/home/shikhar/.ssh/clamv");
-        //        client.getAuthBuilder().authPublickey(fkp).build().authenticate();
-        
-        //        // HOSTBASED AUTH
-        //        KeyProvider fkp = client.loadKeyFile("/home/shikhar/ssh_host_rsa_key");
-        //        client.getAuthBuilder().authHostbased("bobo", "localhost.localdomain", fkp).build().authenticate();
-        
-        client.disconnect();
+        try {
+            // PASSWORD AUTH
+            // client.authPassword("bobo", "abcdef");
+            // PUBLICKEY AUTH
+            KeyProvider fkp = client.loadKeyFile("/home/shikhar/.ssh/id_rsa");
+            client.authPublickey("shikhar", fkp);
+        } finally {
+            client.disconnect();
+        }
         
     }
 }
