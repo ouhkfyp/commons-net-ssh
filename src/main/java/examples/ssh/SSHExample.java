@@ -18,17 +18,19 @@ public class SSHExample
         
         client.initUserKnownHosts();
         //client.addHostKeyVerifier("c1:32:d6:5d:28:ed:c5:2c:8a:96:47:d8:dc:56:e3:80");
-        client.connect("localhost");
         
+        client.connect("localhost");
         try {
-            // PASSWORD AUTH
+            
             // client.authPassword("bobo", "abcdef");
-            // PUBLICKEY AUTH
+            
             KeyProvider fkp = client.loadKeyFile("/home/shikhar/.ssh/id_rsa");
             client.authPublickey("shikhar", fkp);
+            
         } finally {
             client.disconnect();
         }
         
     }
+    
 }
