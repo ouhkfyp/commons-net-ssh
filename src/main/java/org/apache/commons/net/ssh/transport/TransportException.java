@@ -1,17 +1,22 @@
-package org.apache.commons.net.ssh;
+package org.apache.commons.net.ssh.transport;
 
+import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.util.FriendlyChainer;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 
 public class TransportException extends SSHException
 {
     
-    public static TransportException chain(Exception e)
-    {
-        if (e instanceof TransportException)
-            return (TransportException) e;
-        else
-            return new TransportException(e);
-    }
+    public static final FriendlyChainer<TransportException> chainer = new FriendlyChainer<TransportException>()
+        {
+            public TransportException chain(Throwable t)
+            {
+                if (t instanceof TransportException)
+                    return (TransportException) t;
+                else
+                    return new TransportException(t);
+            }
+        };
     
     public TransportException()
     {
@@ -51,6 +56,14 @@ public class TransportException extends SSHException
     public TransportException(Throwable cause)
     {
         super(cause);
+    }
+    
+    public TransportException chain(Throwable t)
+    {
+        if (t instanceof TransportException)
+            return (TransportException) t;
+        else
+            return new TransportException(t);
     }
     
 }

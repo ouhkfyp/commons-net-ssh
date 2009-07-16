@@ -20,9 +20,9 @@ package org.apache.commons.net.ssh.userauth;
 
 import org.apache.commons.net.ssh.PasswordFinder;
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.Session;
-import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.PasswordFinder.Resource;
+import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
@@ -34,9 +34,9 @@ public class AuthPassword extends AbstractAuthMethod
     private final PasswordFinder pwdf;
     private final Resource resource;
     
-    public AuthPassword(Session session, Service nextService, String username, PasswordFinder pwdf)
+    public AuthPassword(Transport trans, Service nextService, String username, PasswordFinder pwdf)
     {
-        super(session, nextService, username);
+        super(trans, nextService, username);
         assert pwdf != null;
         this.pwdf = pwdf;
         resource = new Resource(Resource.Type.ACCOUNT, username);

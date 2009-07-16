@@ -21,7 +21,6 @@ package org.apache.commons.net.ssh.transport;
 import java.io.IOException;
 
 import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
 import org.apache.commons.net.ssh.mac.MAC;
@@ -37,27 +36,29 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-class EncDec
+class PacketConverter
 {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final Transport transport;
+    private final TransportProtocol transport;
     
-    //
-    // SSH packets encoding / decoding support
-    //
+    // Client -> Server
     private Cipher outCipher;
-    private Cipher inCipher;
-    private int outCipherSize = 8;
-    private int inCipherSize = 8;
+    private int outCipherSize;
     private MAC outMAC;
-    private MAC inMAC;
-    private byte[] inMACResult;
     private Compression outCompression;
+    long seqo;
+    
+    // Server -> Client
+    private Cipher inCipher;
+    private int inCipherSize;
+    private MAC inMAC;
     private Compression inCompression;
-    long seqi; // server -> client seq. no.
-    long seqo; // client -> server seq. no.
-    private final Buffer decoderBuffer = new Buffer(); // buffer where as-yet undecoded data lives
+    private byte[] inMACResult;
+    long seqi;
+    
+    /** Buffer where as-yet undecoded data lives */
+    private final Buffer decoderBuffer = new Buffer();
     private Buffer uncompressBuffer;
     private int decoderState;
     private int decoderLength;
@@ -66,16 +67,17 @@ class EncDec
      * How many bytes do we need, before a call to decode() can succeed at decoding at least packet
      * length, OR the whole packet?
      */
-    private int needed = inCipherSize;
+    private int needed;
     
-    EncDec(Transport transport)
+    PacketConverter(TransportProtocol transport)
     {
         this.transport = transport;
+        needed = inCipherSize = outCipherSize = 8;
     }
     
     /**
      * Decodes incoming buffer; when a packet has been decoded hooks in to
-     * {@link Transport#handle(Buffer)}.
+     * {@link TransportProtocol#handle(Buffer)}.
      * <p>
      * Returns advised number of bytes that should be made available in decoderBuffer before the
      * method should be called again.
@@ -99,7 +101,7 @@ class EncDec
                     if (inCipher != null)
                         inCipher.update(decoderBuffer.array(), 0, inCipherSize);
                     // Read packet length
-                    decoderLength = (int) decoderBuffer.getInt();
+                    decoderLength = decoderBuffer.getInt();
                     // Check packet length validity
                     if (decoderLength < 5 || decoderLength > 256 * 1024) {
                         log.info("Error decoding packet (invalid length) {}", decoderBuffer.printHex());
@@ -157,9 +159,9 @@ class EncDec
                     if (log.isTraceEnabled())
                         log.trace("Received packet #{}: {}", seqi, buf.printHex());
                     
-                    // ----------------------------------------------------- //
-                    transport.handle(buf); /* process the decoded packet */
-                    // ----------------------------------------------------- //
+                    // ------------------------------------------------- //
+                    transport.handle(buf); // process the decoded packet //
+                    // ------------------------------------------------- //
                     
                     // Set ready to handle next packet
                     decoderBuffer.rpos(decoderLength + 4 + macSize);
@@ -167,7 +169,7 @@ class EncDec
                     decoderBuffer.compact();
                     decoderState = 0;
                 } else
-                    // need more datas
+                    // need more data
                     break;
             }
         return need;
@@ -253,9 +255,9 @@ class EncDec
      * Call this method for every byte received.
      * <p>
      * When enough data has been received to decode a complete packet,
-     * {@link Transport#handle(Buffer)} will be called.
+     * {@link TransportProtocol#handle(Buffer)} will be called.
      */
-    void munch(byte b) throws IOException
+    void received(byte b) throws IOException
     {
         decoderBuffer.putByte(b);
         if (needed == 1)

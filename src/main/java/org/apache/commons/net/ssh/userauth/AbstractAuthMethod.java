@@ -19,8 +19,8 @@
 package org.apache.commons.net.ssh.userauth;
 
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.Session;
-import org.apache.commons.net.ssh.TransportException;
+import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
@@ -37,7 +37,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
     /** Transport layer */
-    protected final Session session;
+    protected final Transport trans;
     
     /** The next service we want to start on successful authentication */
     protected final Service nextService;
@@ -51,17 +51,17 @@ public abstract class AbstractAuthMethod implements AuthMethod
     /**
      * Constructor
      * 
-     * @param session
+     * @param trans
      *            transport layer
      * @param nextService
      *            service to start on successful authentication
      * @param username
      *            username for this authentication attempt
      */
-    protected AbstractAuthMethod(Session session, Service nextService, String username)
+    protected AbstractAuthMethod(Transport trans, Service nextService, String username)
     {
-        assert session != null && nextService != null && username != null;
-        this.session = session;
+        assert trans != null && nextService != null && username != null;
+        this.trans = trans;
         this.nextService = nextService;
         this.username = username;
     }
@@ -102,14 +102,14 @@ public abstract class AbstractAuthMethod implements AuthMethod
     
     /**
      * Simply constructs a request packet with {@link #buildReq()} and writes it to the
-     * {@link #session}.
+     * {@link #trans}.
      * <p>
      * Subclasses should thus either override this method or {@link #buildReq()}.
      */
     public void request() throws UserAuthException, TransportException
     {
         log.debug("Sending SSH_MSG_USERAUTH_REQUEST for {}", username);
-        session.writePacket(buildReq());
+        trans.writePacket(buildReq());
     }
     
     /**

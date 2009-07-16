@@ -18,7 +18,7 @@
  */
 package org.apache.commons.net.ssh.compression;
 
-import org.apache.commons.net.ssh.TransportException;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**

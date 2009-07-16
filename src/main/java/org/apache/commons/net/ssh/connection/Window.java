@@ -1,0 +1,123 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.commons.net.ssh.connection;
+
+import java.io.IOException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * A Window for a given channel. Windows are used to not overflow the client when sending datas.
+ * There is a local and remote window and no more data can be sent until the window has been
+ * expanded.
+ * 
+ * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ */
+public class Window
+{
+    
+    private final static Logger log = LoggerFactory.getLogger(Window.class);
+    
+    private final AbstractChannel channel;
+    private final String name;
+    
+    private int size;
+    private int maxSize;
+    private int packetSize;
+    private boolean waiting;
+    
+    public Window(AbstractChannel channel, boolean local)
+    {
+        this.channel = channel;
+        this.name = "client " + (local ? "local " : "remote") + " window";
+    }
+    
+    public void check(int maxFree) throws IOException
+    {
+        int threshold = Math.min(packetSize * 8, maxSize / 4);
+        synchronized (this) {
+            if (maxFree - size > packetSize && (maxFree - size > threshold || size < threshold)) {
+                if (log.isDebugEnabled())
+                    log.debug("Increase " + name + " by " + (maxFree - size) + " up to " + maxFree);
+                channel.sendWindowAdjust(maxFree - size);
+                size = maxFree;
+            }
+        }
+    }
+    
+    public synchronized void consume(int len)
+    {
+        //assert size > len;
+        size -= len;
+        if (log.isTraceEnabled())
+            log.trace("Consume " + name + " by " + len + " down to " + size);
+    }
+    
+    public synchronized void consumeAndCheck(int len) throws IOException
+    {
+        consume(len);
+        check(maxSize);
+    }
+    
+    public synchronized void expand(int window)
+    {
+        size += window;
+        if (log.isDebugEnabled())
+            log.debug("Increase " + name + " by " + window + " up to " + size);
+        notifyAll();
+    }
+    
+    public int getMaxSize()
+    {
+        return maxSize;
+    }
+    
+    public int getPacketSize()
+    {
+        return packetSize;
+    }
+    
+    public int getSize()
+    {
+        return size;
+    }
+    
+    public void init(int size, int packetSize)
+    {
+        this.size = size;
+        this.maxSize = size;
+        this.packetSize = packetSize;
+    }
+    
+    public synchronized void waitAndConsume(int len) throws InterruptedException
+    {
+        while (size < len) {
+            log.debug("Waiting for {} bytes on {}", len, name);
+            waiting = true;
+            wait();
+        }
+        if (waiting) {
+            log.debug("Space available for {}", name);
+            waiting = false;
+        }
+        consume(len);
+    }
+    
+}

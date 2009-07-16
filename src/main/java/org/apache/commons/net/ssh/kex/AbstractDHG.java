@@ -21,11 +21,11 @@ package org.apache.commons.net.ssh.kex;
 import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.NamedFactory;
-import org.apache.commons.net.ssh.Session;
-import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.digest.Digest;
 import org.apache.commons.net.ssh.digest.SHA1;
 import org.apache.commons.net.ssh.signature.Signature;
+import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.util.Constants.KeyType;
@@ -45,7 +45,7 @@ public abstract class AbstractDHG implements KeyExchange
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
-    private Session session;
+    private Transport trans;
     private byte[] V_S;
     private byte[] V_C;
     private byte[] I_S;
@@ -78,9 +78,9 @@ public abstract class AbstractDHG implements KeyExchange
         return K;
     }
     
-    public void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws TransportException
+    public void init(Transport trans, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws TransportException
     {
-        this.session = session;
+        this.trans = trans;
         this.V_S = V_S;
         this.V_C = V_C;
         this.I_S = I_S;
@@ -92,7 +92,7 @@ public abstract class AbstractDHG implements KeyExchange
         e = dh.getE();
         
         log.info("Sending SSH_MSG_KEXDH_INIT");
-        session.writePacket(new Buffer(Message.KEXDH_INIT).putMPInt(e));
+        trans.writePacket(new Buffer(Message.KEXDH_INIT).putMPInt(e));
     }
     
     public boolean next(Buffer buffer) throws TransportException
@@ -123,7 +123,7 @@ public abstract class AbstractDHG implements KeyExchange
         sha.update(buffer.array(), 0, buffer.available());
         H = sha.digest();
         
-        Signature verif = NamedFactory.Utils.create(session.getFactoryManager().getSignatureFactories(), // 
+        Signature verif = NamedFactory.Utils.create(trans.getFactoryManager().getSignatureFactories(), // 
                                                     KeyType.fromKey(hostKey).toString());
         verif.init(hostKey, null);
         verif.update(H, 0, H.length);

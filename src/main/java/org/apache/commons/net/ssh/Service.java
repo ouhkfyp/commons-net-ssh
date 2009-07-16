@@ -40,13 +40,6 @@ public interface Service
     String getName();
     
     /**
-     * Returns the associated {@link Session} instance.
-     * 
-     * @return the session
-     */
-    Session getSession();
-    
-    /**
      * Asks this service to handle a particular packet.
      * <p>
      * Meant to be invoked as a callback by the transport layer so it can deliver packets meant for

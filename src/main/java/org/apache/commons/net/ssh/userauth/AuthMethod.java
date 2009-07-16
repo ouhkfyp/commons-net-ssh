@@ -21,7 +21,7 @@ package org.apache.commons.net.ssh.userauth;
 import java.io.IOException;
 
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.TransportException;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
