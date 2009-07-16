@@ -221,7 +221,7 @@ public class TransportProtocol implements Transport
                                                       .putString("")); // lang tag
             return true;
         } catch (TransportException e) {
-            log.error("disconnect() - {}", e.toString());
+            log.error("unclean disconnect() - {}", e.toString());
             return false;
         } finally {
             stopPumping();

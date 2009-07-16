@@ -27,6 +27,7 @@ import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
 public class ConnectionProtocol extends AbstractService implements ConnectionService
@@ -103,7 +104,8 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         if (channel == null) {
             buffer.rpos(buffer.rpos() - 5);
             Constants.Message cmd = buffer.getCommand();
-            throw new ConnectionException("Received " + cmd + " on unknown channel " + recipient);
+            throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR, "Received " + cmd + " on unknown channel "
+                    + recipient);
         }
         return channel;
     }
