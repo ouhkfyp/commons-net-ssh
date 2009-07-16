@@ -60,6 +60,8 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     private Thread currentThread;
     private SSHException exception;
     
+    private boolean partialSuccess;
+    
     /**
      * Constructor that allows specifying an arbitary number of {@link AuthMethod}'s that will be
      * tried in order.
@@ -89,11 +91,8 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     }
     
     // @return true = authenticated, false = only partially, more auth needed!
-    public boolean authenticate() throws UserAuthException, TransportException
+    public void authenticate() throws UserAuthException, TransportException
     {
-        
-        boolean partialSuccess = false;
-        
         request(); // service request
         
         while (methods.hasNext()) {
@@ -136,12 +135,12 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             switch (res)
             {
             case SUCCESS:
-                // exit point for fully successful auth
-                return true;
+                return; // Exit point for successful auth
             case PARTIAL_SUCCESS:
                 partialSuccess = true;
                 continue;
             case FAILURE:
+                savedEx.push(new UserAuthException(method.getName() + " authentication failed"));
                 continue;
             default:
                 assert false;
@@ -149,22 +148,8 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             
         }
         
-        if (partialSuccess)
-            // only partially authenticated, more auth needed
-            return false;
-        
-        else if (!savedEx.isEmpty()) {
-            /*
-             * It would be informative to throw the last exception thrown by an auth method
-             * (especially when precisely one method had to be tried)
-             */
-            log.debug("Had {} saved exceptions", savedEx.size());
-            throw UserAuthException.chain(savedEx.peek());
-        }
-
-        else
-            throw new UserAuthException("Exhausted available authentication methods");
-        
+        log.debug("Had {} saved exception(s)", savedEx.size());
+        throw new UserAuthException("Exhausted availalbe authentication methods", savedEx.peek());
     }
     
     // Documented in interface
@@ -188,6 +173,11 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     public Deque<UserAuthException> getSavedExceptions()
     {
         return savedEx;
+    }
+    
+    public boolean hadPartialSuccess()
+    {
+        return partialSuccess;
     }
     
     // Documented in interface

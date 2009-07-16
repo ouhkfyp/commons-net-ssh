@@ -18,6 +18,8 @@
  */
 package org.apache.commons.net.ssh.util;
 
+// TODO: the language tags are always empty? + we don't negotiate langs + maybe simply use a String and scrap this language qualified business? 
+
 /**
  * This class represents a "language-qualified" user-visible string in the SSH protocol; which are
  * qualified with an RFC 3066 language tag.

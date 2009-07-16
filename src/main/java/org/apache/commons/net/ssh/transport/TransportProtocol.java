@@ -328,7 +328,7 @@ public class TransportProtocol implements Transport
     }
     
     // Documented in interface
-    public void setService(Service service)
+    public synchronized void setService(Service service)
     {
         if (sm.notIn(State.SERVICE))
             throw new IllegalStateException();
@@ -362,21 +362,18 @@ public class TransportProtocol implements Transport
         }
     }
     
-    private synchronized void die(Exception ex)
+    private synchronized void die(IOException ex)
     {
         log.error("Dying because - {}", ex.toString());
-        SSHException causeOfDeath;
-        if (ex instanceof SSHException)
-            causeOfDeath = (SSHException) ex;
-        else
-            causeOfDeath = new SSHException(ex);
+        SSHException causeOfDeath = SSHException.chainer.chain(ex);
         
         // Takes care of notifying service
         if (service != null) {
+            log.debug("Notifying {}", service);
             try {
                 service.notifyError(causeOfDeath);
             } catch (Exception ignored) {
-                log.debug("service spewed - {}", ignored.toString());
+                log.debug("Service spewed - {}", ignored.toString());
             }
             service = null;
         }
@@ -389,7 +386,7 @@ public class TransportProtocol implements Transport
             // c) exception does not arise from receiving a SSH_MSG_DISCONNECT ourself (cmd != disconnect)
             disconnect(causeOfDeath.getDisconnectReason(), causeOfDeath.getMessage());
         else
-            // simply stop both pumps
+            // stop both pumps without sending disconnect message
             stopPumping();
         
         // Throw the exception in any thread waiting for state change
