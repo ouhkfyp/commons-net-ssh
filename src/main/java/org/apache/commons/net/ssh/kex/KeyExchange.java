@@ -20,9 +20,9 @@ package org.apache.commons.net.ssh.kex;
 
 import java.security.PublicKey;
 
-import org.apache.commons.net.ssh.Session;
-import org.apache.commons.net.ssh.TransportException;
 import org.apache.commons.net.ssh.digest.Digest;
+import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -59,8 +59,8 @@ public interface KeyExchange
     /**
      * Initialize the key exchange algorithm.
      * 
-     * @param session
-     *            the session using this algorithm
+     * @param trans
+     *            the transport layer that is using this alg.
      * @param V_S
      *            the server identification string
      * @param V_C
@@ -72,8 +72,7 @@ public interface KeyExchange
      * @throws TransportException
      *             if an error occurs
      */
-    void init(Session session, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C)
-            throws TransportException;
+    void init(Transport trans, byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws TransportException;
     
     /**
      * Process the next packet

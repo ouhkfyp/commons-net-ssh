@@ -1,5 +1,7 @@
 package org.apache.commons.net.ssh;
 
+import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,26 +15,11 @@ public abstract class AbstractService implements Service
 {
     
     protected final Logger log = LoggerFactory.getLogger(getClass());
-    protected final Session session;
+    protected final Transport trans;
     
-    protected volatile Thread currentThread;
-    protected volatile SSHException exception;
-    
-    public AbstractService(Session session)
+    public AbstractService(Transport trans)
     {
-        this.session = session;
-    }
-    
-    public Session getSession()
-    {
-        return session;
-    }
-    
-    public void notifyError(SSHException exception)
-    {
-        this.exception = exception;
-        if (currentThread != null && shouldInterrupt())
-            currentThread.interrupt();
+        this.trans = trans;
     }
     
     public void notifyUnimplemented(long seqNum) throws SSHException
@@ -42,24 +29,12 @@ public abstract class AbstractService implements Service
     
     public void request() throws TransportException
     {
-        Service active = session.getService();
+        Service active = trans.getService();
         if (!equals(active))
             if (active != null && getName().equals(active.getName()))
-                session.setService(this);
+                trans.setService(this);
             else
-                session.reqService(this);
+                trans.reqService(this);
     }
-    
-    protected void enterInterruptibleContext()
-    {
-        currentThread = Thread.currentThread();
-    }
-    
-    protected void leaveInterruptibleContext()
-    {
-        currentThread = null;
-    }
-    
-    protected abstract boolean shouldInterrupt();
     
 }

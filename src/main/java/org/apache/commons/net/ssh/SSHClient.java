@@ -38,8 +38,10 @@ import org.apache.commons.net.ssh.compression.Compression;
 import org.apache.commons.net.ssh.compression.CompressionDelayedZlib;
 import org.apache.commons.net.ssh.compression.CompressionNone;
 import org.apache.commons.net.ssh.compression.CompressionZlib;
+import org.apache.commons.net.ssh.connection.ConnectionException;
 import org.apache.commons.net.ssh.connection.ConnectionProtocol;
 import org.apache.commons.net.ssh.connection.ConnectionService;
+import org.apache.commons.net.ssh.connection.Session;
 import org.apache.commons.net.ssh.kex.DHG1;
 import org.apache.commons.net.ssh.kex.DHG14;
 import org.apache.commons.net.ssh.kex.KeyExchange;
@@ -59,6 +61,8 @@ import org.apache.commons.net.ssh.signature.Signature;
 import org.apache.commons.net.ssh.signature.SignatureDSA;
 import org.apache.commons.net.ssh.signature.SignatureRSA;
 import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.TransportException;
+import org.apache.commons.net.ssh.transport.TransportProtocol;
 import org.apache.commons.net.ssh.userauth.AuthBuilder;
 import org.apache.commons.net.ssh.userauth.UserAuthService;
 import org.apache.commons.net.ssh.util.KnownHosts;
@@ -169,7 +173,7 @@ public class SSHClient extends SocketClient
         return fm;
     }
     
-    protected final Session trans;
+    protected final Transport trans;
     
     protected final ConnectionService conn;
     
@@ -189,7 +193,7 @@ public class SSHClient extends SocketClient
     public SSHClient(FactoryManager factoryManager)
     {
         setDefaultPort(DEFAULT_PORT);
-        trans = new Transport(factoryManager);
+        trans = new TransportProtocol(factoryManager);
         conn = new ConnectionProtocol(trans);
     }
     
@@ -275,9 +279,9 @@ public class SSHClient extends SocketClient
     }
     
     /**
-     * Returns the associated {@link Session} instance.
+     * Returns the associated {@link Transport} instance.
      */
-    public Session getSession()
+    public Transport getTransport()
     {
         return trans;
     }
@@ -388,8 +392,13 @@ public class SSHClient extends SocketClient
         return loadKeyFile(location, PasswordFinder.Util.createOneOff(passphrase));
     }
     
+    public Session startSession() throws ConnectionException, TransportException
+    {
+        return conn.newSession();
+    }
+    
     /**
-     * On connection establishment, also initialize the SSH transport via {@link Session#init}
+     * On connection establishment, also initialize the SSH transport via {@link Transport#init}
      */
     @Override
     protected void _connectAction_() throws IOException

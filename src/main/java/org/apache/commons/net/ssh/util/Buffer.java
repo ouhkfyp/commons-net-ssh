@@ -177,7 +177,7 @@ public final class Buffer
      */
     public byte[] getBytes()
     {
-        int len = (int) getInt();
+        int len = getInt();
         if (len < 0 || len > 32768)
             throw new IllegalStateException("Bad item length: " + len);
         byte[] b = new byte[len];
@@ -210,7 +210,12 @@ public final class Buffer
             return new byte[0];
     }
     
-    public long getInt()
+    public int getInt()
+    {
+        return (int) getLong();
+    }
+    
+    public long getLong()
     {
         ensureAvailable(4);
         long i = data[rpos++] << 24 & 0xff000000L // 
@@ -303,7 +308,7 @@ public final class Buffer
      */
     public String getString()
     {
-        int len = (int) getInt();
+        int len = getInt();
         if (len < 0 || len > 32768)
             throw new IllegalStateException("Bad item length: " + len);
         ensureAvailable(len);

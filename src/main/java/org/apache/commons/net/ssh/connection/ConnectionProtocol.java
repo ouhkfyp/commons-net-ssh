@@ -18,23 +18,29 @@
  */
 package org.apache.commons.net.ssh.connection;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.Session;
+import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
-/*
- * STUB!
- * 
- */
 public class ConnectionProtocol extends AbstractService implements ConnectionService
 {
     
-    public ConnectionProtocol(Session session)
+    public static final int DEFAULT_WINDOW_SIZE = 0x200000;
+    public static final int DEFAULT_PACKET_SIZE = 0x8000;
+    
+    protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
+    protected int nextChannelID;
+    
+    public ConnectionProtocol(Transport session)
     {
         super(session);
-        // TODO Auto-generated constructor stub
     }
     
     public String getName()
@@ -42,23 +48,71 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         return NAME;
     }
     
-    public void notifyUnimplemented(int seqNum)
+    public void handle(Message cmd, Buffer buffer) throws SSHException
     {
-        // TODO Auto-generated method stub
-        
+        if (cmd.toInt() >= 90 && cmd.toInt() <= 100) {
+            Channel chan = getChannel(buffer);
+            try {
+                if (chan.handle(cmd, buffer))
+                    forget(chan.getID());
+            } catch (ConnectionException logged) {
+                log.warn("Channel {} had: {}", chan.getID(), logged.toString());
+            }
+        } else
+            switch (cmd)
+            {
+            // TODO
+            default:
+                assert false;
+            }
     }
     
-    public void handle(Message cmd, Buffer packet) throws SSHException
+    public Session newSession() throws ConnectionException, TransportException
     {
-        // TODO Auto-generated method stub
-        
+        return (Session) initChannel(new SessionChannel());
     }
     
-    @Override
-    protected boolean shouldInterrupt()
+    public void notifyError(SSHException ex)
     {
-        // TODO Auto-generated method stub
-        return false;
+        for (Channel chan : channels.values())
+            chan.notifyError(ex);
+        channels.clear();
+    }
+    
+    public void notifyUnimplemented(int seqNum) throws ConnectionException
+    {
+        throw new ConnectionException("Unexpected SSH_MSG_UNIMPLEMENTED");
+    }
+    
+    private int add(Channel chan)
+    {
+        int id = ++nextChannelID;
+        channels.put(id, chan);
+        return id;
+    }
+    
+    private void forget(int id)
+    {
+        channels.remove(id);
+    }
+    
+    private Channel getChannel(Buffer buffer) throws ConnectionException
+    {
+        int recipient = buffer.getInt();
+        Channel channel = channels.get(recipient);
+        if (channel == null) {
+            buffer.rpos(buffer.rpos() - 5);
+            Constants.Message cmd = buffer.getCommand();
+            throw new ConnectionException("Received " + cmd + " on unknown channel " + recipient);
+        }
+        return channel;
+    }
+    
+    private Channel initChannel(Channel chan) throws ConnectionException, TransportException
+    {
+        chan.init(trans, add(chan), DEFAULT_WINDOW_SIZE, DEFAULT_PACKET_SIZE);
+        chan.open();
+        return chan;
     }
     
 }

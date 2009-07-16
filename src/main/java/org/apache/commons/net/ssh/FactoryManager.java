@@ -9,12 +9,13 @@ import org.apache.commons.net.ssh.keyprovider.FileKeyProvider;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.signature.Signature;
+import org.apache.commons.net.ssh.transport.Transport;
 
 /**
  * Container class for {@link NamedFactory} implementations of {@link KeyExchange}, {@link Cipher},
  * {@link Compression}, {@link MAC}, {@link Signature}, {@link Random}, and {@link FileKeyProvider}.
  * <p>
- * This class is used in {@link Session} initialization.
+ * This class is used in {@link Transport} initialization.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>

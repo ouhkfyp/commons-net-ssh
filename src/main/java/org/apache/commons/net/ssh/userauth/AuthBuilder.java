@@ -4,8 +4,8 @@ import java.util.LinkedList;
 
 import org.apache.commons.net.ssh.PasswordFinder;
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
+import org.apache.commons.net.ssh.transport.Transport;
 
 /**
  * A builder for {@link UserAuthProtocol} that eases object construction with method-chaining.
@@ -18,7 +18,7 @@ import org.apache.commons.net.ssh.keyprovider.KeyProvider;
 public class AuthBuilder
 {
     
-    private final Session session;
+    private final Transport trans;
     
     private final LinkedList<AuthMethod> methods = new LinkedList<AuthMethod>();
     // private final Logger log = LoggerFactory.getLogger(getClass());
@@ -30,16 +30,16 @@ public class AuthBuilder
      * Constructor for this builder that accepts arguments which are mandatorily required for any
      * authentication method.
      * 
-     * @param session
+     * @param trans
      *            the transport layer instance
      * @param nextService
      *            the next service that is to be started on successful authentication
      * @param username
      *            the username that has to be authenticated
      */
-    public AuthBuilder(Session session, Service nextService, String username)
+    public AuthBuilder(Transport trans, Service nextService, String username)
     {
-        this.session = session;
+        this.trans = trans;
         this.nextService = nextService;
         this.username = username;
         //methods.add(new AuthNone(session, nextService, username));
@@ -55,7 +55,7 @@ public class AuthBuilder
      */
     public AuthBuilder authHostbased(String hostuser, String hostname, KeyProvider kProv)
     {
-        methods.add(new AuthHostbased(session, nextService, username, hostuser, hostname, kProv));
+        methods.add(new AuthHostbased(trans, nextService, username, hostuser, hostname, kProv));
         return this;
     }
     
@@ -80,7 +80,7 @@ public class AuthBuilder
      */
     public AuthBuilder authNone()
     {
-        methods.add(new AuthNone(session, nextService, username));
+        methods.add(new AuthNone(trans, nextService, username));
         return this;
     }
     
@@ -94,7 +94,7 @@ public class AuthBuilder
      */
     public AuthBuilder authPassword(PasswordFinder pwdf)
     {
-        methods.add(new AuthPassword(session, nextService, username, pwdf));
+        methods.add(new AuthPassword(trans, nextService, username, pwdf));
         return this;
     }
     
@@ -121,7 +121,7 @@ public class AuthBuilder
     public AuthBuilder authPublickey(KeyProvider... kProvs)
     {
         for (KeyProvider kProv : kProvs)
-            methods.add(new AuthPublickey(session, nextService, username, kProv));
+            methods.add(new AuthPublickey(trans, nextService, username, kProv));
         return this;
     }
     
@@ -132,7 +132,7 @@ public class AuthBuilder
      */
     public UserAuthService build()
     {
-        return new UserAuthProtocol(session, methods);
+        return new UserAuthProtocol(trans, methods);
     }
     
     /**

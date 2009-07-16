@@ -19,8 +19,8 @@
 package org.apache.commons.net.ssh.userauth;
 
 import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.Session;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
+import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -39,10 +39,10 @@ public class AuthHostbased extends KeyedAuthMethod
     private final String hostname;
     private final String hostuser;
     
-    public AuthHostbased(Session session, Service nextService, String username, String hostuser, String hostname,
+    public AuthHostbased(Transport trans, Service nextService, String username, String hostuser, String hostname,
             KeyProvider kProv)
     {
-        super(session, nextService, username, kProv);
+        super(trans, nextService, username, kProv);
         assert hostuser != null && hostname != null;
         this.hostuser = hostuser;
         this.hostname = hostname;

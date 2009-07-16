@@ -29,8 +29,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.Session;
-import org.apache.commons.net.ssh.TransportException;
+import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.userauth.AuthMethod.Result;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.LQString;
@@ -57,28 +57,31 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     
     private final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
     
+    private Thread currentThread;
+    private SSHException exception;
+    
     /**
      * Constructor that allows specifying an arbitary number of {@link AuthMethod}'s that will be
      * tried in order.
      * 
-     * @param session
+     * @param trans
      * @param methods
      */
-    public UserAuthProtocol(Session session, AuthMethod... methods)
+    public UserAuthProtocol(Transport trans, AuthMethod... methods)
     {
-        this(session, Arrays.<AuthMethod> asList(methods));
+        this(trans, Arrays.<AuthMethod> asList(methods));
     }
     
     /**
      * Constructor that allowos specifying an arbitary {@link Iterable} of {@link AuthMethod}'s that
      * will be tried in order.
      * 
-     * @param session
+     * @param trans
      * @param methods
      */
-    public UserAuthProtocol(Session session, Iterable<AuthMethod> methods)
+    public UserAuthProtocol(Transport trans, Iterable<AuthMethod> methods)
     {
-        super(session);
+        super(trans);
         this.methods = methods.iterator();
         for (AuthMethod m : methods)
             // initially assume all are allowed
@@ -112,11 +115,11 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             
             resLock.lock();
             try {
-                enterInterruptibleContext();
+                currentThread = Thread.currentThread();
                 // wait until we have the result of this method
                 for (res = Result.CONTINUED; res == Result.CONTINUED; resCond.await())
                     ;
-                leaveInterruptibleContext();
+                currentThread = null;
             } catch (InterruptedException ie) {
                 log.debug("Got interrupted");
                 if (exception != null) // were interrupted by AbstractService#notifyError
@@ -216,8 +219,8 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 switch (res)
                 {
                 case SUCCESS:
-                    session.setAuthenticated(); // notify session so that delayed comression may become effective if applicable
-                    session.setService(method.getNextService()); // we aren't in charge anymore, next service is
+                    trans.setAuthenticated(); // notify session so that delayed comression may become effective if applicable
+                    trans.setService(method.getNextService()); // we aren't in charge anymore, next service is
                     resCond.signal();
                     break;
                 case FAILURE:
@@ -248,22 +251,22 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         }
     }
     
+    public void notifyError(SSHException exception)
+    {
+        this.exception = exception;
+        resLock.lock();
+        try {
+            if (resLock.hasWaiters(resCond) && currentThread != null)
+                currentThread.interrupt();
+        } finally {
+            resLock.unlock();
+        }
+    }
+    
     // Documented in interface
     public void notifyUnimplemented(int seqNum) throws SSHException
     {
         throw new UserAuthException("Unexpected: SSH_MSG_UNIMPLEMENTED");
-    }
-    
-    // Documented in interface
-    @Override
-    protected boolean shouldInterrupt()
-    {
-        resLock.lock();
-        try {
-            return resLock.hasWaiters(resCond);
-        } finally {
-            resLock.unlock();
-        }
     }
     
 }
