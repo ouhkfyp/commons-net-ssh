@@ -82,16 +82,4 @@ public class StateMachine<S, T extends Throwable>
         }
     }
     
-    //    private T chain(Throwable cause)
-    //    {
-    //        T parent = null;
-    //        try {
-    //            parent = cls.newInstance();
-    //        } catch (Exception e) {
-    //            throw new RuntimeException(e);
-    //        }
-    //        parent.initCause(cause);
-    //        return parent;
-    //    }
-    
 }

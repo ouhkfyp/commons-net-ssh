@@ -28,12 +28,6 @@ import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 public class SSHException extends IOException
 {
     
-    //    public static <T extends SSHException> T chain(Throwable t)
-    //    {
-    //        //return (T) t;
-    //        return null;
-    //    }
-    //    
     private final DisconnectReason code;
     
     public SSHException()

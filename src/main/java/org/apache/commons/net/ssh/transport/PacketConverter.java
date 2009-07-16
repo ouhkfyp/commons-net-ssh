@@ -18,8 +18,6 @@
  */
 package org.apache.commons.net.ssh.transport;
 
-import java.io.IOException;
-
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
@@ -257,7 +255,7 @@ class PacketConverter
      * When enough data has been received to decode a complete packet,
      * {@link TransportProtocol#handle(Buffer)} will be called.
      */
-    void received(byte b) throws IOException
+    void received(byte b) throws SSHException
     {
         decoderBuffer.putByte(b);
         if (needed == 1)
