@@ -10,34 +10,35 @@ public class StateMachine<S, T extends Throwable>
     private final FriendlyChainer<T> chainer;
     
     private Thread awaiter;
-    private Throwable queued;
+    private Throwable queuedEx;
     
     private S current; // current state
     
     public StateMachine(Logger log, Object lock, FriendlyChainer<T> chainer)
     {
+        assert log != null && lock != null && chainer != null;
         this.log = log;
-        this.lock = lock != null ? lock : this;
+        this.lock = lock;
         this.chainer = chainer;
     }
     
-    public boolean await(S s) throws T
+    public void await(S s) throws T
     {
         synchronized (lock) {
-            // So that our spin on interrupt knows which thread to interrupt
-            awaiter = Thread.currentThread();
+            
+            awaiter = Thread.currentThread(); // So that our spin on interrupt knows which thread to interrupt
             try {
                 while (current != s)
                     lock.wait();
-            } catch (InterruptedException e) {
-                log.error("Got interrupted while waiting for {}", s);
+            } catch (InterruptedException signal) {
+                log.error("Got interrupted while waiting for {} due to {}", s, queuedEx.toString());
                 Thread.interrupted(); // Clear interrupted status
-                throw chainer.chain(queued != null ? queued : e);
+                throw chainer.chain(queuedEx);
             } finally {
                 awaiter = null;
             }
+            
             log.debug("Woke up to {}", current);
-            return true;
         }
     }
     
@@ -60,10 +61,11 @@ public class StateMachine<S, T extends Throwable>
     
     public void interrupt(Throwable t)
     {
-        queued = t;
         synchronized (lock) {
-            if (awaiter != null)
+            if (awaiter != null) {
+                queuedEx = t;
                 awaiter.interrupt();
+            }
         }
     }
     

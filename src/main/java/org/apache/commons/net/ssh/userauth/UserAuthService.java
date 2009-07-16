@@ -45,7 +45,7 @@ public interface UserAuthService extends Service
      * @throws TransportException
      *             if there was a transport error during authentication
      */
-    boolean authenticate() throws UserAuthException, TransportException;
+    void authenticate() throws UserAuthException, TransportException;
     
     /**
      * Returns the authentication banner (if any)
@@ -53,5 +53,7 @@ public interface UserAuthService extends Service
      * @return the banner, or {@code null} if none was received
      */
     LQString getBanner();
+    
+    boolean hadPartialSuccess();
     
 }

@@ -20,6 +20,7 @@ package org.apache.commons.net.ssh;
 
 import java.io.IOException;
 
+import org.apache.commons.net.ssh.util.FriendlyChainer;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 
 /**
@@ -27,6 +28,19 @@ import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
  */
 public class SSHException extends IOException
 {
+    
+    public static final FriendlyChainer<SSHException> chainer = new FriendlyChainer<SSHException>()
+        {
+            
+            public SSHException chain(Throwable t)
+            {
+                if (t instanceof SSHException)
+                    return (SSHException) t;
+                else
+                    return new SSHException(t);
+            }
+            
+        };
     
     private final DisconnectReason code;
     
