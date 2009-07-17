@@ -30,6 +30,9 @@ import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
+/**
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ */
 public class ConnectionProtocol extends AbstractService implements ConnectionService
 {
     

@@ -1,7 +1,12 @@
 package org.apache.commons.net.ssh.connection;
 
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants;
 
 public class SessionChannel extends AbstractChannel implements Session, Session.Command, Session.Shell,
         Session.Subsystem
@@ -10,41 +15,65 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     private Integer exitStatus;
     private Signal exitSignal;
     private Boolean flowControl;
+    private Buffer errBuf;
     
     protected SessionChannel()
     {
         super(NAME);
     }
     
-    public void allocatePTY(String term, int cols, int rows, int width, int height) throws ConnectionException,
-            TransportException
+    public void allocateDefaultPTY() throws ConnectionException, TransportException
     {
-        request(makeReqBuf("pty-req", true) //                                     
-                                           .putString(term) //
-                                           .putInt(cols) //
-                                           .putInt(rows) //
-                                           .putInt(width) //
-                                           .putInt(height));
+        Map<TerminalMode, Integer> modes = new HashMap<TerminalMode, Integer>();
+        modes.put(TerminalMode.ISIG, 1);
+        modes.put(TerminalMode.ICANON, 1);
+        modes.put(TerminalMode.ECHO, 1);
+        modes.put(TerminalMode.ECHOE, 1);
+        modes.put(TerminalMode.ECHOK, 1);
+        modes.put(TerminalMode.ECHONL, 0);
+        modes.put(TerminalMode.NOFLSH, 0);
+        allocatePTY("dummy", 80, 40, 640, 480, modes);
     }
     
-    public Boolean canControlFlow()
+    public void allocatePTY(String term, int cols, int rows, int width, int height, Map<TerminalMode, Integer> modes)
+            throws ConnectionException, TransportException
+    {
+        chanReq("pty-req", //
+                true, // 
+                new Buffer().putString(term) //
+                            .putInt(cols) //
+                            .putInt(rows) //
+                            .putInt(width) //
+                            .putInt(height) //
+                            .putBytes(TerminalMode.encode(modes)) //
+        ).await(); // wait for reply
+    }
+    
+    public Boolean canDoFlowControl()
     {
         return flowControl;
     }
     
     public void changeWindowDimensions(int cols, int rows, int width, int height) throws TransportException
     {
-        trans.writePacket(makeReqBuf("window-change", false) //
-                                                            .putInt(cols) //
-                                                            .putInt(rows) //
-                                                            .putInt(width) //
-                                                            .putInt(height));
+        chanReq("pty-req", //
+                false, //
+                new Buffer().putInt(cols) //
+                            .putInt(rows) //
+                            .putInt(width) //
+                            .putInt(height));
     }
     
     public Command exec(String command) throws ConnectionException, TransportException
     {
-        request(makeReqBuf("exec", true).putString(command));
+        chanReq("exec", true, new Buffer().putString(command)).await();
         return this;
+    }
+    
+    public InputStream getErr()
+    {
+        // TODO Auto-generated method stub
+        return null;
     }
     
     public Signal getExitSignal()
@@ -72,24 +101,33 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public void setEnvVar(String name, String value) throws ConnectionException, TransportException
     {
-        request(makeReqBuf("env", true).putString(name).putString(value));
+        chanReq("env", true, new Buffer().putString(name).putString(value)).await();
     }
     
     public void signal(Signal sig) throws TransportException
     {
-        trans.writePacket(makeReqBuf("signal", false).putString(sig.getName()));
+        chanReq("signal", false, new Buffer().putString(sig.getName()));
     }
     
     public Shell startShell() throws ConnectionException, TransportException
     {
-        request(makeReqBuf("shell", true));
+        chanReq("shell", true, null).await();
         return this;
     }
     
     public Subsystem startSubsysytem(String name) throws ConnectionException, TransportException
     {
-        request(makeReqBuf("subsystem", true).putString(name));
+        chanReq("subsystem", true, new Buffer().putString(name)).await();
         return this;
+    }
+    
+    @Override
+    protected void handleExtendedData(int dataTypeCode, Buffer buf) throws ConnectionException, TransportException
+    {
+        if (dataTypeCode == 1) {
+            
+        } else
+            trans.writePacket(new Buffer(Constants.Message.CHANNEL_FAILURE).putInt(recipient));
     }
     
 }

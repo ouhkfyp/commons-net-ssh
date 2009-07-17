@@ -19,11 +19,12 @@
 package org.apache.commons.net.ssh.connection;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Constants;
+import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 
 /**
@@ -37,18 +38,16 @@ public class ChannelOutputStream extends OutputStream
     private final AbstractChannel channel;
     private final Window remoteWindow;
     private final Logger log;
-    private final Constants.Message cmd;
     private final byte[] b = new byte[1];
     private Buffer buffer;
     private boolean closed;
     private int bufferLength;
     
-    public ChannelOutputStream(AbstractChannel channel, Window remoteWindow, Logger log, Constants.Message cmd)
+    public ChannelOutputStream(AbstractChannel channel, Window remoteWindow, Logger log)
     {
         this.channel = channel;
         this.remoteWindow = remoteWindow;
         this.log = log;
-        this.cmd = cmd;
         newBuffer();
     }
     
@@ -67,17 +66,15 @@ public class ChannelOutputStream extends OutputStream
         if (bufferLength <= 0)
             // No data to send
             return;
-        buffer.wpos(cmd == Constants.Message.CHANNEL_EXTENDED_DATA ? 14 : 10);
+        buffer.wpos(10);
         buffer.putInt(bufferLength);
         buffer.wpos(pos);
         try {
             remoteWindow.waitAndConsume(bufferLength);
-            log.debug("Send {} on channel {}", cmd, channel.getID());
+            log.debug("Sending SSH_MSG_CHANNEL_DATA on channel {}", channel.getID());
             channel.getTransport().writePacket(buffer);
-        } catch (SSHException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new SSHException(e);
+        } catch (InterruptedException e) {
+            throw (IOException) new InterruptedIOException().initCause(e);
         } finally {
             newBuffer();
         }
@@ -110,10 +107,8 @@ public class ChannelOutputStream extends OutputStream
     
     private void newBuffer()
     {
-        buffer = new Buffer(cmd);
+        buffer = new Buffer(Message.CHANNEL_DATA);
         buffer.putInt(channel.getRecipient());
-        if (cmd == Constants.Message.CHANNEL_EXTENDED_DATA)
-            buffer.putInt(1);
         buffer.putInt(0);
         bufferLength = 0;
     }

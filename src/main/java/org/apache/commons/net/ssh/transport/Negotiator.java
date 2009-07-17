@@ -290,7 +290,6 @@ class Negotiator
     
     private void sendKexInit() throws TransportException
     {
-        
         Buffer buf = new Buffer(Message.KEXINIT);
         
         // Put cookie
@@ -326,19 +325,15 @@ class Negotiator
         {
         case KEX_DONE:
         {
-            /*
-             * Contract with TransportProtocol is - if asked to handle a packet after initial kex
-             * has been completed, it better be a SSH_MSG_KEXINIT.
-             */
-            if (cmd != Message.KEXINIT)
-                throw new IllegalStateException("Contract violation");
+            assert cmd == Message.KEXINIT;
+            // Re-exchange should commence
             sendKexInit();
             // Deliberate fall-through
         }
         case EXPECT_KEXINIT:
         {
             if (cmd != Message.KEXINIT) {
-                log.error("Ignoring command " + cmd + " while waiting for " + Message.KEXINIT);
+                trans.sendUnimplemented();
                 break;
             }
             log.info("Received SSH_MSG_KEXINIT");

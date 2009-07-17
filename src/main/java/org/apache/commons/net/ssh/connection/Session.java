@@ -2,6 +2,7 @@ package org.apache.commons.net.ssh.connection;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Map;
 
 import org.apache.commons.net.ssh.transport.TransportException;
 
@@ -11,7 +12,7 @@ public interface Session
     interface Command
     {
         
-        Boolean canControlFlow();
+        Boolean canDoFlowControl();
         
         InputStream getErr();
         
@@ -30,7 +31,7 @@ public interface Session
     interface Shell
     {
         
-        Boolean canControlFlow();
+        Boolean canDoFlowControl();
         
         InputStream getErr();
         
@@ -85,7 +86,7 @@ public interface Session
     interface Subsystem
     {
         
-        Boolean canControlFlow();
+        Boolean canDoFlowControl();
         
         InputStream getIn();
         
@@ -95,8 +96,10 @@ public interface Session
     
     String NAME = "session";
     
-    void allocatePTY(String term, int cols, int rows, int width, int height) throws ConnectionException,
-            TransportException;
+    void allocateDefaultPTY() throws ConnectionException, TransportException;
+    
+    void allocatePTY(String term, int cols, int rows, int width, int height, Map<TerminalMode, Integer> modes)
+            throws ConnectionException, TransportException;
     
     void changeWindowDimensions(int cols, int rows, int width, int height) throws TransportException;
     

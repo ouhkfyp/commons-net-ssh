@@ -18,39 +18,31 @@
  */
 package org.apache.commons.net.ssh.connection;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.LinkedList;
+import java.util.Queue;
 
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants;
-import org.apache.commons.net.ssh.util.StateMachine;
+import org.apache.commons.net.ssh.util.Event;
+import org.apache.commons.net.ssh.util.IOUtils;
+import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Access should be externally synchronized.
- * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
 public abstract class AbstractChannel implements Channel
 {
     
-    private enum State
-    {
-        /** Something has been requested */
-        REQ,
-        /** All well */
-        DEFAULT,
-    }
-    
     protected final Logger log = LoggerFactory.getLogger(getClass());
-    private final StateMachine<State, ConnectionException> sm =
-            new StateMachine<State, ConnectionException>(log, this, ConnectionException.chainer);
     
     protected Transport trans;
     
@@ -60,28 +52,39 @@ public abstract class AbstractChannel implements Channel
     protected int id;
     protected int recipient;
     
-    // TODO figure this out
-    protected InputStream in;
-    protected OutputStream out;
-    protected InputStream err;
+    protected final Queue<Event<ConnectionException>> chanReqs = new LinkedList<Event<ConnectionException>>();
+    
+    protected ChannelInputStream in = new ChannelInputStream();
+    protected OutputStream out = new ChannelOutputStream(this, remoteWindow, log);
+    
+    private Event<ConnectionException> openEvent;
+    private Event<ConnectionException> closeEvent;
+    
+    private volatile boolean closeSent;
     
     protected AbstractChannel(String type)
     {
         this.type = type;
     }
     
-    public void close() throws TransportException
+    public void close() throws ConnectionException, TransportException
     {
-        if (sm.notIn((State) null)) {
-            sm.transition(State.REQ);
+        if (!closeSent) {
+            closeSent = true;
             trans.writePacket(new Buffer(Message.CHANNEL_CLOSE).putInt(id));
-            sm.transition(null);
+            closeStreams();
+            closeEvent.await();
         }
     }
     
-    public InputStream getErr()
+    public void eof() throws TransportException
     {
-        return err;
+        try {
+            log.info("Send SSH_MSG_CHANNEL_EOF on channel {}", id);
+            trans.writePacket(new Buffer(Constants.Message.CHANNEL_EOF).putInt(recipient));
+        } finally {
+            IOUtils.closeQuietly(out);
+        }
     }
     
     public int getID()
@@ -119,38 +122,63 @@ public abstract class AbstractChannel implements Channel
         switch (cmd)
         {
         case CHANNEL_OPEN_CONFIRMATION:
+        {
             log.info("Received SSH_MSG_CHANNEL_OPEN_CONFIRMATION on channel {}", id);
-            sm.assertIn(State.REQ);
             recipient = buf.getInt();
             remoteWindow.init(buf.getInt(), buf.getInt());
-            sm.transition(State.DEFAULT);
+            openEvent.set();
             break;
+        }
         case CHANNEL_WINDOW_ADJUST:
+        {
             log.info("Received SSH_MSG_CHANNEL_WINDOW_ADJUST on channel {}", id);
             remoteWindow.expand(buf.getInt());
             break;
+        }
         case CHANNEL_OPEN_FAILURE:
+        {
             log.info("Received SSH_MSG_CHANNEL_OPEN_FAILURE on channel {}", id);
-            sm.assertIn(State.REQ);
-            sm.interrupt(new ChannelOpenFailureException(type, buf.getInt()));
-            return true;
+            openEvent.raise(new ChannelOpenFailureException(type, buf.getInt()));
+        }
         case CHANNEL_CLOSE:
+        {
+            closeEvent.set();
             close();
             return true;
+        }
         case CHANNEL_SUCCESS:
-            sm.assertIn(State.REQ);
-            sm.transition(State.DEFAULT);
+        {
+            response(true);
             break;
+        }
         case CHANNEL_FAILURE:
-            sm.assertIn(State.REQ);
-            sm.interrupt(new ConnectionException("Request failed"));
-            sm.transition(State.DEFAULT);
+        {
+            response(false);
             break;
+        }
         case CHANNEL_REQUEST:
+        {
             String reqType = buf.getString();
-            buf.getBoolean(); // we don't reply to requests
+            buf.getBoolean(); // we don't ever reply to requests, so ignore this value
             log.info("Received SSH_MSG_CHANNEL_REQUEST on channel #{} for [{}]", id, reqType);
             handleRequest(reqType, buf);
+            break;
+        }
+        case CHANNEL_DATA:
+        {
+            doWrite(buf, in);
+            break;
+        }
+        case CHANNEL_EXTENDED_DATA:
+        {
+            handleExtendedData(buf.getInt(), buf);
+            break;
+        }
+        case CHANNEL_EOF:
+        {
+            gotEOF();
+            break;
+        }
         default:
             assert false;
         }
@@ -161,73 +189,41 @@ public abstract class AbstractChannel implements Channel
     {
         this.trans = trans;
         this.id = id;
+        openEvent = newEvent("channel #" + id + " / open");
+        closeEvent = newEvent("channel #" + id + " / close");
         localWindow.init(windowSize, maxPacketSize);
     }
     
     public boolean isOpen()
     {
-        return sm.notIn((State) null);
+        return openEvent.isSet();
     }
     
-    //    public void handleData(Buffer buffer) throws ConnectionException
-    //    {
-    //        int len = buffer.getInt();
-    //        if (len < 0 || len > 32768)
-    //            throw new IllegalStateException("Bad item length: " + len);
-    //        log.debug("Received SSH_MSG_CHANNEL_DATA on channel {}", id);
-    //        if (log.isTraceEnabled())
-    //            log.trace("Received channel data: {}", BufferUtils.printHex(buffer.array(), buffer.rpos(), len));
-    //        try {
-    //            doWriteData(buffer.array(), buffer.rpos(), len);
-    //        } catch (IOException e) {
-    //            throw new ConnectionException(e);
-    //        }
-    //    }
-    //    
-    //    public void handleEOF() throws ConnectionException
-    //    {
-    //        log.info("Received SSH_MSG_CHANNEL_EOF on channel {}", id);
-    //        
-    //    }
-    
-    //    public void handleExtendedData(Buffer buffer) throws ConnectionException, TransportException
-    //    {
-    //        int dataTypeCode = buffer.getInt();
-    //        // Only accept extended data for stderr
-    //        if (dataTypeCode != 1) {
-    //            log.info("Send SSH_MSG_CHANNEL_FAILURE on channel {}", id);
-    //            trans.writePacket(new Buffer(Constants.Message.CHANNEL_FAILURE).putInt(recipient));
-    //            return;
-    //        }
-    //        int len = buffer.getInt();
-    //        if (len < 0 || len > 32768)
-    //            throw new IllegalStateException("Bad item length: " + len);
-    //        log.debug("Received SSH_MSG_CHANNEL_EXTENDED_DATA on channel {}", id);
-    //        if (log.isTraceEnabled())
-    //            log.trace("Received channel extended data: {}", BufferUtils.printHex(buffer.array(), buffer.rpos(), len));
-    //        try {
-    //            doWriteExtendedData(buffer.array(), buffer.rpos(), len);
-    //        } catch (IOException e) {
-    //            throw new ConnectionException(e);
-    //        }
-    //    }
-    
-    //    public void handleFailure() throws IOException
-    //    {
-    //        log.info("Received SSH_MSG_CHANNEL_FAILURE on channel {}", id);
-    //        // TODO: do something to report failed requests?
-    //    }
-    
+    @SuppressWarnings("unchecked")
     public void notifyError(SSHException exception)
     {
-        sm.interrupt(exception);
+        Event.Util.<ConnectionException> notifyError(exception, openEvent, closeEvent);
+        Event.Util.<ConnectionException> notifyError(exception, chanReqs);
     }
     
     public void open() throws ChannelOpenFailureException, ConnectionException, TransportException
     {
-        sm.transition(State.REQ);
         trans.writePacket(buildOpenRequest());
-        sm.await(State.DEFAULT);
+        openEvent.await();
+    }
+    
+    private void response(boolean success) throws ConnectionException
+    {
+        Event<ConnectionException> event = chanReqs.poll();
+        log.info("Channel request for [{}] successful={}", event, success);
+        if (event != null) {
+            if (success)
+                event.set();
+            else
+                event.error("Request failed");
+        } else
+            throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR,
+                                          "Received channel resonse without a corresponding request");
     }
     
     protected Buffer buildOpenRequest()
@@ -239,53 +235,58 @@ public abstract class AbstractChannel implements Channel
                                                .putInt(localWindow.getPacketSize());
     }
     
+    protected synchronized Event<ConnectionException> chanReq(String reqType, boolean wantReply, Buffer specific)
+            throws TransportException
+    {
+        Buffer reqBuf = new Buffer(Message.CHANNEL_REQUEST).putInt(recipient).putString(reqType).putBoolean(wantReply);
+        if (specific != null)
+            reqBuf.putBuffer(specific);
+        log.info("Sending SSH_MSG_CHANNEL_REQUEST on channel #{} for {}", id, reqType);
+        trans.writePacket(reqBuf);
+        Event<ConnectionException> event = null;
+        if (wantReply) {
+            event = newEvent(reqType);
+            chanReqs.add(event);
+        }
+        return event;
+    }
+    
+    protected void closeStreams()
+    {
+        IOUtils.closeQuietly(in, out);
+    }
+    
+    protected void doWrite(Buffer buf, ChannelInputStream out) throws ConnectionException, TransportException
+    {
+        //        int len = buf.getInt();
+        //        if (len < 0 || len > 32768)
+        //            throw new IllegalStateException("Bad item length: " + len);
+        //        log.debug("Received data on channel {}", id);
+        //        if (log.isTraceEnabled())
+        //            log.trace("Received channel extended data: {}", BufferUtils.printHex(buf.array(), buf.rpos(), len));
+        //        out.receive(buf.array(), buf.rpos(), len);
+        //        localWindow.consumeAndCheck(len);
+    }
+    
+    protected void gotEOF()
+    {
+        IOUtils.closeQuietly(in);
+    }
+    
+    protected abstract void handleExtendedData(int dataTypeCode, Buffer buf) throws ConnectionException,
+            TransportException;
+    
     protected abstract void handleRequest(String reqType, Buffer buf);
     
-    protected final Buffer makeReqBuf(String reqType, boolean wantReply)
-    {
-        return new Buffer(Message.CHANNEL_REQUEST). //
-                                                  putInt(recipient). //
-                                                  putString(reqType). //
-                                                  putBoolean(wantReply);
-    }
-    
-    //    
-    //    protected void doWriteData(byte[] data, int off, int len) throws IOException
-    //    {
-    //        if (out != null) {
-    //            out.write(data, off, len);
-    //            out.flush();
-    //        }
-    //        localWindow.consumeAndCheck(len);
-    //    }
-    //    
-    //    protected void doWriteExtendedData(byte[] data, int off, int len) throws IOException // TODO
-    //    {
-    //        if (err != null) {
-    //            //err.write(data, off, len);
-    //        }
-    //        localWindow.consumeAndCheck(len);
-    //    }
-    //
-    
-    protected synchronized void request(Buffer reqBuf) throws ConnectionException, TransportException
-    {
-        sm.assertIn(State.DEFAULT);
-        sm.transition(State.REQ);
-        trans.writePacket(reqBuf);
-        sm.await(State.DEFAULT);
-    }
-    
-    protected void sendEOF() throws TransportException
-    {
-        log.info("Send SSH_MSG_CHANNEL_EOF on channel {}", id);
-        trans.writePacket(new Buffer(Constants.Message.CHANNEL_EOF).putInt(recipient));
-    }
-    
-    protected void sendWindowAdjust(int len) throws IOException // ok
+    protected void sendWindowAdjust(int len) throws TransportException
     {
         log.info("Send SSH_MSG_CHANNEL_WINDOW_ADJUST on channel {}", id);
         trans.writePacket(new Buffer(Constants.Message.CHANNEL_WINDOW_ADJUST).putInt(recipient).putInt(len));
+    }
+    
+    Event<ConnectionException> newEvent(String name)
+    {
+        return new Event<ConnectionException>(name, ConnectionException.chainer);
     }
     
 }
