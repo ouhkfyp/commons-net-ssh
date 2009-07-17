@@ -92,13 +92,6 @@ public interface Transport
      */
     FactoryManager getFactoryManager();
     
-    /**
-     * Returns the sequence number of the last packet received.
-     * 
-     * @return sequence number of the last packet received
-     */
-    long getLastSeqNum();
-    
     InetAddress getRemoteHost();
     
     int getRemotePort();
@@ -165,13 +158,13 @@ public interface Transport
     void reqService(Service service) throws TransportException;
     
     /**
-     * Send SSH_MSG_UNIMPLEMENTED for the specified sequence number.
+     * Send SSH_MSG_UNIMPLEMENTED in response to the last packet received.
      * 
      * @return the sequence number of packet sent
      * @throws TransportException
      *             if an error occured sending the packet
      */
-    long sendUnimplemented(long seqNum) throws TransportException;
+    long sendUnimplemented() throws TransportException;
     
     /**
      * This method <b>must</b> be called after the session has been authenticated, so that delayed

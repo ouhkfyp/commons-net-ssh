@@ -9,7 +9,9 @@ import org.apache.commons.net.ssh.util.Constants;
 public interface Channel
 {
     
-    void close() throws TransportException;
+    void close() throws TransportException, ConnectionException;
+    
+    void eof() throws TransportException;
     
     int getID();
     

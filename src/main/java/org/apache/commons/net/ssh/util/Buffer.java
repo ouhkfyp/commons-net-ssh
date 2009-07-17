@@ -41,7 +41,7 @@ import org.apache.commons.net.ssh.util.Constants.Message;
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-public final class Buffer
+public class Buffer
 {
     
     public static class BufferException extends SSHRuntimeException
@@ -180,7 +180,7 @@ public final class Buffer
     {
         int len = getInt();
         if (len < 0 || len > 32768)
-            throw new IllegalStateException("Bad item length: " + len);
+            throw new BufferException("Bad item length: " + len);
         byte[] b = new byte[len];
         getRawBytes(b);
         return b;
@@ -196,7 +196,7 @@ public final class Buffer
         byte b = getByte();
         Message cmd = Message.fromByte(b);
         if (cmd == null)
-            throw new IllegalStateException("Unknown command code: " + b);
+            throw new BufferException("Unknown command code: " + b);
         return cmd;
     }
     
@@ -311,7 +311,7 @@ public final class Buffer
     {
         int len = getInt();
         if (len < 0 || len > 32768)
-            throw new IllegalStateException("Bad item length: " + len);
+            throw new BufferException("Bad item length: " + len);
         ensureAvailable(len);
         String s = null;
         try {
