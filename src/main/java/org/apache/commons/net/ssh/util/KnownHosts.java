@@ -93,6 +93,8 @@ public class KnownHosts implements HostKeyVerifier
         {
             if (hosts[0].startsWith("|1|")) { // hashed hostname
                 String[] splitted = hosts[0].split("\\|");
+                if (splitted.length != 3)
+                    return null;
                 byte[] salt, host;
                 try {
                     salt = Base64.decode(splitted[2]);
@@ -100,7 +102,8 @@ public class KnownHosts implements HostKeyVerifier
                 } catch (IOException e) {
                     throw new SSHRuntimeException(e);
                 }
-                assert salt.length == 20;
+                if (salt.length != 20)
+                    return null;
                 MAC sha1 = new HMACSHA1();
                 sha1.init(salt);
                 for (String possi : possibilities)
@@ -188,8 +191,13 @@ public class KnownHosts implements HostKeyVerifier
         
         Set<String> possibilities = new HashSet<String>();
         possibilities.add(host.getHostName());
-        possibilities.add(host.getCanonicalHostName());
-        possibilities.add(host.getHostAddress());
+        
+        /*
+         * Commented out because not sure of security implications => better to follow OpenSSH
+         * footsteps.
+         */
+        //possibilities.add(host.getCanonicalHostName());
+        //possibilities.add(host.getHostAddress());
         
         log.debug("Checking for any of {}", possibilities);
         

@@ -3,28 +3,34 @@ package org.apache.commons.net.ssh.connection;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import org.apache.commons.net.ssh.transport.TransportException;
+
 public interface Session
 {
     
     interface Command
     {
         
+        Boolean canControlFlow();
+        
         InputStream getErr();
         
         Signal getExitSignal();
         
-        int getExitStatus();
+        Integer getExitStatus();
         
         InputStream getIn();
         
         OutputStream getOut();
         
-        void signal(Signal sig);
+        void signal(Signal sig) throws TransportException;
         
     }
     
     interface Shell
     {
+        
+        Boolean canControlFlow();
         
         InputStream getErr();
         
@@ -69,8 +75,7 @@ public interface Session
             this.name = name;
         }
         
-        @Override
-        public String toString()
+        public String getName()
         {
             return name;
         }
@@ -80,26 +85,27 @@ public interface Session
     interface Subsystem
     {
         
+        Boolean canControlFlow();
+        
         InputStream getIn();
         
         OutputStream getOut();
         
     }
     
-    public static String NAME = "session";
+    String NAME = "session";
     
-    void allocatePTY(String term, int widthChars, int heightChars, int widthPixels, int heightPixels);
+    void allocatePTY(String term, int cols, int rows, int width, int height) throws ConnectionException,
+            TransportException;
     
-    Command exec(String command);
+    void changeWindowDimensions(int cols, int rows, int width, int height) throws TransportException;
     
-    InputStream getInputStream();
+    Command exec(String command) throws ConnectionException, TransportException;
     
-    OutputStream getOutputStream();
+    void setEnvVar(String name, String value) throws ConnectionException, TransportException;
     
-    void setEnvVar(String name, String value);
+    Shell startShell() throws ConnectionException, TransportException;
     
-    Shell startShell();
-    
-    Subsystem startSubsysytem(String name);
+    Subsystem startSubsysytem(String name) throws ConnectionException, TransportException;
     
 }

@@ -39,7 +39,7 @@ public class AuthPassword extends AbstractAuthMethod
         super(trans, nextService, username);
         assert pwdf != null;
         this.pwdf = pwdf;
-        resource = new Resource(Resource.Type.ACCOUNT, username);
+        resource = new Resource(Resource.Type.ACCOUNT, username + "@" + trans.getRemoteHost().getHostName());
     }
     
     public String getName()
@@ -69,6 +69,7 @@ public class AuthPassword extends AbstractAuthMethod
     @Override
     protected Buffer buildReq() throws UserAuthException
     {
+        log.info("Requesting password for " + resource);
         char[] password = pwdf.reqPassword(resource);
         try {
             if (password == null)

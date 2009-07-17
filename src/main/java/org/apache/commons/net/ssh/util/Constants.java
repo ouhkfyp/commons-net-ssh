@@ -220,31 +220,6 @@ public interface Constants
         }
     }
     
-    //    enum OpenError
-    //    {
-    //        UNKNOWN(0),
-    //        ADMINISTRATIVELY_PROHIBITED(1),
-    //        CONNECT_FAILED(2),
-    //        UNKNOWN_CHANNEL_TYPE(3),
-    //        RESOURCE_SHORTAGE(4);
-    //        
-    //        public static OpenError fromCode(int code)
-    //        {
-    //            for (OpenError c : values())
-    //                if (c.code == code)
-    //                    return c;
-    //            return UNKNOWN;
-    //        }
-    //        
-    //        private final int code;
-    //        
-    //        OpenError(int code)
-    //        {
-    //            this.code = code;
-    //        }
-    //        
-    //    }
-    
     /**
      * Software version; sent as part of client identification string
      */

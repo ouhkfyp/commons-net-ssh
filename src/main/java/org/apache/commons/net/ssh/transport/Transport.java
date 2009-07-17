@@ -19,6 +19,7 @@
 package org.apache.commons.net.ssh.transport;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.Socket;
 
 import org.apache.commons.net.ssh.FactoryManager;
@@ -92,20 +93,15 @@ public interface Transport
     FactoryManager getFactoryManager();
     
     /**
-     * Returns the session identifier computed during key exchange.
-     * <p>
-     * If the session has not yet been initialized via {@link #init}, it will be {@code null}.
-     * 
-     * @return session identifier as a byte array
-     */
-    byte[] getSessionID();
-    
-    /**
      * Returns the sequence number of the last packet received.
      * 
      * @return sequence number of the last packet received
      */
     long getLastSeqNum();
+    
+    InetAddress getRemoteHost();
+    
+    int getRemotePort();
     
     /**
      * Returns the version string as sent by the SSH server for identification purposes.
@@ -122,6 +118,15 @@ public interface Transport
      * @return the currently active service
      */
     Service getService();
+    
+    /**
+     * Returns the session identifier computed during key exchange.
+     * <p>
+     * If the session has not yet been initialized via {@link #init}, it will be {@code null}.
+     * 
+     * @return session identifier as a byte array
+     */
+    byte[] getSessionID();
     
     /**
      * Initializes this session by exchanging identification information and performing key exchange

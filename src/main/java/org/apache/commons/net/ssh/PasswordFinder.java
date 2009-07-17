@@ -41,11 +41,15 @@ public interface PasswordFinder
         {
             /**
              * The password-protected resource is an account
+             * 
+             * Corresponding detail: user@hostname
              */
             ACCOUNT,
 
             /**
              * The password-protected resource is a private key file
+             * 
+             * Corresponding detail: /file/path
              */
             KEYFILE,
         }

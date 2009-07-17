@@ -1,32 +1,50 @@
 package org.apache.commons.net.ssh.connection;
 
-import java.io.InputStream;
-import java.io.OutputStream;
-
+import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
 public class SessionChannel extends AbstractChannel implements Session, Session.Command, Session.Shell,
         Session.Subsystem
 {
     
-    private int exitStatus;
+    private Integer exitStatus;
     private Signal exitSignal;
+    private Boolean flowControl;
     
     protected SessionChannel()
     {
         super(NAME);
     }
     
-    public void allocatePTY(String term, int widthChars, int heightChars, int widthPixels, int heightPixels)
+    public void allocatePTY(String term, int cols, int rows, int width, int height) throws ConnectionException,
+            TransportException
     {
-        // TODO Auto-generated method stub
-        
+        request(makeReqBuf("pty-req", true) //                                     
+                                           .putString(term) //
+                                           .putInt(cols) //
+                                           .putInt(rows) //
+                                           .putInt(width) //
+                                           .putInt(height));
     }
     
-    public Command exec(String command)
+    public Boolean canControlFlow()
     {
-        // TODO Auto-generated method stub
-        return null;
+        return flowControl;
+    }
+    
+    public void changeWindowDimensions(int cols, int rows, int width, int height) throws TransportException
+    {
+        trans.writePacket(makeReqBuf("window-change", false) //
+                                                            .putInt(cols) //
+                                                            .putInt(rows) //
+                                                            .putInt(width) //
+                                                            .putInt(height));
+    }
+    
+    public Command exec(String command) throws ConnectionException, TransportException
+    {
+        request(makeReqBuf("exec", true).putString(command));
+        return this;
     }
     
     public Signal getExitSignal()
@@ -34,77 +52,44 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
         return exitSignal;
     }
     
-    public int getExitStatus()
+    public Integer getExitStatus()
     {
         return exitStatus;
     }
     
-    public InputStream getInputStream()
+    @Override
+    public void handleRequest(String req, Buffer buf)
     {
-        // TODO Auto-generated method stub
-        return null;
+        if ("xon-xoff".equals(req))
+            flowControl = buf.getBoolean();
+        else if ("exit-status".equals(req))
+            exitStatus = buf.getInt();
+        else if ("exit-signal".equals(req))
+            exitSignal = Signal.fromString(buf.getString());
+        else
+            log.warn("Dropping {} request", req);
     }
     
-    public OutputStream getOutputStream()
+    public void setEnvVar(String name, String value) throws ConnectionException, TransportException
     {
-        // TODO Auto-generated method stub
-        return null;
+        request(makeReqBuf("env", true).putString(name).putString(value));
     }
     
-    public void handleEOF(Buffer buf)
+    public void signal(Signal sig) throws TransportException
     {
-        // TODO Auto-generated method stub
-        
+        trans.writePacket(makeReqBuf("signal", false).putString(sig.getName()));
     }
     
-    public void handleFailure(Buffer buf)
+    public Shell startShell() throws ConnectionException, TransportException
     {
-        // TODO Auto-generated method stub
-        
+        request(makeReqBuf("shell", true));
+        return this;
     }
     
-    public void handleRequest(Buffer buffer)
+    public Subsystem startSubsysytem(String name) throws ConnectionException, TransportException
     {
-        log.info("Received SSH_MSG_CHANNEL_REQUEST on channel {}", id);
-        String req = buffer.getString();
-        if ("exit-status".equals(req)) {
-            buffer.getBoolean();
-            //synchronized (lock) {
-            exitStatus = Integer.valueOf(buffer.getInt());
-            //lock.notifyAll();
-            //}
-        } else if ("exit-signal".equals(req)) {
-            buffer.getBoolean();
-            //synchronized (lock) {
-            exitSignal = Signal.fromString(buffer.getString());
-            //lock.notifyAll();
-            //}
-        }
-        // TODO: handle other channel requests
-    }
-    
-    public void setEnvVar(String name, String value)
-    {
-        // TODO Auto-generated method stub
-        
-    }
-    
-    public void signal(Signal sig)
-    {
-        // TODO Auto-generated method stub
-        
-    }
-    
-    public Shell startShell()
-    {
-        // TODO Auto-generated method stub
-        return null;
-    }
-    
-    public Subsystem startSubsysytem(String name)
-    {
-        // TODO Auto-generated method stub
-        return null;
+        request(makeReqBuf("subsystem", true).putString(name));
+        return this;
     }
     
 }

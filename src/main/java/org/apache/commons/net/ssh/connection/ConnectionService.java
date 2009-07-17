@@ -8,6 +8,6 @@ public interface ConnectionService extends Service
     
     String NAME = "ssh-connection";
     
-    Session newSession() throws ConnectionException, TransportException;
+    Session startSession() throws ConnectionException, TransportException;
     
 }

@@ -53,12 +53,8 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     {
         if (cmd.toInt() >= 90 && cmd.toInt() <= 100) {
             Channel chan = getChannel(buffer);
-            try {
-                if (chan.handle(cmd, buffer))
-                    forget(chan.getID());
-            } catch (ConnectionException logged) {
-                log.warn("Channel {} had: {}", chan.getID(), logged.toString());
-            }
+            if (chan.handle(cmd, buffer))
+                forget(chan.getID());
         } else
             switch (cmd)
             {
@@ -66,11 +62,6 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
             default:
                 assert false;
             }
-    }
-    
-    public Session newSession() throws ConnectionException, TransportException
-    {
-        return (Session) initChannel(new SessionChannel());
     }
     
     public void notifyError(SSHException ex)
@@ -83,6 +74,11 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     public void notifyUnimplemented(int seqNum) throws ConnectionException
     {
         throw new ConnectionException("Unexpected SSH_MSG_UNIMPLEMENTED");
+    }
+    
+    public Session startSession() throws ChannelOpenFailureException, ConnectionException, TransportException
+    {
+        return (Session) initChannel(new SessionChannel());
     }
     
     private int add(Channel chan)
@@ -110,7 +106,8 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         return channel;
     }
     
-    private Channel initChannel(Channel chan) throws ConnectionException, TransportException
+    private Channel initChannel(Channel chan) throws ChannelOpenFailureException, ConnectionException,
+            TransportException
     {
         chan.init(trans, add(chan), DEFAULT_WINDOW_SIZE, DEFAULT_PACKET_SIZE);
         chan.open();
