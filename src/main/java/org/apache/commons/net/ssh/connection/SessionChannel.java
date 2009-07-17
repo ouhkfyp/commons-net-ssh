@@ -15,7 +15,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     private Integer exitStatus;
     private Signal exitSignal;
     private Boolean flowControl;
-    private Buffer errBuf;
+    private ChannelInputStream err;
     
     protected SessionChannel()
     {
@@ -72,8 +72,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public InputStream getErr()
     {
-        // TODO Auto-generated method stub
-        return null;
+        return err;
     }
     
     public Signal getExitSignal()
