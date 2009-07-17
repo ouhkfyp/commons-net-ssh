@@ -17,8 +17,10 @@ public interface Channel
     
     void init(Transport trans, int channelID, int windowSize, int maxPacketSize);
     
+    boolean isOpen();
+    
     void notifyError(SSHException exception);
     
-    void open() throws ConnectionException, TransportException;
+    void open() throws ChannelOpenFailureException, ConnectionException, TransportException;
     
 }

@@ -2,19 +2,25 @@ package org.apache.commons.net.ssh.util;
 
 import org.slf4j.Logger;
 
-public class StateMachine<S, T extends Throwable>
+public class StateMachine<State, Exc extends Throwable>
 {
     
     private final Logger log;
-    private final Object lock;
-    private final FriendlyChainer<T> chainer;
     
+    /** Object on which this instance synchronizes */
+    private final Object lock;
+    
+    /** Our friendly exception chainer */
+    private final FriendlyChainer<Exc> chainer;
+    
+    /** Current state */
+    private State current;
+    /** A thread currently engaged in lock.wait() */
     private Thread awaiter;
+    /** A queued exception */
     private Throwable queuedEx;
     
-    private S current; // current state
-    
-    public StateMachine(Logger log, Object lock, FriendlyChainer<T> chainer)
+    public StateMachine(Logger log, Object lock, FriendlyChainer<Exc> chainer)
     {
         assert log != null && lock != null && chainer != null;
         this.log = log;
@@ -22,11 +28,19 @@ public class StateMachine<S, T extends Throwable>
         this.chainer = chainer;
     }
     
-    public void await(S s) throws T
+    public void assertIn(State... state) throws Exc
+    {
+        if (notIn(state))
+            throw chainer.chain(new AssertionError());
+    }
+    
+    public void await(State s) throws Exc
     {
         synchronized (lock) {
             
-            awaiter = Thread.currentThread(); // So that our spin on interrupt knows which thread to interrupt
+            // So that our spin on interruption knows which thread to interrupt
+            awaiter = Thread.currentThread();
+            
             try {
                 while (current != s)
                     lock.wait();
@@ -35,6 +49,7 @@ public class StateMachine<S, T extends Throwable>
                 Thread.interrupted(); // Clear interrupted status
                 throw chainer.chain(queuedEx);
             } finally {
+                // End of interruptible context 
                 awaiter = null;
             }
             
@@ -42,20 +57,20 @@ public class StateMachine<S, T extends Throwable>
         }
     }
     
-    public S current()
+    public State current()
     {
         synchronized (lock) {
             return current;
         }
     }
     
-    public boolean in(S... states)
+    public boolean in(State... states)
     {
         synchronized (lock) {
-            boolean flag = false;
-            for (S s : states)
-                flag |= current == s;
-            return flag;
+            boolean res = false;
+            for (State s : states)
+                res |= current == s;
+            return res;
         }
     }
     
@@ -69,16 +84,17 @@ public class StateMachine<S, T extends Throwable>
         }
     }
     
-    public boolean notIn(S... states)
+    public boolean notIn(State... states)
     {
         synchronized (lock) {
             return !in(states);
         }
     }
     
-    public void transition(S newState)
+    public void transition(State newState)
     {
         synchronized (lock) {
+            log.debug("Changing state  [ {} -> {} ]", current, newState);
             current = newState;
             lock.notifyAll();
         }

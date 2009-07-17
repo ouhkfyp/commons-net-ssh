@@ -66,6 +66,7 @@ public final class Buffer
     }
     
     private byte[] data;
+    
     private int rpos;
     private int wpos;
     

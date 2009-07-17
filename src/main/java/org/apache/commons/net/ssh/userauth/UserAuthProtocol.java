@@ -29,6 +29,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.userauth.AuthMethod.Result;
@@ -93,6 +94,9 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     // @return true = authenticated, false = only partially, more auth needed!
     public void authenticate() throws UserAuthException, TransportException
     {
+        if (trans.getService() != null && trans.getService().getName() == NAME)
+            throw new SSHRuntimeException("Concurrent authentication attempt not possible");
+        
         request(); // service request
         
         while (methods.hasNext()) {

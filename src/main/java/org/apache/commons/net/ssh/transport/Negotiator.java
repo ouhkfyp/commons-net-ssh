@@ -288,6 +288,32 @@ class Negotiator
         return E;
     }
     
+    private void sendKexInit() throws TransportException
+    {
+        
+        Buffer buf = new Buffer(Message.KEXINIT);
+        
+        // Put cookie
+        int p = buf.wpos();
+        buf.wpos(p + 16);
+        trans.prng.fill(buf.array(), p, 16);
+        
+        // Put the 10 algorithm name-list's
+        for (String s : clientProposal = createProposal())
+            buf.putString(s);
+        
+        buf.putBoolean(false) // Optimistic next packet does not follow
+           .putInt(0); // "Reserved" for future by spec
+        
+        I_C = buf.getCompactData(); // Store for future
+        
+        log.info("Sending SSH_MSG_KEXINIT");
+        trans.writePacket(buf);
+        
+        // Declare SSH_MSG_KEXINIT sent
+        initSent.release();
+    }
+    
     private void sendNewKeys() throws TransportException
     {
         log.info("Sending SSH_MSG_NEWKEYS");
@@ -362,31 +388,9 @@ class Negotiator
         return state == State.KEX_DONE;
     }
     
-    void sendKexInit() throws TransportException
+    void init() throws TransportException
     {
-        
-        Buffer buf = new Buffer(Message.KEXINIT);
-        
-        // put cookie
-        int p = buf.wpos();
-        buf.wpos(p + 16);
-        trans.prng.fill(buf.array(), p, 16);
-        
-        // put the 10 algorithm name-list's
-        for (String s : clientProposal = createProposal())
-            buf.putString(s);
-        
-        buf.putBoolean(false) // Optimistic next packet does not follow
-           .putInt(0); // "Reserved" for future by spec
-        
-        byte[] data = buf.getCompactData();
-        log.info("Sending SSH_MSG_KEXINIT");
-        trans.writePacket(buf);
-        
-        I_C = data; // Store for future
-        
-        // Declare SSH_MSG_KEXINIT sent
-        initSent.release();
+        sendKexInit();
     }
     
 }

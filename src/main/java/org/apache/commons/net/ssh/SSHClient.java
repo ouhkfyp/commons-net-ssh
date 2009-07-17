@@ -89,9 +89,12 @@ import org.apache.commons.net.ssh.util.SecurityUtils;
  * client = new SSHClient();
  * client.initUserKnownHosts();
  * client.connect(&quot;localhost&quot;);
- * client.authPassword(&quot;username&quot;, &quot;password&quot;);
- * // this is the part that remains ;-) 
- * client.disconnect();
+ * try {
+ *     client.authPassword(&quot;username&quot;, &quot;password&quot;);
+ *     // **this is the part that remains**
+ * } finally {
+ *     client.disconnect();
+ * }
  * </pre>
  * 
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
@@ -266,6 +269,7 @@ public class SSHClient extends SocketClient
     public void disconnect() throws IOException
     {
         trans.disconnect();
+        assert !trans.isRunning();
         super.disconnect();
     }
     
@@ -394,7 +398,7 @@ public class SSHClient extends SocketClient
     
     public Session startSession() throws ConnectionException, TransportException
     {
-        return conn.newSession();
+        return conn.startSession();
     }
     
     /**

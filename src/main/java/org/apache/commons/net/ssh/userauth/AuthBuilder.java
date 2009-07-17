@@ -19,9 +19,7 @@ public class AuthBuilder
 {
     
     private final Transport trans;
-    
     private final LinkedList<AuthMethod> methods = new LinkedList<AuthMethod>();
-    // private final Logger log = LoggerFactory.getLogger(getClass());
     
     private String username;
     private Service nextService;
