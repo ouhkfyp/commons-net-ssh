@@ -24,8 +24,6 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.SSHException;
@@ -34,6 +32,7 @@ import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.userauth.AuthMethod.Result;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Event;
 import org.apache.commons.net.ssh.util.LQString;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.util.Constants.Message;
@@ -51,17 +50,15 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     
     private AuthMethod method; // currently active method
     private AuthMethod.Result res; // its result
-    private final ReentrantLock resLock = new ReentrantLock(); // lock for res
-    private final Condition resCond = resLock.newCondition(); // signifies a conclusive result
     
     private Set<String> allowed = new HashSet<String>();
     
     private final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
     
-    private Thread currentThread;
-    private SSHException exception;
-    
     private boolean partialSuccess;
+    
+    private final Event<UserAuthException> conclusiveResult =
+            new Event<UserAuthException>("userauth / concusive result", UserAuthException.chainer);
     
     /**
      * Constructor that allows specifying an arbitary number of {@link AuthMethod}'s that will be
@@ -86,9 +83,10 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     {
         super(trans);
         this.methods = methods.iterator();
-        for (AuthMethod m : methods)
-            // initially assume all are allowed
+        for (AuthMethod m : methods) { // Initially assume at least first method allowed
             allowed.add(m.getName());
+            break;
+        }
     }
     
     // @return true = authenticated, false = only partially, more auth needed!
@@ -116,25 +114,8 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 continue;
             }
             
-            resLock.lock();
-            try {
-                currentThread = Thread.currentThread();
-                // wait until we have the result of this method
-                for (res = Result.CONTINUED; res == Result.CONTINUED; resCond.await())
-                    ;
-                currentThread = null;
-            } catch (InterruptedException ie) {
-                log.debug("Got interrupted");
-                if (exception != null) // were interrupted by AbstractService#notifyError
-                    if (exception instanceof TransportException)
-                        throw (TransportException) exception;
-                    else
-                        throw UserAuthException.chain(exception);
-                else
-                    throw new UserAuthException(ie);
-            } finally {
-                resLock.unlock();
-            }
+            // wait until we have the result of this method
+            conclusiveResult.await();
             
             switch (res)
             {
@@ -149,6 +130,8 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             default:
                 assert false;
             }
+            
+            conclusiveResult.clear();
             
         }
         
@@ -206,7 +189,6 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             log.info("Auth banner - lang=[{}], text=[{}]", banner.getLanguage(), banner.getText());
             break;
         default:
-            resLock.lock();
             try {
                 res = method.handle(cmd, buf);
                 log.info("Auth result = {}", res);
@@ -215,15 +197,15 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 case SUCCESS:
                     trans.setAuthenticated(); // notify session so that delayed comression may become effective if applicable
                     trans.setService(method.getNextService()); // we aren't in charge anymore, next service is
-                    resCond.signal();
+                    conclusiveResult.set();
                     break;
                 case FAILURE:
                     // the server would have told us which auth methods can continue now
                     allowed = new HashSet<String>(Arrays.asList(method.getAllowed().split(",")));
-                    resCond.signal();
+                    conclusiveResult.set();
                     break;
                 case PARTIAL_SUCCESS:
-                    resCond.signal();
+                    conclusiveResult.set();
                     break;
                 case CONTINUED:
                     // let resCond awaiter keep waiting, since the current method has not yet concluded
@@ -238,23 +220,14 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 log.error("Saving for later - {}", e.toString());
                 savedEx.push(e);
                 res = Result.FAILURE;
-                resCond.signal();
-            } finally {
-                resLock.unlock();
+                conclusiveResult.set();
             }
         }
     }
     
     public void notifyError(SSHException exception)
     {
-        this.exception = exception;
-        resLock.lock();
-        try {
-            if (resLock.hasWaiters(resCond) && currentThread != null)
-                currentThread.interrupt();
-        } finally {
-            resLock.unlock();
-        }
+        conclusiveResult.error(exception);
     }
     
     // Documented in interface

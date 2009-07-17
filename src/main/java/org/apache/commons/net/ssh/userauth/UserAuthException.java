@@ -1,18 +1,24 @@
 package org.apache.commons.net.ssh.userauth;
 
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.util.FriendlyChainer;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 
 public class UserAuthException extends SSHException
 {
     
-    public static UserAuthException chain(Exception e)
-    {
-        if (e instanceof UserAuthException)
-            return (UserAuthException) e;
-        else
-            return new UserAuthException(e);
-    }
+    public static final FriendlyChainer<UserAuthException> chainer = new FriendlyChainer<UserAuthException>()
+        {
+            
+            public UserAuthException chain(Throwable t)
+            {
+                if (t instanceof UserAuthException)
+                    return (UserAuthException) t;
+                else
+                    return new UserAuthException(t);
+            }
+            
+        };
     
     public UserAuthException()
     {
