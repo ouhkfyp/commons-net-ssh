@@ -149,7 +149,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         } else {
             lock.lock();
             try {
-                if (result.getWaitCount() > 0) {
+                if (result.hasWaiter()) {
                     if (cmd == Message.USERAUTH_FAILURE) {
                         allowed.clear();
                         allowed.addAll(Arrays.<String> asList(buf.getString().split(",")));
@@ -179,7 +179,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     {
         lock.lock();
         try {
-            if (result.getWaitCount() > 0)
+            if (result.hasWaiter())
                 result.error(exception);
         } finally {
             lock.unlock();
