@@ -84,20 +84,9 @@ public abstract class AbstractAuthMethod implements AuthMethod
         return username;
     }
     
-    // Documented in interface
-    public Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
+    public boolean handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
-        switch (cmd)
-        {
-        case USERAUTH_SUCCESS:
-            return Result.SUCCESS;
-        case USERAUTH_FAILURE:
-            allowed = buf.getString();
-            log.debug("Allowed = {}", allowed.toString());
-            return buf.getBoolean() ? Result.PARTIAL_SUCCESS : Result.FAILURE;
-        default:
-            return Result.UNKNOWN;
-        }
+        return false;
     }
     
     /**
@@ -110,6 +99,11 @@ public abstract class AbstractAuthMethod implements AuthMethod
     {
         log.debug("Sending SSH_MSG_USERAUTH_REQUEST for {}", username);
         trans.writePacket(buildReq());
+    }
+    
+    public boolean retry() throws TransportException, UserAuthException
+    {
+        return false;
     }
     
     /**

@@ -48,22 +48,22 @@ public class AuthPassword extends AbstractAuthMethod
     }
     
     @Override
-    public Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
+    public boolean handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
-        Result res = super.handle(cmd, buf);
-        switch (cmd)
-        {
-        case USERAUTH_FAILURE:
-            if (allowed.contains(NAME) && pwdf.retry(resource)) {
-                request();
-                return Result.CONTINUED;
-            }
-            break;
-        case USERAUTH_60:
-            log.error("Received SSH_MSG_USERAUTH_CHANGERQ; password needs changing");
-            return Result.FAILURE;
-        }
-        return res;
+        if (cmd == Message.USERAUTH_60)
+            throw new UserAuthException("Password change request received; unsupported operation");
+        else
+            return false;
+    }
+    
+    @Override
+    public boolean retry() throws TransportException, UserAuthException
+    {
+        if (pwdf.retry(resource)) {
+            request();
+            return true;
+        } else
+            return false;
     }
     
     @Override

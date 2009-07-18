@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-class Negotiator
+class Kexer
 {
     
     private enum State
@@ -96,7 +96,7 @@ class Negotiator
     /** Payload of server's SSH_MSG_KEXINIT; is passed on to the KeyExchange alg */
     private byte[] I_S;
     
-    Negotiator(TransportProtocol transport)
+    Kexer(TransportProtocol transport)
     {
         this.trans = transport;
         fm = transport.getFactoryManager();

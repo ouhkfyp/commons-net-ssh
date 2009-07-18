@@ -55,14 +55,13 @@ public class AuthPublickey extends KeyedAuthMethod
     }
     
     @Override
-    public Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
+    public boolean handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
-        Result res = super.handle(cmd, buf);
-        if (res == Result.UNKNOWN && cmd == Message.USERAUTH_60) {
+        if (cmd == Message.USERAUTH_60)
             sendSignedReq();
-            return Result.CONTINUED;
-        } else
-            return res;
+        else
+            return false;
+        return true;
     }
     
     private void sendSignedReq() throws UserAuthException, TransportException
