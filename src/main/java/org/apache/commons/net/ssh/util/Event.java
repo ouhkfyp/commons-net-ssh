@@ -37,6 +37,7 @@ public class Event<T extends Throwable>
     private final FriendlyChainer<T> chainer;
     private final Lock lock;
     private final Condition cond;
+    private int numWaiters;
     
     private boolean flag;
     private T pendingEx;
@@ -63,11 +64,11 @@ public class Event<T extends Throwable>
     {
         lock.lock();
         try {
+            numWaiters++;
             if (flag)
                 return;
             if (pendingEx != null)
                 throw pendingEx;
-            
             while (!flag && pendingEx == null)
                 if (seconds == 0)
                     cond.await();
@@ -78,6 +79,7 @@ public class Event<T extends Throwable>
         } catch (InterruptedException ie) {
             throw chainer.chain(ie);
         } finally {
+            numWaiters--;
             lock.unlock();
         }
     }
@@ -105,6 +107,16 @@ public class Event<T extends Throwable>
         try {
             pendingEx = chainer.chain(t);
             cond.signalAll();
+        } finally {
+            lock.unlock();
+        }
+    }
+    
+    public int getWaitCount()
+    {
+        lock.lock();
+        try {
+            return numWaiters;
         } finally {
             lock.unlock();
         }

@@ -58,11 +58,11 @@ public abstract class AbstractChannel implements Channel
     protected final Queue<Event<ConnectionException>> chanReqs = new LinkedList<Event<ConnectionException>>();
     
     protected ChannelInputStream in = new ChannelInputStream(localWindow);
-    protected OutputStream out = new ChannelOutputStream(this, remoteWindow, log);
+    protected ChannelOutputStream out = new ChannelOutputStream(this, remoteWindow, log);
     
-    private volatile boolean openReqd;
-    private volatile boolean closeReqd;
-    private volatile boolean eofSent;
+    private boolean openReqd;
+    private boolean eofSent;
+    private boolean closeReqd;
     
     private Event<ConnectionException> opened;
     private Event<ConnectionException> closed;
@@ -109,16 +109,6 @@ public abstract class AbstractChannel implements Channel
         return out;
     }
     
-    public int getRecipient()
-    {
-        return recipient;
-    }
-    
-    public Transport getTransport()
-    {
-        return trans;
-    }
-    
     public boolean handle(Constants.Message cmd, Buffer buf) throws ConnectionException, TransportException
     {
         
@@ -159,7 +149,6 @@ public abstract class AbstractChannel implements Channel
                 switch (cmd)
                 {
                     
-                    /* Data-related */
                     case CHANNEL_WINDOW_ADJUST:
                     {
                         log.info("Received SSH_MSG_CHANNEL_WINDOW_ADJUST on channel {}", id);
@@ -177,7 +166,6 @@ public abstract class AbstractChannel implements Channel
                         break;
                     }
                         
-                        /* Request-related */
                     case CHANNEL_REQUEST:
                     {
                         String reqType = buf.getString();
@@ -188,16 +176,15 @@ public abstract class AbstractChannel implements Channel
                     }
                     case CHANNEL_SUCCESS:
                     {
-                        response(true);
+                        gotReqReply(true);
                         break;
                     }
                     case CHANNEL_FAILURE:
                     {
-                        response(false);
+                        gotReqReply(false);
                         break;
                     }
                         
-                        /* Closure / EOF */
                     case CHANNEL_EOF:
                     {
                         gotEOF();
@@ -211,8 +198,10 @@ public abstract class AbstractChannel implements Channel
                         break;
                     }
                     default:
+                    {
                         trans.sendUnimplemented();
                         break;
+                    }
                 }
             
             else
@@ -262,20 +251,21 @@ public abstract class AbstractChannel implements Channel
     {
         lock.lock();
         try {
-            if (!eofSent)
+            if (!eofSent) {
+                eofSent = true;
                 try {
-                    log.info("Send SSH_MSG_CHANNEL_EOF on channel {}", id);
+                    log.info("Sending SSH_MSG_CHANNEL_EOF on channel {}", id);
                     trans.writePacket(new Buffer(Constants.Message.CHANNEL_EOF).putInt(recipient));
                 } finally {
-                    IOUtils.closeQuietly(out);
-                    eofSent = true;
+                    closeStreams();
                 }
+            }
         } finally {
             lock.unlock();
         }
     }
     
-    private void response(boolean success) throws ConnectionException
+    private void gotReqReply(boolean success) throws ConnectionException
     {
         Event<ConnectionException> event = chanReqs.poll();
         log.info("Channel request {} successful={}", event, success);
@@ -289,7 +279,7 @@ public abstract class AbstractChannel implements Channel
                                           "Received channel resonse without a corresponding request");
     }
     
-    /** Sub-classes can override & add-on their specific stuff */
+    /** Sub-classes can override and add-on their specific stuff */
     protected Buffer buildOpenRequest()
     {
         return new Buffer(Message.CHANNEL_OPEN) //

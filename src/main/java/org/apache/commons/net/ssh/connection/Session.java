@@ -103,6 +103,8 @@ public interface Session
     
     void changeWindowDimensions(int cols, int rows, int width, int height) throws TransportException;
     
+    void close() throws ConnectionException, TransportException;
+    
     Command exec(String command) throws ConnectionException, TransportException;
     
     void setEnvVar(String name, String value) throws ConnectionException, TransportException;

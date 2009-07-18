@@ -19,9 +19,7 @@
 package org.apache.commons.net.ssh.userauth;
 
 import org.apache.commons.net.ssh.PasswordFinder;
-import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.PasswordFinder.Resource;
-import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
@@ -32,14 +30,29 @@ public class AuthPassword extends AbstractAuthMethod
     public static final String NAME = "password";
     
     private final PasswordFinder pwdf;
-    private final Resource resource;
     
-    public AuthPassword(Transport trans, Service nextService, String username, PasswordFinder pwdf)
+    public AuthPassword(PasswordFinder pwdf)
     {
-        super(trans, nextService, username);
         assert pwdf != null;
         this.pwdf = pwdf;
-        resource = new Resource(Resource.Type.ACCOUNT, username + "@" + trans.getRemoteHost().getHostName());
+    }
+    
+    @Override
+    public Buffer buildReq() throws UserAuthException
+    {
+        Resource resource = getResource();
+        log.info("Requesting password for " + resource);
+        char[] password = pwdf.reqPassword(resource);
+        try {
+            if (password == null)
+                throw new UserAuthException("Was given null password for " + resource);
+            else
+                return super.buildReq() // the generic stuff
+                            .putBoolean(false) // no, we are not responding to a CHANGEREQ
+                            .putPassword(password);
+        } finally {
+            password = null;
+        }
     }
     
     public String getName()
@@ -57,30 +70,15 @@ public class AuthPassword extends AbstractAuthMethod
     }
     
     @Override
-    public boolean retry() throws TransportException, UserAuthException
+    public boolean shouldRetry()
     {
-        if (pwdf.retry(resource)) {
-            request();
-            return true;
-        } else
-            return false;
+        return pwdf.retry(getResource());
     }
     
-    @Override
-    protected Buffer buildReq() throws UserAuthException
+    protected Resource getResource()
     {
-        log.info("Requesting password for " + resource);
-        char[] password = pwdf.reqPassword(resource);
-        try {
-            if (password == null)
-                throw new UserAuthException("Was given null password for " + resource);
-            else
-                return super.buildReq() // the generic stuff
-                            .putBoolean(false) // no, we are not responding to a CHANGEREQ
-                            .putPassword(password);
-        } finally {
-            password = null;
-        }
+        return new Resource(Resource.Type.ACCOUNT, params.getUsername() + "@"
+                + params.getTransport().getRemoteHost().getHostName());
     }
     
 }

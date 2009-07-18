@@ -18,9 +18,7 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
-import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.util.Buffer;
 
 /**
@@ -36,14 +34,18 @@ public class AuthHostbased extends KeyedAuthMethod
      */
     public static final String NAME = "hostbased";
     
-    private final String hostname;
-    private final String hostuser;
+    protected final String hostname;
+    protected final String hostuser;
     
-    public AuthHostbased(Transport trans, Service nextService, String username, String hostuser, String hostname,
-            KeyProvider kProv)
+    public AuthHostbased(KeyProvider kProv, String hostuser)
     {
-        super(trans, nextService, username, kProv);
-        assert hostuser != null && hostname != null;
+        this(kProv, hostuser, null);
+    }
+    
+    public AuthHostbased(KeyProvider kProv, String hostuser, String hostname)
+    {
+        super(kProv);
+        assert hostuser != null;
         this.hostuser = hostuser;
         this.hostname = hostname;
     }
@@ -57,7 +59,7 @@ public class AuthHostbased extends KeyedAuthMethod
     protected Buffer buildReq() throws UserAuthException
     {
         Buffer req = putPubKey(super.buildReq());
-        req.putString(hostname) //
+        req.putString(hostname == null ? params.getTransport().getRemoteHost().getHostName() : hostname) //
            .putString(hostuser);
         return putSig(req);
     }

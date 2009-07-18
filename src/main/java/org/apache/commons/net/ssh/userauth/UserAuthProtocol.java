@@ -22,14 +22,12 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Event;
@@ -44,88 +42,66 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public class UserAuthProtocol extends AbstractService implements UserAuthService
 {
     
-    private final Iterator<AuthMethod> methods;
-    
-    private LQString banner; // auth banner
-    
-    private AuthMethod method; // currently active method
-    
-    private Set<String> allowed = new HashSet<String>();
-    
-    private final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
-    
-    private boolean partialSuccess;
-    
-    private volatile boolean requested;
-    
-    private final Event<UserAuthException> result = newEvent("userauth / got result");
+    private final AuthParams params;
     
     private final Lock lock = new ReentrantLock();
+    private final Event<UserAuthException> result = newEvent("userauth / got result");
+    private final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
+    private final Set<String> allowed = new HashSet<String>();
     
-    private volatile boolean success;
+    private AuthMethod method; // currently active method
+    private LQString banner; // auth banner
     
-    /**
-     * Constructor that allows specifying an arbitary number of {@link AuthMethod}'s that will be
-     * tried in order.
-     * 
-     * @param trans
-     * @param methods
-     */
-    public UserAuthProtocol(Transport trans, AuthMethod... methods)
+    private boolean partialSuccess;
+    private boolean success;
+    
+    public UserAuthProtocol(AuthParams params)
     {
-        this(trans, Arrays.<AuthMethod> asList(methods));
+        super(params.getTransport());
+        this.params = params;
     }
     
-    /**
-     * Constructor that allowos specifying an arbitary {@link Iterable} of {@link AuthMethod}'s that
-     * will be tried in order.
-     * 
-     * @param trans
-     * @param methods
-     */
-    public UserAuthProtocol(Transport trans, Iterable<AuthMethod> methods)
+    public synchronized void authenticate(AuthMethod... methods) throws UserAuthException, TransportException
     {
-        super(trans);
-        this.methods = methods.iterator();
-        for (AuthMethod m : methods) { // Initially assume at least first method allowed
+        authenticate(Arrays.<AuthMethod> asList(methods));
+    }
+    
+    public synchronized void authenticate(Iterable<AuthMethod> methods) throws UserAuthException, TransportException
+    {
+        // initially all methods allowed
+        for (AuthMethod m : methods)
             allowed.add(m.getName());
-            break;
-        }
-    }
-    
-    // @return true = authenticated, false = only partially, more auth needed!
-    public void authenticate() throws UserAuthException, TransportException
-    {
+        // service request
+        request();
         
-        request(); // service request
-        
-        while (methods.hasNext()) {
-            
-            method = methods.next();
+        for (AuthMethod method : methods) {
             
             log.info("Trying {} auth...", method.getName());
             if (!allowed.contains(method.getName()))
                 continue;
             
+            lock.lock();
             try {
-                requested = true;
+                result.clear();
+                this.method = method;
+                method.init(params);
                 method.request();
                 result.await();
-                if (success) {
-                    // puts delayed compression into force if applicable
-                    trans.setAuthenticated();
-                    // we aren't in charge anymore, next service is
-                    trans.setService(method.getNextService());
-                    return;
-                }
-                requested = false;
             } catch (UserAuthException e) {
                 // an exception requesting the method, let's give other methods a shot
                 log.error("Saving for later - {}", e.toString());
                 savedEx.push(e);
+            } finally {
+                lock.unlock();
             }
             
-            result.clear();
+            if (success) {
+                // puts delayed compression into force if applicable
+                trans.setAuthenticated();
+                // we aren't in charge anymore, next service is
+                trans.setService(params.getNextService());
+                return;
+            }
             
         }
         
@@ -157,55 +133,42 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     }
     
     // Documented in interface
-    public boolean hadPartialSuccess()
+    public synchronized boolean hadPartialSuccess()
     {
         return partialSuccess;
     }
     
     public void handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
-        int num = cmd.toInt();
-        if (num < 51 || num > 79)
+        if (cmd.toInt() < 51 || cmd.toInt() > 79)
             throw new TransportException(DisconnectReason.PROTOCOL_ERROR);
         
         if (cmd == Message.USERAUTH_BANNER) {
-            
             banner = buf.getLQString();
             log.info("Auth banner - lang=[{}], text=[{}]", banner.getLanguage(), banner.getText());
-            
         } else {
-            
             lock.lock();
             try {
-                
-                if (requested) {
-                    
+                if (result.getWaitCount() > 0) {
                     if (cmd == Message.USERAUTH_FAILURE) {
-                        
-                        allowed = new HashSet<String>(Arrays.asList(buf.getString().split(",")));
+                        allowed.clear();
+                        allowed.addAll(Arrays.<String> asList(buf.getString().split(",")));
                         partialSuccess |= buf.getBoolean();
-                        if (!allowed.contains(method.getName()) || !method.retry())
+                        if (allowed.contains(method.getName()) && method.shouldRetry())
+                            method.request();
+                        else
                             result.error(method.getName() + " authentication failed");
-                        
                     } else if (cmd == Message.USERAUTH_SUCCESS) {
-                        
                         success = true;
                         result.set();
-                        
                     } else {
-                        
                         log.debug("Asking {} method to handle", method.getName());
                         if (!method.handle(cmd, buf))
                             // It did not recognize the message
                             result.error("Unknown packet received during " + method.getName() + " auth: " + cmd);
                     }
-                    
-                }
-
-                else
-                    
+                } else
                     trans.sendUnimplemented();
-                
             } finally {
                 lock.unlock();
             }
@@ -216,7 +179,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     {
         lock.lock();
         try {
-            if (requested)
+            if (result.getWaitCount() > 0)
                 result.error(exception);
         } finally {
             lock.unlock();

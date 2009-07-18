@@ -61,8 +61,8 @@ public class Window
     {
         //assert size > len;
         size -= len;
-        if (log.isTraceEnabled())
-            log.trace("Consume " + name + " by " + len + " down to " + size);
+        if (log.isDebugEnabled())
+            log.debug("Consume " + name + " by " + len + " down to " + size);
     }
     
     public synchronized void consumeAndCheck(int len) throws TransportException

@@ -20,9 +20,7 @@ package org.apache.commons.net.ssh.userauth;
 
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
-import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
@@ -44,9 +42,9 @@ public class AuthPublickey extends KeyedAuthMethod
      */
     public static final String NAME = "publickey";
     
-    public AuthPublickey(Transport trans, Service nextService, String username, KeyProvider kProv)
+    public AuthPublickey(KeyProvider kProv)
     {
-        super(trans, nextService, username, kProv);
+        super(kProv);
     }
     
     public String getName()
@@ -64,12 +62,6 @@ public class AuthPublickey extends KeyedAuthMethod
         return true;
     }
     
-    private void sendSignedReq() throws UserAuthException, TransportException
-    {
-        log.debug("Sending signed request");
-        trans.writePacket(putSig(buildReq(true)));
-    }
-    
     @Override
     protected Buffer buildReq() throws UserAuthException
     {
@@ -84,6 +76,12 @@ public class AuthPublickey extends KeyedAuthMethod
             throw new UserAuthException("Problem getting public key", ioe);
         }
         return putPubKey(super.buildReq().putBoolean(signed));
+    }
+    
+    protected void sendSignedReq() throws UserAuthException, TransportException
+    {
+        log.debug("Sending signed request");
+        params.getTransport().writePacket(putSig(buildReq(true)));
     }
     
 }

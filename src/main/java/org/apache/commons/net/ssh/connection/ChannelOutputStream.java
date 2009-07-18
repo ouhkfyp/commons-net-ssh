@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 
-import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
@@ -40,8 +39,9 @@ public class ChannelOutputStream extends OutputStream
     private final Logger log;
     private final byte[] b = new byte[1];
     private Buffer buffer;
-    private boolean closed;
     private int bufferLength;
+    
+    private boolean closed;
     
     public ChannelOutputStream(AbstractChannel channel, Window remoteWindow, Logger log)
     {
@@ -61,7 +61,7 @@ public class ChannelOutputStream extends OutputStream
     public synchronized void flush() throws IOException
     {
         if (closed)
-            throw new SSHException("Already closed");
+            throw new ConnectionException("Stream closed");
         int pos = buffer.wpos();
         if (bufferLength <= 0)
             // No data to send
@@ -72,7 +72,7 @@ public class ChannelOutputStream extends OutputStream
         try {
             remoteWindow.waitAndConsume(bufferLength);
             log.debug("Sending SSH_MSG_CHANNEL_DATA on channel {}", channel.getID());
-            channel.getTransport().writePacket(buffer);
+            channel.trans.writePacket(buffer);
         } catch (InterruptedException e) {
             throw (IOException) new InterruptedIOException().initCause(e);
         } finally {
@@ -81,20 +81,20 @@ public class ChannelOutputStream extends OutputStream
     }
     
     @Override
-    public synchronized void write(byte[] buf, int s, int l) throws IOException
+    public synchronized void write(byte[] data, int off, int len) throws IOException
     {
         if (closed)
-            throw new SSHException("Already closed");
-        while (l > 0) {
-            int _l = Math.min(l, remoteWindow.getPacketSize() - bufferLength);
-            if (_l <= 0) {
+            throw new ConnectionException("Stream closed");
+        while (len > 0) {
+            int x = Math.min(len, remoteWindow.getPacketSize() - bufferLength);
+            if (x <= 0) {
                 flush();
                 continue;
             }
-            buffer.putRawBytes(buf, s, _l);
-            bufferLength += _l;
-            s += _l;
-            l -= _l;
+            buffer.putRawBytes(data, off, x);
+            bufferLength += x;
+            off += x;
+            len -= x;
         }
     }
     
@@ -108,9 +108,14 @@ public class ChannelOutputStream extends OutputStream
     private void newBuffer()
     {
         buffer = new Buffer(Message.CHANNEL_DATA);
-        buffer.putInt(channel.getRecipient());
+        buffer.putInt(channel.recipient);
         buffer.putInt(0);
         bufferLength = 0;
+    }
+    
+    synchronized boolean isClosed()
+    {
+        return closed;
     }
     
 }

@@ -63,7 +63,10 @@ import org.apache.commons.net.ssh.signature.SignatureRSA;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.transport.TransportProtocol;
-import org.apache.commons.net.ssh.userauth.AuthBuilder;
+import org.apache.commons.net.ssh.userauth.AuthParams;
+import org.apache.commons.net.ssh.userauth.AuthPassword;
+import org.apache.commons.net.ssh.userauth.AuthPublickey;
+import org.apache.commons.net.ssh.userauth.UserAuthProtocol;
 import org.apache.commons.net.ssh.userauth.UserAuthService;
 import org.apache.commons.net.ssh.util.KnownHosts;
 import org.apache.commons.net.ssh.util.SecurityUtils;
@@ -224,13 +227,13 @@ public class SSHClient extends SocketClient
      * @param username
      *            the username to authenticate
      * @param password
-     *            the {@link PasswordFinder} to use
+     *            the password to use
      * @throws SSHException
      *             if an error occurs during the authentication process
      */
-    public void authPassword(String username, PasswordFinder password) throws SSHException
+    public void authPassword(String username, char[] password) throws SSHException
     {
-        getAuthBuilder().withUsername(username).authPassword(password).build().authenticate();
+        authPassword(username, PasswordFinder.Util.createOneOff(password));
     }
     
     /**
@@ -239,13 +242,13 @@ public class SSHClient extends SocketClient
      * @param username
      *            the username to authenticate
      * @param password
-     *            the password to use
+     *            the {@link PasswordFinder} to use
      * @throws SSHException
      *             if an error occurs during the authentication process
      */
-    public void authPassword(String username, String password) throws SSHException
+    public void authPassword(String username, PasswordFinder password) throws SSHException
     {
-        getAuthBuilder().withUsername(username).authPassword(password).build().authenticate();
+        newUserAuth(username).authenticate(new AuthPassword(password));
     }
     
     /**
@@ -262,7 +265,7 @@ public class SSHClient extends SocketClient
      */
     public void authPublickey(String username, KeyProvider keyProvider) throws SSHException
     {
-        getAuthBuilder().withUsername(username).authPublickey(keyProvider).build().authenticate();
+        newUserAuth(username).authenticate(new AuthPublickey(keyProvider));
     }
     
     @Override
@@ -271,15 +274,6 @@ public class SSHClient extends SocketClient
         trans.disconnect();
         assert !trans.isRunning();
         super.disconnect();
-    }
-    
-    /**
-     * Returns an instance of {@link AuthBuilder} which can be used to build an instance of
-     * {@link UserAuthService} and authenticate using that.
-     */
-    public AuthBuilder getAuthBuilder()
-    {
-        return new AuthBuilder(trans, conn, System.getProperty("user.name"));
     }
     
     /**
@@ -353,7 +347,24 @@ public class SSHClient extends SocketClient
      */
     public FileKeyProvider loadKeyFile(String location) throws IOException
     {
-        return loadKeyFile(location, "");
+        return loadKeyFile(location, new char[] {});
+    }
+    
+    /**
+     * Convenience method for creating a {@link FileKeyProvider} instance from a location where an
+     * <i>encrypted</i> key file is located.
+     * 
+     * @param location
+     *            the location of the key file
+     * @param passphrase
+     *            the passphrase for unlocking the key
+     * @return the {@link FileKeyProvider} initialized with given location
+     * @throws IOException
+     *             if the key file format is not known, if the file could not be read etc.
+     */
+    public FileKeyProvider loadKeyFile(String location, char[] passphrase) throws IOException
+    {
+        return loadKeyFile(location, PasswordFinder.Util.createOneOff(passphrase));
     }
     
     /**
@@ -379,21 +390,9 @@ public class SSHClient extends SocketClient
         return fkp;
     }
     
-    /**
-     * Convenience method for creating a {@link FileKeyProvider} instance from a location where an
-     * <i>encrypted</i> key file is located.
-     * 
-     * @param location
-     *            the location of the key file
-     * @param passphrase
-     *            the passphrase for unlocking the key
-     * @return the {@link FileKeyProvider} initialized with given location
-     * @throws IOException
-     *             if the key file format is not known, if the file could not be read etc.
-     */
-    public FileKeyProvider loadKeyFile(String location, String passphrase) throws IOException
+    public UserAuthService newUserAuth(String username)
     {
-        return loadKeyFile(location, PasswordFinder.Util.createOneOff(passphrase));
+        return new UserAuthProtocol(new AuthParams(trans, username, conn));
     }
     
     public Session startSession() throws ConnectionException, TransportException
