@@ -28,6 +28,8 @@ import java.net.Socket;
 import java.security.PublicKey;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.FactoryManager;
 import org.apache.commons.net.ssh.HostKeyVerifier;
@@ -69,7 +71,7 @@ public class TransportProtocol implements Transport
     private final Queue<HostKeyVerifier> hostVerifiers = new LinkedList<HostKeyVerifier>();
     
     /** For key (re)exchange */
-    private final Negotiator negotiator;
+    private final Kexer kexer;
     
     /** Message identifier for last packet received */
     private Message cmd;
@@ -117,13 +119,13 @@ public class TransportProtocol implements Transport
     /** Server version identification string */
     String serverID;
     
+    private final Lock lock = new ReentrantLock();
+    
     private final Event<TransportException> kexOngoing = newEvent("transport / kex ongoing");
     private final Event<TransportException> kexDone = newEvent("transport / kex done");
     private final Event<TransportException> serviceRequested = newEvent("transport / service req");
     private final Event<TransportException> serviceAccepted = newEvent("transport / service accepted");
     private final Event<TransportException> closeEvent = newEvent("transport / close");
-    
-    private final Object serviceLock = new Object();
     
     /**
      * 
@@ -135,7 +137,7 @@ public class TransportProtocol implements Transport
         fm = factoryManager;
         prng = factoryManager.getRandomFactory().create();
         packetConverter = new PacketConverter(this);
-        negotiator = new Negotiator(this);
+        kexer = new Kexer(this);
     }
     
     // Documented in interface
@@ -207,20 +209,25 @@ public class TransportProtocol implements Transport
     // Documented in interface
     public Service getService()
     {
-        synchronized (serviceLock) {
+        lock.lock();
+        try {
             return service;
+        } finally {
+            lock.unlock();
         }
     }
     
     // Documented in interface
     public byte[] getSessionID()
     {
-        return negotiator.sessionID;
+        return kexer.sessionID;
     }
     
     // Documented in interface
     public void init(Socket socket) throws TransportException
     {
+        long t = System.currentTimeMillis();
+        
         try {
             this.socket = socket;
             input = socket.getInputStream();
@@ -239,16 +246,26 @@ public class TransportProtocol implements Transport
             throw new TransportException(e);
         }
         
-        kexOngoing.set();
+        lock.lock();
+        try {
+            
+            kexOngoing.set();
+            
+            // Start negotiation from our end
+            kexer.init();
+            
+            // Start dealing with input
+            inPump.start();
+            
+            // Wait for completion
+            kexDone.await();
+            
+        } finally {
+            lock.unlock();
+        }
         
-        // State negotiation from our end
-        negotiator.init();
-        
-        // Start dealing with input
-        inPump.start();
-        
-        // Wait for completion
-        kexDone.await();
+        log.info("Connection to {} initialized in {} seconds", socket.getRemoteSocketAddress(),
+                 ((System.currentTimeMillis() - t) / 1000.0));
     }
     
     // Documented in interface
@@ -258,13 +275,16 @@ public class TransportProtocol implements Transport
     }
     
     // Documented in interface
-    public void reqService(Service service) throws TransportException
+    public synchronized void reqService(Service service) throws TransportException
     {
-        synchronized (serviceLock) {
+        lock.lock();
+        try {
             serviceRequested.set();
             sendServiceRequest(service.getName());
             serviceAccepted.await();
             setService(service);
+        } finally {
+            lock.unlock();
         }
     }
     
@@ -280,17 +300,22 @@ public class TransportProtocol implements Transport
     // Documented in interface
     public void setAuthenticated()
     {
-        authed = true;
+        synchronized (packetConverter) {
+            authed = true;
+        }
     }
     
     // Documented in interface
-    public void setService(Service service)
+    public synchronized void setService(Service service)
     {
-        synchronized (serviceLock) {
+        lock.lock();
+        try {
             if (!serviceAccepted.isSet())
                 throw new SSHRuntimeException("Contract violation");
             log.info("Setting active service to {}", service.getName());
             this.service = service;
+        } finally {
+            lock.unlock();
         }
     }
     
@@ -333,13 +358,17 @@ public class TransportProtocol implements Transport
         closeEvent.set();
     }
     
-    private synchronized void die(IOException ex)
+    @SuppressWarnings("unchecked")
+    private void die(IOException ex)
     {
+        
         log.error("Dying because - {}", ex.toString());
         
         SSHException causeOfDeath = SSHException.chainer.chain(ex);
         
-        synchronized (serviceLock) {
+        lock.lock();
+        try {
+            
             // Takes care of notifying service
             if (service != null) {
                 log.debug("Notifying {}", service);
@@ -350,21 +379,24 @@ public class TransportProtocol implements Transport
                 }
                 service = null;
             }
+            
+            // Throw the exception in any thread waiting for state change
+            Event.Util.<TransportException> notifyError(causeOfDeath, kexOngoing, kexDone, closeEvent,
+                                                        serviceRequested, serviceAccepted);
+            
+            if (causeOfDeath.getDisconnectReason() != DisconnectReason.UNKNOWN && cmd != Message.DISCONNECT)
+                /*
+                 * Send SSH_MSG_DISCONNECT if we have the required info in the exception and the
+                 * exception does not arise from receiving a SSH_MSG_DISCONNECT ourself
+                 */
+                disconnect(causeOfDeath.getDisconnectReason(), causeOfDeath.getMessage());
+            else
+                // stop inPump without sending disconnect message
+                close();
+            
+        } finally {
+            lock.unlock();
         }
-        
-        // Throw the exception in any thread waiting for state change
-        Event.Util.notifyError(causeOfDeath, kexOngoing, kexDone, closeEvent, serviceRequested, serviceAccepted);
-        
-        if (causeOfDeath.getDisconnectReason() != DisconnectReason.UNKNOWN && cmd != Message.DISCONNECT)
-            /*
-             * Send SSH_MSG_DISCONNECT if we have the required info in the exception and the
-             * exception does not arise from receiving a SSH_MSG_DISCONNECT ourself
-             */
-            disconnect(causeOfDeath.getDisconnectReason(), causeOfDeath.getMessage());
-        else
-            // stop inPump without sending disconnect message
-            close();
-        
     }
     
     /**
@@ -375,27 +407,27 @@ public class TransportProtocol implements Transport
      */
     private void gotUnimplemented(long seqNum) throws SSHException
     {
-        //        synchronized (serviceLock) {
-        //            //            switch (sm.current())
-        //            //            {
-        //            //            case KEX:
-        //            //                throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
-        //            //            case service:
-        //            //                throw new TransportException("Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
-        //            //                        + service.getName());
-        //            //            case DEFAULT:
-        //            //                if (service != null)
-        //            //                    // The service might throw an exception, but that's okay and encouraged
-        //            //                    service.notifyUnimplemented(seqNum);
-        //            //            default:
-        //            //                log.debug("Ignoring unimplemented message");
-        //            //            }
-        //        }
+        lock.lock();
+        try {
+            if (kexOngoing.isSet())
+                throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
+            else if (serviceRequested.isSet())
+                throw new TransportException("Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
+                        + service.getName());
+            else if (serviceAccepted.isSet()) {
+                if (service != null)
+                    // The service might throw an exception, but that's okay and encouraged
+                    service.notifyUnimplemented(seqNum);
+            } else
+                log.warn("Ignoring unimplemented message");
+        } finally {
+            lock.unlock();
+        }
     }
     
     private Event<TransportException> newEvent(String name)
     {
-        return new Event<TransportException>(name, TransportException.chainer);
+        return new Event<TransportException>(name, TransportException.chainer, lock);
     }
     
     /**
@@ -473,7 +505,7 @@ public class TransportProtocol implements Transport
      * {@link Service#handle}.
      * <p
      * Even among the transport layer specific packets, key exchange packets are delegated to
-     * {@link Negotiator#handle}.
+     * {@link Kexer#handle}.
      * <p>
      * This method is called in the context of the {@link #inPump} thread via
      * {@link PacketConverter#munch} when a full packet has been decoded.
@@ -489,49 +521,53 @@ public class TransportProtocol implements Transport
         log.debug("Received packet {}", cmd);
         switch (cmd)
         {
-        case DISCONNECT:
-            DisconnectReason code = DisconnectReason.fromInt(packet.getInt());
-            String message = packet.getString();
-            log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, message);
-            throw new TransportException(code, message);
-        case UNIMPLEMENTED:
-            long seqNum = packet.getLong();
-            log.info("Received SSH_MSG_UNIMPLEMENTED #{}", seqNum);
-            gotUnimplemented(seqNum);
-            break;
-        case DEBUG:
-            boolean display = packet.getBoolean();
-            String msg = packet.getString();
-            log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, msg);
-            break;
-        case IGNORE:
-            log.info("Received SSH_MSG_IGNORE");
-            break;
-        default:
-        {
-            if (kexOngoing.isSet()) {
-                if (negotiator.handle(cmd, packet)) {
-                    kexDone.set();
-                    kexOngoing.clear();
-                }
-            } else if (serviceRequested.isSet()) {
-                if (cmd != Message.SERVICE_ACCEPT)
-                    throw new TransportException(DisconnectReason.PROTOCOL_ERROR, "Expected SSH_MSG_SERVICE_ACCEPT");
-                serviceAccepted.set();
-                serviceRequested.clear();
-            } else if (serviceAccepted.isSet() && cmd.toInt() > 49) // Not a transport layer packet
-                synchronized (serviceLock) {
-                    if (service != null)
-                        service.handle(cmd, packet);
+            case DISCONNECT:
+                DisconnectReason code = DisconnectReason.fromInt(packet.getInt());
+                String message = packet.getString();
+                log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, message);
+                throw new TransportException(code, message);
+            case UNIMPLEMENTED:
+                long seqNum = packet.getLong();
+                log.info("Received SSH_MSG_UNIMPLEMENTED #{}", seqNum);
+                gotUnimplemented(seqNum);
+                break;
+            case DEBUG:
+                boolean display = packet.getBoolean();
+                String msg = packet.getString();
+                log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, msg);
+                break;
+            case IGNORE:
+                log.info("Received SSH_MSG_IGNORE");
+                break;
+            default:
+            {
+                lock.lock();
+                try {
+                    if (kexOngoing.isSet()) {
+                        if (kexer.handle(cmd, packet)) {
+                            kexDone.set();
+                            kexOngoing.clear();
+                        }
+                    } else if (serviceRequested.isSet()) {
+                        if (cmd != Message.SERVICE_ACCEPT)
+                            throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
+                                                         "Expected SSH_MSG_SERVICE_ACCEPT");
+                        serviceAccepted.set();
+                        serviceRequested.clear();
+                    } else if (serviceAccepted.isSet() && cmd.toInt() > 49) // Not a transport layer packet
+                        if (service != null)
+                            service.handle(cmd, packet);
+                        else if (cmd == Message.KEXINIT) { // Start re-exchange
+                            kexOngoing.set();
+                            kexer.handle(cmd, packet);
+                        } else
+                            sendUnimplemented();
                     else
                         sendUnimplemented();
+                } finally {
+                    lock.unlock();
                 }
-            else if (cmd == Message.KEXINIT) { // Start re-exchange
-                kexOngoing.set();
-                negotiator.handle(cmd, packet);
-            } else
-                sendUnimplemented();
-        }
+            }
         }
     }
     
@@ -543,7 +579,7 @@ public class TransportProtocol implements Transport
      *            the host key to verify
      * @return {@code true} if host key could be verified, {@code false} if not
      */
-    boolean verifyHost(PublicKey key)
+    synchronized boolean verifyHost(PublicKey key)
     {
         while (!hostVerifiers.isEmpty()) {
             HostKeyVerifier hkv = hostVerifiers.remove();

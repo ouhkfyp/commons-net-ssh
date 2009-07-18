@@ -46,16 +46,14 @@ public class Window
         this.name = (local ? "local " : "remote") + " window";
     }
     
-    public void check(int maxFree) throws TransportException
+    public synchronized void check(int maxFree) throws TransportException
     {
         int threshold = Math.min(packetSize * 8, maxSize / 4);
-        synchronized (this) {
-            if (maxFree - size > packetSize && (maxFree - size > threshold || size < threshold)) {
-                if (log.isDebugEnabled())
-                    log.debug("Increase " + name + " by " + (maxFree - size) + " up to " + maxFree);
-                channel.sendWindowAdjust(maxFree - size);
-                size = maxFree;
-            }
+        if (maxFree - size > packetSize && (maxFree - size > threshold || size < threshold)) {
+            if (log.isDebugEnabled())
+                log.debug("Increase " + name + " by " + (maxFree - size) + " up to " + maxFree);
+            channel.sendWindowAdjust(maxFree - size);
+            size = maxFree;
         }
     }
     
@@ -96,11 +94,11 @@ public class Window
         return size;
     }
     
-    public void init(int size, int packetSize)
+    public void init(int startSize, int maxPacketSize)
     {
-        this.size = size;
-        this.maxSize = size;
-        this.packetSize = packetSize;
+        this.size = startSize;
+        this.maxSize = startSize;
+        this.packetSize = maxPacketSize;
     }
     
     public synchronized void waitAndConsume(int len) throws InterruptedException

@@ -178,8 +178,12 @@ public interface Transport
      * <p>
      * Delegation of message-handling is done by calling the {@link Service#handle(Message, Buffer)}
      * method.
+     * <p>
+     * For this method to be successful, at least one service request must have been successful (not
+     * necessarily for the service being set).
      * 
      * @param service
+     *            (null-ok)
      */
     void setService(Service service);
     

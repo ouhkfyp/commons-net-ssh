@@ -37,36 +37,6 @@ public interface AuthMethod
 {
     
     /**
-     * The intermediate or final result of this method
-     */
-    enum Result
-    {
-        /** Succesfully authenticated */
-        SUCCESS,
-
-        /** Not concluded yet, wants next packet directed to this method */
-        CONTINUED,
-
-        /** Multiple authentications were required - one hurdle down, continue trying */
-        PARTIAL_SUCCESS,
-
-        /** Failed to authenticate using this method */
-        FAILURE,
-
-        /** Indeterminable */
-        UNKNOWN,
-    }
-    
-    /**
-     * Comma-delimited string of authentication methods that may be allowed to continue. MUST be
-     * initialized to the correct field from a SSH_MSG_USERAUTH_FAILURE packet if it was received,
-     * but otherwise may be {@code null}.
-     * 
-     * @return the methods allowoed to continue
-     */
-    String getAllowed();
-    
-    /**
      * Returns the assigned name for this authentication method.
      */
     String getName();
@@ -78,22 +48,11 @@ public interface AuthMethod
     Service getNextService();
     
     /**
-     * Returns the username this method is trying to authenticate / has authenticated.
+     * Returns the username this method will try to authenticate / has authenticated
      */
     String getUsername();
     
-    /**
-     * Asks this instance to handle the specified packet.
-     * 
-     * @param cmd
-     *            the SSH message identifier
-     * @param buf
-     *            buffer containing rest of the packet
-     * @return the determined {@link Result}
-     * @throws UserAuthException
-     * @throws TransportException
-     */
-    Result handle(Message cmd, Buffer buf) throws UserAuthException, TransportException;
+    boolean handle(Message cmd, Buffer buf) throws UserAuthException, TransportException;
     
     /**
      * Request this method.
@@ -101,5 +60,7 @@ public interface AuthMethod
      * @throws IOException
      */
     void request() throws UserAuthException, TransportException;
+    
+    boolean retry() throws TransportException, UserAuthException;
     
 }

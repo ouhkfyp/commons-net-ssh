@@ -11,7 +11,7 @@ public interface Channel
     
     void close() throws TransportException, ConnectionException;
     
-    void eof() throws TransportException;
+    void sendEOF() throws TransportException;
     
     int getID();
     

@@ -24,13 +24,13 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
-import org.apache.commons.net.ssh.userauth.AuthMethod.Result;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Event;
 import org.apache.commons.net.ssh.util.LQString;
@@ -49,7 +49,6 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     private LQString banner; // auth banner
     
     private AuthMethod method; // currently active method
-    private AuthMethod.Result res; // its result
     
     private Set<String> allowed = new HashSet<String>();
     
@@ -57,8 +56,13 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     
     private boolean partialSuccess;
     
-    private final Event<UserAuthException> conclusiveResult =
-            new Event<UserAuthException>("userauth / concusive result", UserAuthException.chainer);
+    private volatile boolean requested;
+    
+    private final Event<UserAuthException> result = newEvent("userauth / got result");
+    
+    private final Lock lock = new ReentrantLock();
+    
+    private volatile boolean success;
     
     /**
      * Constructor that allows specifying an arbitary number of {@link AuthMethod}'s that will be
@@ -92,8 +96,6 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     // @return true = authenticated, false = only partially, more auth needed!
     public void authenticate() throws UserAuthException, TransportException
     {
-        if (trans.getService() != null && trans.getService().getName() == NAME)
-            throw new SSHRuntimeException("Concurrent authentication attempt not possible");
         
         request(); // service request
         
@@ -106,32 +108,24 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 continue;
             
             try {
+                requested = true;
                 method.request();
+                result.await();
+                if (success) {
+                    // puts delayed compression into force if applicable
+                    trans.setAuthenticated();
+                    // we aren't in charge anymore, next service is
+                    trans.setService(method.getNextService());
+                    return;
+                }
+                requested = false;
             } catch (UserAuthException e) {
                 // an exception requesting the method, let's give other methods a shot
                 log.error("Saving for later - {}", e.toString());
                 savedEx.push(e);
-                continue;
             }
             
-            // wait until we have the result of this method
-            conclusiveResult.await();
-            
-            switch (res)
-            {
-            case SUCCESS:
-                return; // Exit point for successful auth
-            case PARTIAL_SUCCESS:
-                partialSuccess = true;
-                continue;
-            case FAILURE:
-                savedEx.push(new UserAuthException(method.getName() + " authentication failed"));
-                continue;
-            default:
-                assert false;
-            }
-            
-            conclusiveResult.clear();
+            result.clear();
             
         }
         
@@ -162,78 +156,76 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         return savedEx;
     }
     
+    // Documented in interface
     public boolean hadPartialSuccess()
     {
         return partialSuccess;
     }
     
-    // Documented in interface
     public void handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
-        if (cmd.toInt() < 50 || cmd.toInt() > 79)
+        int num = cmd.toInt();
+        if (num < 51 || num > 79)
             throw new TransportException(DisconnectReason.PROTOCOL_ERROR);
-        /*
-         * Here we are being asked to handle a packet that is meant for the ssh-userauth service.
-         * 
-         * First we check if it is the banner, and if so store it. Otherwise, we find out from the
-         * currently active authentication method what the packet implies - SUCCESS, FAILURE,
-         * PARTIAL_SUCCESS, or that a conclusive result has not yet been reached (CONTINUED).
-         * 
-         * In all but the last case, we signal on resCond so that any thread waiting on the result
-         * gets notified.
-         */
-        switch (cmd)
-        {
-        case USERAUTH_BANNER:
+        
+        if (cmd == Message.USERAUTH_BANNER) {
+            
             banner = buf.getLQString();
             log.info("Auth banner - lang=[{}], text=[{}]", banner.getLanguage(), banner.getText());
-            break;
-        default:
+            
+        } else {
+            
+            lock.lock();
             try {
-                res = method.handle(cmd, buf);
-                log.info("Auth result = {}", res);
-                switch (res)
-                {
-                case SUCCESS:
-                    trans.setAuthenticated(); // notify session so that delayed comression may become effective if applicable
-                    trans.setService(method.getNextService()); // we aren't in charge anymore, next service is
-                    conclusiveResult.set();
-                    break;
-                case FAILURE:
-                    // the server would have told us which auth methods can continue now
-                    allowed = new HashSet<String>(Arrays.asList(method.getAllowed().split(",")));
-                    conclusiveResult.set();
-                    break;
-                case PARTIAL_SUCCESS:
-                    conclusiveResult.set();
-                    break;
-                case CONTINUED:
-                    // let resCond awaiter keep waiting, since the current method has not yet concluded
-                    break;
-                case UNKNOWN:
-                    throw new UserAuthException("Could not decipher packet");
-                default:
-                    assert false;
+                
+                if (requested) {
+                    
+                    if (cmd == Message.USERAUTH_FAILURE) {
+                        
+                        allowed = new HashSet<String>(Arrays.asList(buf.getString().split(",")));
+                        partialSuccess |= buf.getBoolean();
+                        if (!allowed.contains(method.getName()) || !method.retry())
+                            result.error(method.getName() + " authentication failed");
+                        
+                    } else if (cmd == Message.USERAUTH_SUCCESS) {
+                        
+                        success = true;
+                        result.set();
+                        
+                    } else {
+                        
+                        log.debug("Asking {} method to handle", method.getName());
+                        if (!method.handle(cmd, buf))
+                            // It did not recognize the message
+                            result.error("Unknown packet received during " + method.getName() + " auth: " + cmd);
+                    }
+                    
                 }
-            } catch (UserAuthException e) {
-                // UserAuthException when asking the method to tell us the result
-                log.error("Saving for later - {}", e.toString());
-                savedEx.push(e);
-                res = Result.FAILURE;
-                conclusiveResult.set();
+
+                else
+                    
+                    trans.sendUnimplemented();
+                
+            } finally {
+                lock.unlock();
             }
         }
     }
     
     public void notifyError(SSHException exception)
     {
-        conclusiveResult.error(exception);
+        lock.lock();
+        try {
+            if (requested)
+                result.error(exception);
+        } finally {
+            lock.unlock();
+        }
     }
     
-    // Documented in interface
-    public void notifyUnimplemented(int seqNum) throws SSHException
+    private Event<UserAuthException> newEvent(String name)
     {
-        throw new UserAuthException("Unexpected: SSH_MSG_UNIMPLEMENTED");
+        return new Event<UserAuthException>(name, UserAuthException.chainer, lock);
     }
     
 }

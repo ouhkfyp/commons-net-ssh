@@ -36,8 +36,8 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public class ConnectionProtocol extends AbstractService implements ConnectionService
 {
     
-    public static final int DEFAULT_WINDOW_SIZE = 0x200000;
-    public static final int DEFAULT_PACKET_SIZE = 0x8000;
+    public static final int WINDOW_START_SIZE = 0x200000;
+    public static final int MAX_PACKET_SIZE = 0x8000;
     
     protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
     protected int nextChannelID;
@@ -54,17 +54,16 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     public void handle(Message cmd, Buffer buffer) throws SSHException
     {
-        if (cmd.toInt() >= 90 && cmd.toInt() <= 100) {
+        int num = cmd.toInt();
+        if (num < 80 || num > 100)
+            throw new TransportException(DisconnectReason.PROTOCOL_ERROR);
+        else if (num < 90) { // global
+        
+        } else { // channel-specific
             Channel chan = getChannel(buffer);
             if (chan.handle(cmd, buffer))
                 forget(chan.getID());
-        } else
-            switch (cmd)
-            {
-            // TODO
-            default:
-                assert false;
-            }
+        }
     }
     
     public void notifyError(SSHException ex)
@@ -112,7 +111,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     private Channel initChannel(Channel chan) throws ChannelOpenFailureException, ConnectionException,
             TransportException
     {
-        chan.init(trans, add(chan), DEFAULT_WINDOW_SIZE, DEFAULT_PACKET_SIZE);
+        chan.init(trans, add(chan), WINDOW_START_SIZE, MAX_PACKET_SIZE);
         chan.open();
         return chan;
     }

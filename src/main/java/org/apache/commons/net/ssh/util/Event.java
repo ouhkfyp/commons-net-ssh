@@ -33,20 +33,25 @@ public class Event<T extends Throwable>
         
     }
     
-    private final Lock lock = new ReentrantLock();
-    
-    private final Condition cond = lock.newCondition();
     private final String name;
-    
     private final FriendlyChainer<T> chainer;
-    private boolean flag;
+    private final Lock lock;
+    private final Condition cond;
     
+    private boolean flag;
     private T pendingEx;
     
     public Event(String name, FriendlyChainer<T> chainer)
     {
+        this(name, chainer, null);
+    }
+    
+    public Event(String name, FriendlyChainer<T> chainer, Lock lock)
+    {
         this.name = "<< " + name + " >>";
         this.chainer = chainer;
+        this.lock = lock == null ? new ReentrantLock() : lock;
+        this.cond = this.lock.newCondition();
     }
     
     public void await() throws T
