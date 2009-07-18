@@ -6,12 +6,12 @@ import java.io.InterruptedIOException;
 
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
-import org.apache.commons.net.ssh.util.Buffer.BufferException;
 
 public class ChannelInputStream extends InputStream
 {
     
     private final Buffer buf = new Buffer();
+    private final byte[] b = new byte[1];
     private final Window localWindow;
     
     private boolean closed;
@@ -23,43 +23,78 @@ public class ChannelInputStream extends InputStream
     }
     
     @Override
-    public synchronized int read() throws IOException
+    public int available()
     {
-        while (!(buf.available() > 0) && !eof && !closed)
-            try {
-                wait();
-            } catch (InterruptedException e) {
-                throw (IOException) new InterruptedIOException().initCause(e);
-            }
-        try {
-            return buf.getByte();
-        } catch (BufferException e) {
-            if (eof)
-                return -1;
-            else if (closed)
-                throw new IOException("Stream closed");
-            else
-                throw e;
+        synchronized (buf) {
+            return buf.available();
         }
     }
     
-    public synchronized void receive(byte[] data, int offset, int len) throws TransportException
+    @Override
+    public int read() throws IOException
     {
-        buf.putRawBytes(data, offset, len);
-        notifyAll();
+        synchronized (b) {
+            int l = read(b, 0, 1);
+            if (l == -1)
+                return -1;
+            return b[0];
+        }
+    }
+    
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException
+    {
+        int avail;
+        synchronized (buf) {
+            for (;;) {
+                if (eof)
+                    return -1;
+                if (closed)
+                    throw new IOException("Pipe closed");
+                if (buf.available() > 0)
+                    break;
+                try {
+                    buf.wait();
+                } catch (InterruptedException e) {
+                    throw (IOException) new InterruptedIOException().initCause(e);
+                }
+            }
+            if (len > buf.available())
+                len = buf.available();
+            buf.getRawBytes(b, off, len);
+            if (buf.rpos() > localWindow.getPacketSize() || buf.available() == 0)
+                buf.compact();
+            avail = localWindow.getMaxSize() - buf.available();
+        }
+        localWindow.check(avail);
+        return len;
+    }
+    
+    public void receive(byte[] data, int offset, int len) throws ConnectionException, TransportException
+    {
+        synchronized (buf) {
+            if (closed)
+                throw new ConnectionException("Stream closed");
+            buf.putRawBytes(data, offset, len);
+            buf.notifyAll();
+        }
         localWindow.consumeAndCheck(len);
     }
     
-    synchronized void setClosed()
+    void setClosed()
     {
-        closed = true;
-        notifyAll();
+        synchronized (buf) {
+            closed = true;
+            buf.notifyAll();
+        }
     }
     
-    synchronized void setEOF()
+    void setEOF()
     {
-        eof = true;
-        notifyAll();
+        synchronized (buf) {
+            eof = true;
+            buf.notifyAll();
+        }
     }
     
 }
