@@ -1,7 +1,8 @@
 package examples.ssh;
 
 import org.apache.commons.net.ssh.SSHClient;
-import org.apache.commons.net.ssh.keyprovider.KeyProvider;
+import org.apache.commons.net.ssh.connection.Session;
+import org.apache.commons.net.ssh.connection.Session.Command;
 import org.apache.log4j.BasicConfigurator;
 
 public class SSHExample
@@ -17,20 +18,30 @@ public class SSHExample
         SSHClient client = new SSHClient();
         
         client.initUserKnownHosts();
-        //client.addHostKeyVerifier("c1:32:d6:5d:28:ed:c5:2c:8a:96:47:d8:dc:56:e3:80");
+        //client.addHostKeyVerifier("e6:d4:18:e6:c8:2d:29:a3:83:ae:aa:d5:fc:f2:49:47");
         
+        //client.connect("schmizz.net");
         client.connect("localhost");
         try {
             
-            // client.authPassword("bobo", "abcdef");
+            client.authPassword("bobo", "abcdef");
+            //            client.authPublickey("shikhar", client.loadKeyFile("/home/shikhar/.ssh/id_rsa"));
             
-            KeyProvider fkp = client.loadKeyFile("/home/shikhar/.ssh/id_rsa");
-            client.authPublickey("shikhar", fkp);
+            Session session = client.startSession();
+            session.allocateDefaultPTY();
+            Command cmd = session.exec("uptime");
+            
+            StringBuilder sb = new StringBuilder();
+            int r;
+            while ((r = cmd.getIn().read()) != -1)
+                sb.append((char) r);
+            
+            System.out.print(sb);
+            System.out.println("Exit status: " + cmd.getExitStatus());
             
         } finally {
             client.disconnect();
         }
         
     }
-    
 }
