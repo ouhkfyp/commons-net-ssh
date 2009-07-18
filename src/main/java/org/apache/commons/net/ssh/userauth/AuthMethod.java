@@ -18,9 +18,6 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import java.io.IOException;
-
-import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
@@ -36,31 +33,14 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public interface AuthMethod
 {
     
-    /**
-     * Returns the assigned name for this authentication method.
-     */
     String getName();
-    
-    /**
-     * Returns the next {@link Service} that will be started if authentication using this method is
-     * successful.
-     */
-    Service getNextService();
-    
-    /**
-     * Returns the username this method will try to authenticate / has authenticated
-     */
-    String getUsername();
     
     boolean handle(Message cmd, Buffer buf) throws UserAuthException, TransportException;
     
-    /**
-     * Request this method.
-     * 
-     * @throws IOException
-     */
+    void init(AuthParams params);
+    
     void request() throws UserAuthException, TransportException;
     
-    boolean retry() throws TransportException, UserAuthException;
+    boolean shouldRetry();
     
 }

@@ -14,8 +14,8 @@ public class ChannelInputStream extends InputStream
     private final Buffer buf = new Buffer();
     private final Window localWindow;
     
-    private volatile boolean closed;
-    private volatile boolean eof;
+    private boolean closed;
+    private boolean eof;
     
     public ChannelInputStream(Window localWindow)
     {
@@ -23,51 +23,43 @@ public class ChannelInputStream extends InputStream
     }
     
     @Override
-    public int read() throws IOException
+    public synchronized int read() throws IOException
     {
-        synchronized (buf) {
-            while (!(buf.available() > 0) && !eof && !closed)
-                try {
-                    buf.wait();
-                } catch (InterruptedException e) {
-                    throw (IOException) new InterruptedIOException().initCause(e);
-                }
+        while (!(buf.available() > 0) && !eof && !closed)
             try {
-                return buf.getByte();
-            } catch (BufferException e) {
-                if (eof)
-                    return -1;
-                else if (closed)
-                    throw new IOException("Stream closed");
-                else
-                    throw e;
+                wait();
+            } catch (InterruptedException e) {
+                throw (IOException) new InterruptedIOException().initCause(e);
             }
+        try {
+            return buf.getByte();
+        } catch (BufferException e) {
+            if (eof)
+                return -1;
+            else if (closed)
+                throw new IOException("Stream closed");
+            else
+                throw e;
         }
     }
     
-    public void receive(byte[] data, int offset, int len) throws TransportException
+    public synchronized void receive(byte[] data, int offset, int len) throws TransportException
     {
-        synchronized (buf) {
-            buf.putRawBytes(data, offset, len);
-            buf.notifyAll();
-        }
+        buf.putRawBytes(data, offset, len);
+        notifyAll();
         localWindow.consumeAndCheck(len);
     }
     
-    void setClosed()
+    synchronized void setClosed()
     {
         closed = true;
-        synchronized (buf) {
-            buf.notifyAll();
-        }
+        notifyAll();
     }
     
-    void setEOF()
+    synchronized void setEOF()
     {
         eof = true;
-        synchronized (buf) {
-            buf.notifyAll();
-        }
+        notifyAll();
     }
     
 }

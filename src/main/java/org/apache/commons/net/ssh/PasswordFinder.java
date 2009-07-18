@@ -121,7 +121,7 @@ public interface PasswordFinder
          *            the password as a string
          * @return the constructed {@link PasswordFinder}
          */
-        public static PasswordFinder createOneOff(final String password)
+        public static PasswordFinder createOneOff(final char[] password)
         {
             if (password == null)
                 return null;
@@ -130,7 +130,7 @@ public interface PasswordFinder
                     {
                         public char[] reqPassword(Resource resource)
                         {
-                            return password.toCharArray();
+                            return password;
                         }
                         
                         public boolean retry(Resource resource)

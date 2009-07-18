@@ -35,17 +35,9 @@ public interface UserAuthService extends Service
      */
     String NAME = "ssh-userauth";
     
-    /**
-     * Attempts authentication.
-     * 
-     * @return {@code true} if authentication succeeded completely, {@code false} if authentiation
-     *         was partially successful
-     * @throws UserAuthException
-     *             if authentication failed
-     * @throws TransportException
-     *             if there was a transport error during authentication
-     */
-    void authenticate() throws UserAuthException, TransportException;
+    void authenticate(AuthMethod... methods) throws UserAuthException, TransportException;
+    
+    void authenticate(Iterable<AuthMethod> methods) throws UserAuthException, TransportException;;
     
     /**
      * Returns the authentication banner (if any)

@@ -18,18 +18,11 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import org.apache.commons.net.ssh.Service;
-import org.apache.commons.net.ssh.transport.Transport;
 
 public class AuthNone extends AbstractAuthMethod
 {
     
     public static final String NAME = "none";
-    
-    public AuthNone(Transport trans, Service nextService, String username)
-    {
-        super(trans, nextService, username);
-    }
     
     public String getName()
     {
