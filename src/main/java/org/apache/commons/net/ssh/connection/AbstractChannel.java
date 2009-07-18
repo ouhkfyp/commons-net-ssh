@@ -290,7 +290,7 @@ public abstract class AbstractChannel implements Channel
         IOUtils.closeQuietly(in, out);
     }
     
-    protected void doWrite(Buffer buf, ChannelInputStream out) throws ConnectionException, TransportException
+    protected void doWrite(Buffer buf, ChannelInputStream stream) throws ConnectionException, TransportException
     {
         int len = buf.getInt();
         if (len < 0 || len > 32768)
@@ -298,7 +298,7 @@ public abstract class AbstractChannel implements Channel
         log.debug("Received data on channel {}", id);
         if (log.isTraceEnabled())
             log.trace("Received channel extended data: {}", BufferUtils.printHex(buf.array(), buf.rpos(), len));
-        out.receive(buf.array(), buf.rpos(), len);
+        stream.receive(buf.array(), buf.rpos(), len);
     }
     
     protected void gotEOF() throws TransportException
@@ -324,7 +324,10 @@ public abstract class AbstractChannel implements Channel
     protected synchronized Event<ConnectionException> sendChannelRequest(String reqType, boolean wantReply,
             Buffer specific) throws TransportException
     {
-        Buffer reqBuf = new Buffer(Message.CHANNEL_REQUEST).putInt(recipient).putString(reqType).putBoolean(wantReply);
+        Buffer reqBuf = new Buffer(Message.CHANNEL_REQUEST) //
+                                                           .putInt(recipient) //
+                                                           .putString(reqType) //
+                                                           .putBoolean(wantReply);
         if (specific != null)
             reqBuf.putBuffer(specific);
         log.info("Sending SSH_MSG_CHANNEL_REQUEST on channel #{} for {}", id, reqType);

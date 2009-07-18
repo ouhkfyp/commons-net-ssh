@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.IOUtils;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 
 public class SessionChannel extends AbstractChannel implements Session, Session.Command, Session.Shell,
@@ -118,6 +119,20 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     {
         sendChannelRequest("subsystem", true, new Buffer().putString(name)).await();
         return this;
+    }
+    
+    @Override
+    protected void closeStreams()
+    {
+        super.closeStreams();
+        IOUtils.closeQuietly(err);
+    }
+    
+    @Override
+    protected void gotEOF() throws TransportException
+    {
+        err.setEOF();
+        super.gotEOF();
     }
     
     @Override

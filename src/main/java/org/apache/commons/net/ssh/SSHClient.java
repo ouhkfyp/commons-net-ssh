@@ -70,6 +70,8 @@ import org.apache.commons.net.ssh.userauth.UserAuthProtocol;
 import org.apache.commons.net.ssh.userauth.UserAuthService;
 import org.apache.commons.net.ssh.util.KnownHosts;
 import org.apache.commons.net.ssh.util.SecurityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Secure Shell client API.
@@ -104,6 +106,8 @@ import org.apache.commons.net.ssh.util.SecurityUtils;
  */
 public class SSHClient extends SocketClient
 {
+    
+    protected static final Logger log = LoggerFactory.getLogger(SSHClient.class);
     
     /**
      * Creates a {@link FactoryManager} instance with all known (and available) implementations.
@@ -162,6 +166,7 @@ public class SSHClient extends SocketClient
                     final byte[] iv = new byte[c.getIVSize()];
                     c.init(Cipher.Mode.Encrypt, key, iv);
                 } catch (Exception e) {
+                    log.warn("Disabling cipher: {}", f.getName());
                     i.remove();
                 }
             }
@@ -286,24 +291,21 @@ public class SSHClient extends SocketClient
     
     /**
      * 
-     * Creates {@link KnownHosts} objects from the specified locations.
+     * Creates {@link KnownHosts} object from the specified location.
      * 
-     * @param locations
-     *            one or more locations for {@code known_hosts} files
+     * @param loc
+     *            location for {@code known_hosts} file
      * @throws IOException
      *             if there is an error loading from any of these locations
      */
-    public void initKnownHosts(String... locations) throws IOException
+    public void initKnownHosts(String loc) throws IOException
     {
-        for (String loc : locations)
-            addHostKeyVerifier(new KnownHosts(loc));
+        addHostKeyVerifier(new KnownHosts(loc));
     }
     
     /**
      * Attempts loading the user's {@code known_hosts} file from the default location, i.e. {@code
      * ~/.ssh/known_hosts} and {@code ~/.ssh/known_hosts2} on most platforms.
-     * <p>
-     * {@link #initKnownHosts(String...)} is a more generic method.
      * 
      * @throws IOException
      *             if there is an error loading from <b>both</b> locations
