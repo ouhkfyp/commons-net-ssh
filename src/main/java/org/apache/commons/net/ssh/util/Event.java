@@ -122,6 +122,11 @@ public class Event<T extends Throwable>
         }
     }
     
+    public boolean hasWaiter()
+    {
+        return getWaitCount() > 0;
+    }
+    
     public boolean isSet()
     {
         lock.lock();

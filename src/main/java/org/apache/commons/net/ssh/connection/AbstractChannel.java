@@ -60,7 +60,6 @@ public abstract class AbstractChannel implements Channel
     protected ChannelInputStream in = new ChannelInputStream(localWindow);
     protected ChannelOutputStream out = new ChannelOutputStream(this, remoteWindow, log);
     
-    private boolean openReqd;
     private boolean eofSent;
     private boolean closeReqd;
     
@@ -116,7 +115,7 @@ public abstract class AbstractChannel implements Channel
         lock.lock();
         try {
             
-            if (openReqd)
+            if (opened.hasWaiter())
                 
                 switch (cmd)
                 {
@@ -125,22 +124,20 @@ public abstract class AbstractChannel implements Channel
                         log.info("Received SSH_MSG_CHANNEL_OPEN_CONFIRMATION on channel {}", id);
                         recipient = buf.getInt();
                         remoteWindow.init(buf.getInt(), buf.getInt());
-                        openReqd = false;
                         opened.set();
-                        break; // no forget
+                        break;
                     }
                     case CHANNEL_OPEN_FAILURE:
                     {
                         log.info("Received SSH_MSG_CHANNEL_OPEN_FAILURE on channel {}", id);
                         opened.error(new ChannelOpenFailureException(type, buf.getInt()));
-                        openReqd = false;
                         forget = true;
-                        break; // forget
+                        break;
                     }
                     default:
                     {
                         trans.sendUnimplemented();
-                        break; // no forget
+                        break;
                     }
                 }
             
@@ -239,7 +236,6 @@ public abstract class AbstractChannel implements Channel
     {
         lock.lock();
         try {
-            openReqd = true;
             trans.writePacket(buildOpenRequest());
             opened.await();
         } finally {

@@ -121,9 +121,9 @@ public class TransportProtocol implements Transport
     
     private final Lock lock = new ReentrantLock();
     
-    private final Event<TransportException> kexOngoing = newEvent("transport / kex ongoing");
+    private volatile boolean kexOngoing;
+    
     private final Event<TransportException> kexDone = newEvent("transport / kex done");
-    private final Event<TransportException> serviceRequested = newEvent("transport / service req");
     private final Event<TransportException> serviceAccepted = newEvent("transport / service accepted");
     private final Event<TransportException> closeEvent = newEvent("transport / close");
     
@@ -249,7 +249,7 @@ public class TransportProtocol implements Transport
         lock.lock();
         try {
             
-            kexOngoing.set();
+            kexOngoing = true;
             
             // Start negotiation from our end
             kexer.init();
@@ -279,7 +279,6 @@ public class TransportProtocol implements Transport
     {
         lock.lock();
         try {
-            serviceRequested.set();
             sendServiceRequest(service.getName());
             serviceAccepted.await();
             setService(service);
@@ -325,15 +324,13 @@ public class TransportProtocol implements Transport
         /*
          * Ensure packets sent in correct order
          */
-        // While exchanging or re-exchanging...
-        if (kexOngoing.isSet()) {
-            int cmd = payload.getByte();
-            // Only transport layer packets (1 to 49) allowed except SERVICE_REQUEST (5)
-            if (cmd == 5 || !(cmd >= 1 && cmd <= 49))
-                kexDone.await();
-            payload.rpos(payload.rpos() - 1);
-        }
         synchronized (packetConverter) {
+            if (kexOngoing) {
+                // Only transport layer packets (1 to 49) allowed except SERVICE_REQUEST (5)
+                int msgID = payload.array()[payload.rpos()];
+                if (!(msgID >= 1 && msgID <= 49) || msgID == 5)
+                    kexDone.await();
+            }
             long seq = packetConverter.encode(payload);
             try {
                 output.write(payload.getCompactData());
@@ -381,8 +378,7 @@ public class TransportProtocol implements Transport
             }
             
             // Throw the exception in any thread waiting for state change
-            Event.Util.<TransportException> notifyError(causeOfDeath, kexOngoing, kexDone, closeEvent,
-                                                        serviceRequested, serviceAccepted);
+            Event.Util.<TransportException> notifyError(causeOfDeath, kexDone, closeEvent, serviceAccepted);
             
             if (causeOfDeath.getDisconnectReason() != DisconnectReason.UNKNOWN && cmd != Message.DISCONNECT)
                 /*
@@ -409,9 +405,9 @@ public class TransportProtocol implements Transport
     {
         lock.lock();
         try {
-            if (kexOngoing.isSet())
+            if (kexOngoing)
                 throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
-            else if (serviceRequested.isSet())
+            else if (serviceAccepted.hasWaiter())
                 throw new TransportException("Server responded with SSH_MSG_UNIMPLEMENTED to service request for "
                         + service.getName());
             else if (serviceAccepted.isSet()) {
@@ -543,22 +539,21 @@ public class TransportProtocol implements Transport
             {
                 lock.lock();
                 try {
-                    if (kexOngoing.isSet()) {
+                    if (kexOngoing) {
                         if (kexer.handle(cmd, packet)) {
                             kexDone.set();
-                            kexOngoing.clear();
+                            kexOngoing = false;
                         }
-                    } else if (serviceRequested.isSet()) {
+                    } else if (serviceAccepted.hasWaiter()) {
                         if (cmd != Message.SERVICE_ACCEPT)
                             throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
                                                          "Expected SSH_MSG_SERVICE_ACCEPT");
                         serviceAccepted.set();
-                        serviceRequested.clear();
                     } else if (serviceAccepted.isSet() && cmd.toInt() > 49) // Not a transport layer packet
                         if (service != null)
                             service.handle(cmd, packet);
-                        else if (cmd == Message.KEXINIT) { // Start re-exchange
-                            kexOngoing.set();
+                        else if (cmd == Message.KEXINIT) {
+                            kexOngoing = true;
                             kexer.handle(cmd, packet);
                         } else
                             sendUnimplemented();
