@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.IOUtils;
@@ -14,13 +15,16 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
 {
     
     private Integer exitStatus;
+    
     private Signal exitSignal;
     private Boolean flowControl;
-    private final ChannelInputStream err = new ChannelInputStream(localWindow);
+    private final ChannelInputStream err = new ChannelInputStream(localWin);
     
-    protected SessionChannel()
+    public static final String TYPE = "session";
+    
+    SessionChannel(Transport trans, int id, int localWinSize, int localMaxPacketSize)
     {
-        super(NAME);
+        super(trans, id, localWinSize, localMaxPacketSize);
     }
     
     public void allocateDefaultPTY() throws ConnectionException, TransportException
@@ -47,7 +51,13 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
                                        .putInt(width) //
                                        .putInt(height) //
                                        .putBytes(TerminalMode.encode(modes)) //
-        ).await(); // wait for reply
+        ).get(); // wait for reply
+    }
+    
+    public Buffer buildOpenRequest()
+    {
+        // TODO Auto-generated method stub
+        return null;
     }
     
     public Boolean canDoFlowControl()
@@ -67,11 +77,11 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public Command exec(String command) throws ConnectionException, TransportException
     {
-        sendChannelRequest("exec", true, new Buffer().putString(command)).await();
+        sendChannelRequest("exec", true, new Buffer().putString(command)).await(TIMEOUT);
         return this;
     }
     
-    public InputStream getErr()
+    public InputStream getErrorStream()
     {
         return err;
     }
@@ -84,6 +94,11 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     public Integer getExitStatus()
     {
         return exitStatus;
+    }
+    
+    public String getType()
+    {
+        return TYPE;
     }
     
     @Override
@@ -101,7 +116,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public void setEnvVar(String name, String value) throws ConnectionException, TransportException
     {
-        sendChannelRequest("env", true, new Buffer().putString(name).putString(value)).await();
+        sendChannelRequest("env", true, new Buffer().putString(name).putString(value)).await(TIMEOUT);
     }
     
     public void signal(Signal sig) throws TransportException
@@ -111,13 +126,13 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public Shell startShell() throws ConnectionException, TransportException
     {
-        sendChannelRequest("shell", true, null).await();
+        sendChannelRequest("shell", true, null).get();
         return this;
     }
     
     public Subsystem startSubsysytem(String name) throws ConnectionException, TransportException
     {
-        sendChannelRequest("subsystem", true, new Buffer().putString(name)).await();
+        sendChannelRequest("subsystem", true, new Buffer().putString(name)).get();
         return this;
     }
     
@@ -129,10 +144,10 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     }
     
     @Override
-    protected void gotEOF() throws TransportException
+    protected void eofInputStreams()
     {
-        err.setEOF();
-        super.gotEOF();
+        super.eofInputStreams();
+        err.eof();
     }
     
     @Override

@@ -22,44 +22,14 @@ import static org.apache.commons.net.ssh.util.Constants.DEFAULT_PORT;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
 
 import org.apache.commons.net.SocketClient;
-import org.apache.commons.net.ssh.cipher.AES128CBC;
-import org.apache.commons.net.ssh.cipher.AES192CBC;
-import org.apache.commons.net.ssh.cipher.AES256CBC;
-import org.apache.commons.net.ssh.cipher.BlowfishCBC;
-import org.apache.commons.net.ssh.cipher.Cipher;
-import org.apache.commons.net.ssh.cipher.TripleDESCBC;
-import org.apache.commons.net.ssh.compression.Compression;
-import org.apache.commons.net.ssh.compression.CompressionDelayedZlib;
-import org.apache.commons.net.ssh.compression.CompressionNone;
-import org.apache.commons.net.ssh.compression.CompressionZlib;
 import org.apache.commons.net.ssh.connection.ConnectionException;
 import org.apache.commons.net.ssh.connection.ConnectionProtocol;
 import org.apache.commons.net.ssh.connection.ConnectionService;
 import org.apache.commons.net.ssh.connection.Session;
-import org.apache.commons.net.ssh.kex.DHG1;
-import org.apache.commons.net.ssh.kex.DHG14;
-import org.apache.commons.net.ssh.kex.KeyExchange;
 import org.apache.commons.net.ssh.keyprovider.FileKeyProvider;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
-import org.apache.commons.net.ssh.keyprovider.OpenSSHKeyFile;
-import org.apache.commons.net.ssh.keyprovider.PKCS8KeyFile;
-import org.apache.commons.net.ssh.mac.HMACMD5;
-import org.apache.commons.net.ssh.mac.HMACMD596;
-import org.apache.commons.net.ssh.mac.HMACSHA1;
-import org.apache.commons.net.ssh.mac.HMACSHA196;
-import org.apache.commons.net.ssh.mac.MAC;
-import org.apache.commons.net.ssh.random.BouncyCastleRandom;
-import org.apache.commons.net.ssh.random.JCERandom;
-import org.apache.commons.net.ssh.random.SingletonRandomFactory;
-import org.apache.commons.net.ssh.signature.Signature;
-import org.apache.commons.net.ssh.signature.SignatureDSA;
-import org.apache.commons.net.ssh.signature.SignatureRSA;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.transport.TransportProtocol;
@@ -76,9 +46,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Secure Shell client API.
  * <p>
- * The default constructor initializes {@code SSHClient} using {@link #getDefaultFactoryManager()}.
- * Optionally, {@code SSHClient} may be constructed with a {@link FactoryManager} instance that has
- * been initialized with implementations of the requisite algorithms.
+ * The default constructor initializes {@code SSHClient} using {@link #getConfigBuilder()}.
+ * Optionally, {@code SSHClient} may be constructed with a {@link Config} instance that has been
+ * initialized with implementations of the requisite algorithms.
  * <p>
  * Before connection is established, host key verification needs to be accounted for. This is done
  * by specifying one or more {@link HostKeyVerifier} objects. Database of known hostname-key pairs
@@ -109,102 +79,29 @@ public class SSHClient extends SocketClient
     
     protected static final Logger log = LoggerFactory.getLogger(SSHClient.class);
     
-    /**
-     * Creates a {@link FactoryManager} instance with all known (and available) implementations.
-     * <p>
-     * These are as follows. Italicised items are only available in the presence of <a
-     * href="http://www.bouncycastle.org/java.html">BouncyCastle</a> as a properly registered
-     * security provider.
-     * <ul>
-     * <li><b>Key exchange</b>: <i>diffie-hellman-group14-sha1</i>, diffie-hellman-group1-sha1</li>
-     * <li><b>Signature</b>: ssh-rsa, ssh-dss</li>
-     * <li><b>Cipher</b>: aes128-cbc, aes192-cbc, aes256-cbs, blowfish-cbc, 3des-cbc</li>
-     * <li><b>MAC</b>: hmac-sha1, hmac-sha1-96, hmac-md5, hmac-md5-96</li>
-     * </ul>
-     * <p>
-     * In addition, {@link FileKeyProvider}'s for PKCS and OpenSSH encoded key files are available
-     * only in the presence of BouncyCastle.
-     * <p>
-     * The BouncyCastle Psuedo-Random Number Generator (PRNG) is set if present, otherwise the JCE
-     * PRNG.
-     * 
-     * @return an initialized {@link FactoryManager}
-     */
-    @SuppressWarnings("unchecked")
-    public static FactoryManager getDefaultFactoryManager()
-    {
-        FactoryManager fm = new FactoryManager();
-        
-        if (SecurityUtils.isBouncyCastleRegistered()) {
-            fm.setKeyExchangeFactories(Arrays.<NamedFactory<KeyExchange>> asList(new DHG14.Factory(),
-                                                                                 new DHG1.Factory()));
-            fm.setRandomFactory(new SingletonRandomFactory(new BouncyCastleRandom.Factory()));
-            fm.setFileKeyProviderFactories(Arrays.<NamedFactory<FileKeyProvider>> asList(new PKCS8KeyFile.Factory(),
-                                                                                         new OpenSSHKeyFile.Factory()));
-        } else {
-            fm.setKeyExchangeFactories(Arrays.<NamedFactory<KeyExchange>> asList(new DHG1.Factory()));
-            fm.setRandomFactory(new SingletonRandomFactory(new JCERandom.Factory()));
-            fm.setFileKeyProviderFactories(Arrays.<NamedFactory<FileKeyProvider>> asList()); // empty
-        }
-        
-        List<NamedFactory<Cipher>> avail =
-                new LinkedList<NamedFactory<Cipher>>(Arrays.<NamedFactory<Cipher>> asList(new AES128CBC.Factory(),
-                                                                                          new BlowfishCBC.Factory(),
-                                                                                          new TripleDESCBC.Factory(),
-                                                                                          new AES192CBC.Factory(),
-                                                                                          new AES256CBC.Factory()));
-        
-        { /*
-           * @see https://issues.apache.org/jira/browse/SSHD-24:
-           * "AES256 and AES192 requires unlimited cryptography extension"
-           */
-            for (Iterator<NamedFactory<Cipher>> i = avail.iterator(); i.hasNext();) {
-                final NamedFactory<Cipher> f = i.next();
-                try {
-                    final Cipher c = f.create();
-                    final byte[] key = new byte[c.getBlockSize()];
-                    final byte[] iv = new byte[c.getIVSize()];
-                    c.init(Cipher.Mode.Encrypt, key, iv);
-                } catch (Exception e) {
-                    log.warn("Disabling cipher: {}", f.getName());
-                    i.remove();
-                }
-            }
-        }
-        
-        fm.setCipherFactories(avail);
-        fm.setCompressionFactories(Arrays.<NamedFactory<Compression>> asList(new CompressionNone.Factory(),
-                                                                             new CompressionDelayedZlib.Factory(),
-                                                                             new CompressionZlib.Factory()));
-        fm.setMACFactories(Arrays.<NamedFactory<MAC>> asList(new HMACSHA1.Factory(), new HMACSHA196.Factory(),
-                                                             new HMACMD5.Factory(), new HMACMD596.Factory()));
-        fm.setSignatureFactories(Arrays.<NamedFactory<Signature>> asList(new SignatureRSA.Factory(),
-                                                                         new SignatureDSA.Factory()));
-        
-        return fm;
-    }
-    
     protected final Transport trans;
     
     protected final ConnectionService conn;
+    
+    private UserAuthService auth;
     
     /**
      * Default constructor
      */
     public SSHClient()
     {
-        this(SSHClient.getDefaultFactoryManager());
+        this(new Config.Builder().build());
     }
     
     /**
-     * Constructor that allows specifying the {@link FactoryManager}
+     * Constructor that allows specifying the {@link Config}
      * 
-     * @param factoryManager
+     * @param config
      */
-    public SSHClient(FactoryManager factoryManager)
+    public SSHClient(Config config)
     {
         setDefaultPort(DEFAULT_PORT);
-        trans = new TransportProtocol(factoryManager);
+        trans = new TransportProtocol(config);
         conn = new ConnectionProtocol(trans);
     }
     
@@ -279,6 +176,11 @@ public class SSHClient extends SocketClient
         trans.disconnect();
         assert !trans.isRunning();
         super.disconnect();
+    }
+    
+    public String getAuthBanner()
+    {
+        return auth != null ? auth.getBanner() : null;
     }
     
     /**
@@ -386,15 +288,17 @@ public class SSHClient extends SocketClient
         String format = SecurityUtils.detectKeyFileFormat(location);
         if (format.equals("unknown"))
             throw new IOException("Unknown key file format");
-        FileKeyProvider fkp =
-                NamedFactory.Utils.create(trans.getFactoryManager().getFileKeyProviderFactories(), format);
-        fkp.init(location, pwdf);
+        FileKeyProvider fkp = NamedFactory.Utils.create(trans.getConfig().getFileKeyProviderFactories(), format);
+        if (fkp != null)
+            fkp.init(location, pwdf);
+        else
+            throw new SSHException("No provider available for " + format + " key file");
         return fkp;
     }
     
     public UserAuthService newUserAuth(String username)
     {
-        return new UserAuthProtocol(new AuthParams(trans, username, conn));
+        return auth = new UserAuthProtocol(new AuthParams(trans, username, (Service) conn));
     }
     
     public Session startSession() throws ConnectionException, TransportException

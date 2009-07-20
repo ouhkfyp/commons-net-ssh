@@ -151,7 +151,7 @@ public interface Constants
         KEXDH_INIT(30),
         
         /**
-         * { SSH_MSG_KEXDH_REPLY, SSH_MSG_KEXDH_GEX_GROUP }
+         * { KEXDH_REPLY, KEXDH_GEX_GROUP }
          */
         KEXDH_31(31),
         
@@ -165,11 +165,9 @@ public interface Constants
         USERAUTH_BANNER(53),
         
         /**
-         * { SSH_MSG_USERAUTH_PASSWD_CHANGREQ, SSH_MSG_USERAUTH_PK_OK, SSH_MSG_USERAUTH_INFO_REQUEST
-         * }
+         * { USERAUTH_PASSWD_CHANGREQ, USERAUTH_PK_OK, USERAUTH_INFO_REQUEST }
          */
         USERAUTH_60(60),
-        
         USERAUTH_INFO_RESPONSE(61),
         
         GLOBAL_REQUEST(80),
@@ -219,11 +217,6 @@ public interface Constants
             return b;
         }
     }
-    
-    /**
-     * Software version; sent as part of client identification string
-     */
-    String VERSION = "NET_3.0";
     
     /**
      * Default SSH port

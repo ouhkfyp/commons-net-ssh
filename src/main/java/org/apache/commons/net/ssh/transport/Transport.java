@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
 
-import org.apache.commons.net.ssh.FactoryManager;
+import org.apache.commons.net.ssh.Config;
 import org.apache.commons.net.ssh.HostKeyVerifier;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
@@ -53,17 +53,13 @@ public interface Transport
     /**
      * Send a disconnection packet with reason as {@link Constants#SSH_DISCONNECT_BY_APPLICATION},
      * and close the session.
-     * 
-     * @return whether the disconnection happened cleanly, without any error
      */
-    boolean disconnect();
+    void disconnect();
     
     /**
      * Send a disconnect packet with the given reason, and close this session.
-     * 
-     * @return whether the disconnection happened cleanly, without any error
      */
-    boolean disconnect(DisconnectReason reason);
+    void disconnect(DisconnectReason reason);
     
     /**
      * Send a disconnect packet with the given reason and message, and close this session.
@@ -72,10 +68,8 @@ public interface Transport
      *            the reason code for this disconnect
      * @param msg
      *            the text message
-     * 
-     * @return whether the disconnection happened cleanly, without any error
      */
-    boolean disconnect(DisconnectReason reason, String msg);
+    void disconnect(DisconnectReason reason, String msg);
     
     /**
      * Returns the version string used by this client to identify itself to an SSH server, e.g.
@@ -86,11 +80,11 @@ public interface Transport
     String getClientVersion();
     
     /**
-     * Retrieves the {@link FactoryManager} associated with this session.
+     * Retrieves the {@link Config} associated with this session.
      * 
      * @return factory manager for this session
      */
-    FactoryManager getFactoryManager();
+    Config getConfig();
     
     InetAddress getRemoteHost();
     

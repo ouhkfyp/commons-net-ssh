@@ -36,9 +36,9 @@ public abstract class AbstractAuthMethod implements AuthMethod
     
     protected AuthParams params;
     
-    public boolean handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
+    public void handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
-        return false;
+        throw new UserAuthException("Unknown packet received during " + getName() + ": " + cmd);
     }
     
     public void init(AuthParams params)

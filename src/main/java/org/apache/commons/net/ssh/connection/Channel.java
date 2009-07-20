@@ -6,23 +6,27 @@ import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants;
 
-public interface Channel
+public interface Channel extends IO
 {
     
     void close() throws TransportException, ConnectionException;
     
-    void sendEOF() throws TransportException;
-    
     int getID();
     
-    boolean handle(Constants.Message cmd, Buffer buf) throws ConnectionException, TransportException;
+    int getRecipient();
     
-    void init(Transport trans, int channelID, int windowSize, int maxPacketSize);
+    Transport getTransport();
+    
+    String getType();
+    
+    boolean handle(Constants.Message cmd, Buffer buf) throws ConnectionException, TransportException;
     
     boolean isOpen();
     
     void notifyError(SSHException exception);
     
-    void open() throws ChannelOpenFailureException, ConnectionException, TransportException;
+    void open() throws ConnectionException, TransportException;
+    
+    void sendEOF() throws TransportException;
     
 }

@@ -11,21 +11,21 @@ public class ChannelOpenFailureException extends ConnectionException
     private final int failureReason;
     private final String channelType;
     
-    public ChannelOpenFailureException(String channelType, int failureReason)
+    public ChannelOpenFailureException(String channelType, int failureReason, String message)
     {
+        super(message);
         this.channelType = channelType;
         this.failureReason = failureReason;
+    }
+    
+    public String getChannelType()
+    {
+        return channelType;
     }
     
     public int getFailureReason()
     {
         return failureReason;
-    }
-    
-    @Override
-    public String toString()
-    {
-        return "Failed to open [" + channelType + "] channel; failure code: " + failureReason;
     }
     
 }

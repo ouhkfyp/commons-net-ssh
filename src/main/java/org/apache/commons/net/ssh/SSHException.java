@@ -97,4 +97,15 @@ public class SSHException extends IOException
         return code;
     }
     
+    @Override
+    public String toString()
+    {
+        if (getMessage() != null)
+            return getMessage();
+        else if (this.getCause() != null && this.getCause().getMessage() != null)
+            return this.getCause().getMessage();
+        else
+            return super.toString();
+    }
+    
 }

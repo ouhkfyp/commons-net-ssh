@@ -18,16 +18,14 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.TransportException;
-import org.apache.commons.net.ssh.util.LQString;
 
 /**
  * The {@code "ssh-userauth"} service.
  * 
  * @author shikhar
  */
-public interface UserAuthService extends Service
+public interface UserAuthService
 {
     
     /**
@@ -44,7 +42,7 @@ public interface UserAuthService extends Service
      * 
      * @return the banner, or {@code null} if none was received
      */
-    LQString getBanner();
+    String getBanner();
     
     boolean hadPartialSuccess();
     

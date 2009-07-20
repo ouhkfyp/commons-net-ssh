@@ -18,101 +18,58 @@
  */
 package org.apache.commons.net.ssh.connection;
 
-import org.apache.commons.net.ssh.transport.TransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A local/remote window for a given channel
- * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public class Window
+public abstract class Window
 {
     
-    private final static Logger log = LoggerFactory.getLogger(Window.class);
+    protected final Logger log = LoggerFactory.getLogger(getClass());
     
-    private final AbstractChannel channel;
-    private final String name;
+    protected int maxPacketSize;
     
-    private int size;
-    private int maxSize;
-    private int packetSize;
-    private boolean waiting;
+    protected int size;
+    protected int maxSize;
     
-    public Window(AbstractChannel channel, boolean local)
-    {
-        this.channel = channel;
-        this.name = (local ? "local " : "remote") + " window";
-    }
-    
-    public synchronized void check(int maxFree) throws TransportException
-    {
-        int threshold = Math.min(packetSize * 8, maxSize / 4);
-        if (maxFree - size > packetSize && (maxFree - size > threshold || size < threshold)) {
-            if (log.isDebugEnabled())
-                log.debug("Increase " + name + " by " + (maxFree - size) + " up to " + maxFree);
-            channel.sendWindowAdjust(maxFree - size);
-            size = maxFree;
-        }
-    }
-    
-    public synchronized void consume(int len)
+    public synchronized void consume(int dec)
     {
         //assert size > len;
-        size -= len;
+        size -= dec;
         if (log.isDebugEnabled())
-            log.debug("Consume " + name + " by " + len + " down to " + size);
+            log.debug("Consuming by " + dec + " down to " + size);
     }
     
-    public synchronized void consumeAndCheck(int len) throws TransportException
+    public synchronized void expand(int inc)
     {
-        consume(len);
-        check(maxSize);
-    }
-    
-    public synchronized void expand(int window)
-    {
-        size += window;
+        size += inc;
+        maxSize = Math.max(size, maxSize);
         if (log.isDebugEnabled())
-            log.debug("Increase " + name + " by " + window + " up to " + size);
+            log.debug("Increasing by {} up to {}", inc, size);
         notifyAll();
     }
     
-    public int getMaxSize()
+    public synchronized int getMaxPacketSize()
+    {
+        return maxPacketSize;
+    }
+    
+    public synchronized int getMaxSize()
     {
         return maxSize;
     }
     
-    public int getPacketSize()
-    {
-        return packetSize;
-    }
-    
-    public int getSize()
+    public synchronized int getSize()
     {
         return size;
     }
     
-    public void init(int startSize, int maxPacketSize)
+    void init(int initialWinSize, int maxPacketSize)
     {
-        this.size = startSize;
-        this.maxSize = startSize;
-        this.packetSize = maxPacketSize;
-    }
-    
-    public synchronized void waitAndConsume(int len) throws InterruptedException
-    {
-        while (size < len) {
-            log.debug("Waiting for {} bytes on {}", len, name);
-            waiting = true;
-            wait();
-        }
-        if (waiting) {
-            log.debug("Space available for {}", name);
-            waiting = false;
-        }
-        consume(len);
+        this.size = this.maxSize = initialWinSize;
+        this.maxPacketSize = maxPacketSize;
     }
     
 }
