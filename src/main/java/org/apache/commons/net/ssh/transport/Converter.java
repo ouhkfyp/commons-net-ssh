@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-class PacketConverter
+class Converter
 {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -67,7 +67,7 @@ class PacketConverter
      */
     private int needed;
     
-    PacketConverter(TransportProtocol transport)
+    Converter(TransportProtocol transport)
     {
         this.transport = transport;
         needed = inCipherSize = outCipherSize = 8;

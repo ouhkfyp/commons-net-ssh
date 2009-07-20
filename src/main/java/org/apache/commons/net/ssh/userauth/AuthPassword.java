@@ -61,12 +61,12 @@ public class AuthPassword extends AbstractAuthMethod
     }
     
     @Override
-    public boolean handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
+    public void handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {
         if (cmd == Message.USERAUTH_60)
             throw new UserAuthException("Password change request received; unsupported operation");
         else
-            return false;
+            super.handle(cmd, buf);
     }
     
     @Override

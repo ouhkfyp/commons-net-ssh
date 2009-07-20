@@ -78,6 +78,12 @@ public class Buffer
         this(DEFAULT_SIZE);
     }
     
+    public Buffer(Buffer from)
+    {
+        data = new byte[(wpos = from.wpos - from.rpos)];
+        System.arraycopy(from.data, from.rpos, data, 0, wpos);
+    }
+    
     /**
      * @param data
      *            byte-array to initialise with
@@ -202,10 +208,10 @@ public class Buffer
     
     public byte[] getCompactData()
     {
-        int l = available();
-        if (l > 0) {
-            byte[] b = new byte[l];
-            System.arraycopy(data, rpos, b, 0, l);
+        int len = available();
+        if (len > 0) {
+            byte[] b = new byte[len];
+            System.arraycopy(data, rpos, b, 0, len);
             return b;
         } else
             return new byte[0];
@@ -216,6 +222,18 @@ public class Buffer
         return (int) getLong();
     }
     
+    //    /**
+    //     * Reads two SSH strings in order, the first one is taken to be the text and the second one is
+    //     * taken to be te language tag.
+    //     * 
+    //     * @return a constructed {@link LQString}
+    //     */
+    //    public LQString getLQString()
+    //    {
+    //        return new LQString(getString(), getString());
+    //    }
+    //    
+    
     public long getLong()
     {
         ensureAvailable(4);
@@ -224,17 +242,6 @@ public class Buffer
                 | data[rpos++] << 8 & 0x0000ff00L //
                 | data[rpos++] & 0x000000ffL;
         return i;
-    }
-    
-    /**
-     * Reads two SSH strings in order, the first one is taken to be the text and the second one is
-     * taken to be te language tag.
-     * 
-     * @return a constructed {@link LQString}
-     */
-    public LQString getLQString()
-    {
-        return new LQString(getString(), getString());
     }
     
     /**
@@ -263,26 +270,26 @@ public class Buffer
         try {
             switch (KeyType.fromString(getString()))
             {
-            case RSA:
-            {
-                BigInteger e = getMPInt();
-                BigInteger n = getMPInt();
-                KeyFactory keyFactory = SecurityUtils.getKeyFactory("RSA");
-                key = keyFactory.generatePublic(new RSAPublicKeySpec(n, e));
-                break;
-            }
-            case DSA:
-            {
-                BigInteger p = getMPInt();
-                BigInteger q = getMPInt();
-                BigInteger g = getMPInt();
-                BigInteger y = getMPInt();
-                KeyFactory keyFactory = SecurityUtils.getKeyFactory("DSA");
-                key = keyFactory.generatePublic(new DSAPublicKeySpec(y, p, q, g));
-                break;
-            }
-            default:
-                assert false;
+                case RSA:
+                {
+                    BigInteger e = getMPInt();
+                    BigInteger n = getMPInt();
+                    KeyFactory keyFactory = SecurityUtils.getKeyFactory("RSA");
+                    key = keyFactory.generatePublic(new RSAPublicKeySpec(n, e));
+                    break;
+                }
+                case DSA:
+                {
+                    BigInteger p = getMPInt();
+                    BigInteger q = getMPInt();
+                    BigInteger g = getMPInt();
+                    BigInteger y = getMPInt();
+                    KeyFactory keyFactory = SecurityUtils.getKeyFactory("DSA");
+                    key = keyFactory.generatePublic(new DSAPublicKeySpec(y, p, q, g));
+                    break;
+                }
+                default:
+                    assert false;
             }
         } catch (GeneralSecurityException e) {
             throw new SSHRuntimeException(e);
@@ -363,10 +370,12 @@ public class Buffer
      */
     public Buffer putBuffer(Buffer buffer)
     {
-        int r = buffer.available();
-        ensureCapacity(r);
-        System.arraycopy(buffer.data, buffer.rpos, data, wpos, r);
-        wpos += r;
+        if (buffer != null) {
+            int r = buffer.available();
+            ensureCapacity(r);
+            System.arraycopy(buffer.data, buffer.rpos, data, wpos, r);
+            wpos += r;
+        }
         return this;
     }
     
@@ -503,20 +512,20 @@ public class Buffer
         KeyType type = KeyType.fromKey(key);
         switch (type = KeyType.fromKey(key))
         {
-        case RSA:
-            putString(type.toString()) // ssh-rsa
-                                      .putMPInt(((RSAPublicKey) key).getPublicExponent()) // e
-                                      .putMPInt(((RSAPublicKey) key).getModulus()); // n
-            break;
-        case DSA:
-            putString(type.toString()) // ssh-dss
-                                      .putMPInt(((DSAPublicKey) key).getParams().getP()) // p
-                                      .putMPInt(((DSAPublicKey) key).getParams().getQ()) // q
-                                      .putMPInt(((DSAPublicKey) key).getParams().getG()) // g
-                                      .putMPInt(((DSAPublicKey) key).getY()); // y
-            break;
-        default:
-            assert false;
+            case RSA:
+                putString(type.toString()) // ssh-rsa
+                                          .putMPInt(((RSAPublicKey) key).getPublicExponent()) // e
+                                          .putMPInt(((RSAPublicKey) key).getModulus()); // n
+                break;
+            case DSA:
+                putString(type.toString()) // ssh-dss
+                                          .putMPInt(((DSAPublicKey) key).getParams().getP()) // p
+                                          .putMPInt(((DSAPublicKey) key).getParams().getQ()) // q
+                                          .putMPInt(((DSAPublicKey) key).getParams().getG()) // g
+                                          .putMPInt(((DSAPublicKey) key).getY()); // y
+                break;
+            default:
+                assert false;
         }
         return this;
     }

@@ -123,7 +123,7 @@ public abstract class AbstractDHG implements KeyExchange
         sha.update(buffer.array(), 0, buffer.available());
         H = sha.digest();
         
-        Signature verif = NamedFactory.Utils.create(trans.getFactoryManager().getSignatureFactories(), // 
+        Signature verif = NamedFactory.Utils.create(trans.getConfig().getSignatureFactories(), // 
                                                     KeyType.fromKey(hostKey).toString());
         verif.init(hostKey, null);
         verif.update(H, 0, H.length);

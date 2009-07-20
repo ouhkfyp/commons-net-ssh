@@ -23,7 +23,6 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.AbstractService;
@@ -31,7 +30,6 @@ import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Event;
-import org.apache.commons.net.ssh.util.LQString;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
@@ -42,18 +40,20 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public class UserAuthProtocol extends AbstractService implements UserAuthService
 {
     
+    private static final int TIMEOUT = 60;
+    
     private final AuthParams params;
     
-    private final Lock lock = new ReentrantLock();
-    private final Event<UserAuthException> result = newEvent("userauth / got result");
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Event<UserAuthException> result =
+            new Event<UserAuthException>("userauth result", UserAuthException.chainer, lock);
     private final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
     private final Set<String> allowed = new HashSet<String>();
     
     private AuthMethod method; // currently active method
-    private LQString banner; // auth banner
+    private String banner; // auth banner
     
     private boolean partialSuccess;
-    private boolean success;
     
     public UserAuthProtocol(AuthParams params)
     {
@@ -69,24 +69,30 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     public synchronized void authenticate(Iterable<AuthMethod> methods) throws UserAuthException, TransportException
     {
         // initially all methods allowed
-        for (AuthMethod m : methods)
-            allowed.add(m.getName());
+        for (AuthMethod meth : methods)
+            allowed.add(meth.getName());
         // service request
         request();
         
-        for (AuthMethod method : methods) {
+        for (AuthMethod meth : methods) {
             
-            log.info("Trying {} auth...", method.getName());
-            if (!allowed.contains(method.getName()))
+            log.info("Trying {} auth...", meth.getName());
+            if (!allowed.contains(meth.getName()))
                 continue;
             
             lock.lock();
             try {
+                this.method = meth;
+                meth.init(params);
                 result.clear();
-                this.method = method;
-                method.init(params);
-                method.request();
-                result.await();
+                meth.request();
+                if (result.get(TIMEOUT)) { // success
+                    // puts delayed compression into force if applicable
+                    trans.setAuthenticated();
+                    // we aren't in charge anymore, next service is
+                    trans.setService(params.getNextService());
+                    return;
+                }
             } catch (UserAuthException e) {
                 // an exception requesting the method, let's give other methods a shot
                 log.error("Saving for later - {}", e.toString());
@@ -94,15 +100,6 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             } finally {
                 lock.unlock();
             }
-            
-            if (success) {
-                // puts delayed compression into force if applicable
-                trans.setAuthenticated();
-                // we aren't in charge anymore, next service is
-                trans.setService(params.getNextService());
-                return;
-            }
-            
         }
         
         log.debug("Had {} saved exception(s)", savedEx.size());
@@ -110,7 +107,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     }
     
     // Documented in interface
-    public LQString getBanner()
+    public synchronized String getBanner()
     {
         return banner;
     }
@@ -143,13 +140,12 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         if (cmd.toInt() < 51 || cmd.toInt() > 79)
             throw new TransportException(DisconnectReason.PROTOCOL_ERROR);
         
-        if (cmd == Message.USERAUTH_BANNER) {
-            banner = buf.getLQString();
-            log.info("Auth banner - lang=[{}], text=[{}]", banner.getLanguage(), banner.getText());
-        } else {
+        if (cmd == Message.USERAUTH_BANNER)
+            banner = buf.getString();
+        else {
             lock.lock();
             try {
-                if (result.hasWaiter()) {
+                if (result.hasWaiters()) {
                     if (cmd == Message.USERAUTH_FAILURE) {
                         allowed.clear();
                         allowed.addAll(Arrays.<String> asList(buf.getString().split(",")));
@@ -157,15 +153,12 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                         if (allowed.contains(method.getName()) && method.shouldRetry())
                             method.request();
                         else
-                            result.error(method.getName() + " authentication failed");
-                    } else if (cmd == Message.USERAUTH_SUCCESS) {
-                        success = true;
-                        result.set();
-                    } else {
+                            result.set(false);
+                    } else if (cmd == Message.USERAUTH_SUCCESS)
+                        result.set(true);
+                    else {
                         log.debug("Asking {} method to handle", method.getName());
-                        if (!method.handle(cmd, buf))
-                            // It did not recognize the message
-                            result.error("Unknown packet received during " + method.getName() + " auth: " + cmd);
+                        method.handle(cmd, buf);
                     }
                 } else
                     trans.sendUnimplemented();
@@ -179,16 +172,11 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     {
         lock.lock();
         try {
-            if (result.hasWaiter())
+            if (result.hasWaiters())
                 result.error(exception);
         } finally {
             lock.unlock();
         }
-    }
-    
-    private Event<UserAuthException> newEvent(String name)
-    {
-        return new Event<UserAuthException>(name, UserAuthException.chainer, lock);
     }
     
 }

@@ -9,35 +9,35 @@ import org.apache.commons.net.ssh.transport.TransportException;
 public interface Session
 {
     
-    interface Command
+    interface Command extends IO
     {
         
         Boolean canDoFlowControl();
         
-        InputStream getErr();
+        InputStream getErrorStream();
         
         Signal getExitSignal();
         
         Integer getExitStatus();
         
-        InputStream getIn();
+        InputStream getInputStream();
         
-        OutputStream getOut();
+        OutputStream getOutputStream();
         
         void signal(Signal sig) throws TransportException;
         
     }
     
-    interface Shell
+    interface Shell extends IO
     {
         
         Boolean canDoFlowControl();
         
-        InputStream getErr();
+        InputStream getErrorStream();
         
-        InputStream getIn();
+        InputStream getInputStream();
         
-        OutputStream getOut();
+        OutputStream getOutputStream();
         
     }
     
@@ -83,14 +83,14 @@ public interface Session
         
     }
     
-    interface Subsystem
+    interface Subsystem extends IO
     {
         
         Boolean canDoFlowControl();
         
-        InputStream getIn();
+        InputStream getInputStream();
         
-        OutputStream getOut();
+        OutputStream getOutputStream();
         
     }
     
@@ -107,6 +107,7 @@ public interface Session
     
     Command exec(String command) throws ConnectionException, TransportException;
     
+    /* With OpenSSH default is to reject env vars: "AcceptEnv" config var shd be set * */
     void setEnvVar(String name, String value) throws ConnectionException, TransportException;
     
     Shell startShell() throws ConnectionException, TransportException;

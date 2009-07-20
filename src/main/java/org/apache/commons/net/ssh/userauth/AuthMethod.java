@@ -35,7 +35,7 @@ public interface AuthMethod
     
     String getName();
     
-    boolean handle(Message cmd, Buffer buf) throws UserAuthException, TransportException;
+    void handle(Message cmd, Buffer buf) throws UserAuthException, TransportException;
     
     void init(AuthParams params);
     

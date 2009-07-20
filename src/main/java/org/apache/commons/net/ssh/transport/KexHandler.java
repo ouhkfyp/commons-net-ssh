@@ -19,9 +19,8 @@
 package org.apache.commons.net.ssh.transport;
 
 import java.security.PublicKey;
-import java.util.concurrent.Semaphore;
 
-import org.apache.commons.net.ssh.FactoryManager;
+import org.apache.commons.net.ssh.Config;
 import org.apache.commons.net.ssh.NamedFactory;
 import org.apache.commons.net.ssh.cipher.Cipher;
 import org.apache.commons.net.ssh.compression.Compression;
@@ -29,6 +28,7 @@ import org.apache.commons.net.ssh.digest.Digest;
 import org.apache.commons.net.ssh.kex.KeyExchange;
 import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Event;
 import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 import org.apache.commons.net.ssh.util.Constants.KeyType;
@@ -42,32 +42,22 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-class Kexer
+class KexHandler
 {
     
-    private enum State
+    private enum Expected
     {
-        EXPECT_KEXINIT, // we have sent or are sending KEXINIT, and expect the server's KEXINIT
-        EXPECT_FOLLOWUP, // we are expecting some followup data as part of the exchange 
-        EXPECT_NEWKEYS, // we are expecting SSH_MSG_NEWKEYS
-        KEX_DONE, // key exchange has completed for now; but will be reinitiated if we get a KEXINIT
+        KEXINIT, // we have sent or are sending KEXINIT, and expect the server's KEXINIT
+        FOLLOWUP, // we are expecting some followup data as part of the exchange 
+        NEWKEYS, // we are expecting SSH_MSG_NEWKEYS
     }
     
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final TransportProtocol trans;
-    private final FactoryManager fm;
+    private final TransportProtocol transport;
+    private final Config fm;
     
     /** Current state */
-    private State state;
-    
-    /**
-     * There must be a release (implying KEXINIT sent) before we process received KEXINIT and
-     * negotiate algorithms.
-     */
-    private final Semaphore initSent = new Semaphore(0);
-    
-    /** Computed session ID */
-    byte[] sessionID;
+    private Expected expected;
     
     /** Negotiated algorithms */
     private String[] negotiated;
@@ -96,11 +86,17 @@ class Kexer
     /** Payload of server's SSH_MSG_KEXINIT; is passed on to the KeyExchange alg */
     private byte[] I_S;
     
-    Kexer(TransportProtocol transport)
+    /** Computed session ID */
+    byte[] sessionID;
+    
+    /** Kex done? */
+    final Event<TransportException> done;
+    
+    KexHandler(TransportProtocol transport)
     {
-        this.trans = transport;
-        fm = transport.getFactoryManager();
-        state = State.EXPECT_KEXINIT;
+        this.transport = transport;
+        fm = transport.getConfig();
+        done = transport.newEvent("kex done");
     }
     
     /**
@@ -144,7 +140,7 @@ class Kexer
         extractProposal(buffer);
         negotiate();
         kex = NamedFactory.Utils.create(fm.getKeyExchangeFactories(), negotiated[PROP_KEX_ALG]);
-        kex.init(trans, trans.serverID.getBytes(), trans.clientID.getBytes(), I_S, I_C);
+        kex.init(transport, transport.serverID.getBytes(), transport.clientID.getBytes(), I_S, I_C);
     }
     
     /**
@@ -222,8 +218,8 @@ class Kexer
         s2ccomp = NamedFactory.Utils.create(fm.getCompressionFactories(), negotiated[PROP_COMP_ALG_S2C]);
         c2scomp = NamedFactory.Utils.create(fm.getCompressionFactories(), negotiated[PROP_COMP_ALG_C2S]);
         
-        trans.packetConverter.setClientToServer(c2scipher, c2smac, c2scomp);
-        trans.packetConverter.setServerToClient(s2ccipher, s2cmac, s2ccomp);
+        transport.converter.setClientToServer(c2scipher, c2smac, c2scomp);
+        transport.converter.setServerToClient(s2ccipher, s2cmac, s2ccomp);
     }
     
     /**
@@ -238,14 +234,15 @@ class Kexer
             String[] s = serverProposal[i].split(",");
             for (String ci : c) {
                 for (String si : s)
-                    if (ci.equals(si)) {
+                    if (ci.equals(si)) { // first match wins
                         guess[i] = ci;
                         break;
                     }
                 if (guess[i] != null)
                     break;
             }
-            if (guess[i] == null && i != PROP_LANG_C2S && i != PROP_LANG_S2C)
+            if (guess[i] == null && // 
+                    i != PROP_LANG_C2S && i != PROP_LANG_S2C) // since we don't negotiate languages
                 throw new TransportException("Unable to negotiate");
         }
         negotiated = guess;
@@ -295,7 +292,7 @@ class Kexer
         // Put cookie
         int p = buf.wpos();
         buf.wpos(p + 16);
-        trans.prng.fill(buf.array(), p, 16);
+        transport.prng.fill(buf.array(), p, 16);
         
         // Put the 10 algorithm name-list's
         for (String s : clientProposal = createProposal())
@@ -307,84 +304,68 @@ class Kexer
         I_C = buf.getCompactData(); // Store for future
         
         log.info("Sending SSH_MSG_KEXINIT");
-        trans.writePacket(buf);
-        
-        // Declare SSH_MSG_KEXINIT sent
-        initSent.release();
+        transport.writePacket(buf);
     }
     
     private void sendNewKeys() throws TransportException
     {
         log.info("Sending SSH_MSG_NEWKEYS");
-        trans.writePacket(new Buffer(Message.NEWKEYS));
+        transport.writePacket(new Buffer(Message.NEWKEYS));
     }
     
-    boolean handle(Message cmd, Buffer buffer) throws TransportException
+    void handle(Message cmd, Buffer buffer) throws TransportException
     {
-        switch (state)
+        switch (expected)
         {
-        case KEX_DONE:
-        {
-            assert cmd == Message.KEXINIT;
-            // Re-exchange should commence
-            sendKexInit();
-            // Deliberate fall-through
-        }
-        case EXPECT_KEXINIT:
-        {
-            if (cmd != Message.KEXINIT) {
-                trans.sendUnimplemented();
+            case KEXINIT:
+            {
+                if (cmd != Message.KEXINIT) {
+                    transport.sendUnimplemented();
+                    break;
+                }
+                log.info("Received SSH_MSG_KEXINIT");
+                gotKexInit(buffer);
+                // State transition - expect kex followup data
+                expected = Expected.FOLLOWUP;
                 break;
             }
-            log.info("Received SSH_MSG_KEXINIT");
-            // Make sure we have sent SSH_MSG_KEXINIT - it is a pre-requisite for negotiating 
-            try {
-                initSent.acquire();
-            } catch (InterruptedException e) {
-                throw new TransportException(e);
+            case FOLLOWUP:
+            {
+                log.info("Received kex followup data");
+                buffer.rpos(buffer.rpos() - 1);
+                if (kex.next(buffer)) {
+                    // Basically done; now verify host key
+                    PublicKey hostKey = kex.getHostKey();
+                    if (!transport.verifyHost(hostKey))
+                        throw new TransportException(DisconnectReason.HOST_KEY_NOT_VERIFIABLE, "Could not verify ["
+                                + KeyType.fromKey(hostKey) + "] host key with fingerprint ["
+                                + SecurityUtils.getFingerprint(hostKey) + "]");
+                    // Declare all is well
+                    sendNewKeys();
+                    // State transition - expect server to tell us the same thing
+                    expected = Expected.NEWKEYS;
+                }
+                break;
             }
-            gotKexInit(buffer);
-            // State transition - expect kex followup data
-            state = State.EXPECT_FOLLOWUP;
-            break;
-        }
-        case EXPECT_FOLLOWUP:
-        {
-            log.info("Received kex followup data");
-            buffer.rpos(buffer.rpos() - 1);
-            if (kex.next(buffer)) {
-                // Basically done; now verify host key
-                PublicKey hostKey = kex.getHostKey();
-                if (!trans.verifyHost(hostKey))
-                    throw new TransportException(DisconnectReason.HOST_KEY_NOT_VERIFIABLE, "Could not verify ["
-                            + KeyType.fromKey(hostKey) + "] host key with fingerprint ["
-                            + SecurityUtils.getFingerprint(hostKey) + "]");
-                // Declare all is well
-                sendNewKeys();
-                // State transition - expect server to tell us the same thing
-                state = State.EXPECT_NEWKEYS;
+            case NEWKEYS:
+            {
+                if (cmd != Message.NEWKEYS)
+                    throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
+                                                 "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
+                log.info("Received SSH_MSG_NEWKEYS");
+                gotNewKeys();
+                done.set();
+                break;
             }
-            break;
+            default:
+                assert false;
         }
-        case EXPECT_NEWKEYS:
-        {
-            if (cmd != Message.NEWKEYS)
-                throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
-                                             "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
-            log.info("Received SSH_MSG_NEWKEYS");
-            gotNewKeys();
-            // State transition - the whole process is complete
-            state = State.KEX_DONE;
-            break;
-        }
-        default:
-            assert false;
-        }
-        return state == State.KEX_DONE;
     }
     
     void init() throws TransportException
     {
+        done.clear();
+        expected = Expected.KEXINIT;
         sendKexInit();
     }
     

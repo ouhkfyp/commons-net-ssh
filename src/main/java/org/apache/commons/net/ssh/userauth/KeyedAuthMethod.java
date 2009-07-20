@@ -56,7 +56,7 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
         }
         String kt = KeyType.fromKey(key).toString();
         Signature sigger =
-                NamedFactory.Utils.create(params.getTransport().getFactoryManager().getSignatureFactories(), kt);
+                NamedFactory.Utils.create(params.getTransport().getConfig().getSignatureFactories(), kt);
         sigger.init(null, key);
         sigger.update(new Buffer().putString(params.getTransport().getSessionID()) // sessionID string
                                   .putBuffer(reqBuf) // & rest of the data for sig
