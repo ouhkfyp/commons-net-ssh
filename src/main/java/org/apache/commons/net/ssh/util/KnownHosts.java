@@ -193,8 +193,7 @@ public class KnownHosts implements HostKeyVerifier
         possibilities.add(host.getHostName());
         
         /*
-         * Commented out because not sure of security implications => better to follow OpenSSH
-         * footsteps.
+         * Commented out because not sure of security implications
          */
         //possibilities.add(host.getCanonicalHostName());
         //possibilities.add(host.getHostAddress());
@@ -202,13 +201,13 @@ public class KnownHosts implements HostKeyVerifier
         log.debug("Checking for any of {}", possibilities);
         
         for (Entry e : entries) {
-            String match = e.appliesTo(possibilities);
-            if (e.getType() == type && match != null)
+            String match;
+            if (e.getType() == type && (match = e.appliesTo(possibilities)) != null)
                 if (key.equals(e.getKey())) {
-                    log.info("Matched against [{}]", match);
+                    log.info("Matched against `{}`", match);
                     return true;
                 } else {
-                    log.warn("Host key for {} has changed!", match);
+                    log.warn("Host key for `{}` has changed!", match);
                     return false;
                 }
         }

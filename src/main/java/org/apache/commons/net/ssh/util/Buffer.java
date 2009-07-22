@@ -39,7 +39,7 @@ import org.apache.commons.net.ssh.util.Constants.Message;
  * Has convenient mappings from Java to SSH primitives.
  * 
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
- * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>o
  */
 public class Buffer
 {
@@ -510,7 +510,7 @@ public class Buffer
     public Buffer putPublicKey(PublicKey key)
     {
         KeyType type = KeyType.fromKey(key);
-        switch (type = KeyType.fromKey(key))
+        switch (type)
         {
             case RSA:
                 putString(type.toString()) // ssh-rsa

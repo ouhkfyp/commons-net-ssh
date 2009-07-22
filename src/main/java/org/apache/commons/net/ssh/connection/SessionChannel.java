@@ -4,11 +4,9 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.IOUtils;
-import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
 
 public class SessionChannel extends AbstractChannel implements Session, Session.Command, Session.Shell,
         Session.Subsystem
@@ -22,14 +20,13 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public static final String TYPE = "session";
     
-    SessionChannel(Transport trans, int id, int localWinSize, int localMaxPacketSize)
-    {
-        super(trans, id, localWinSize, localMaxPacketSize);
-    }
-    
     public void allocateDefaultPTY() throws ConnectionException, TransportException
     {
         Map<TerminalMode, Integer> modes = new HashMap<TerminalMode, Integer>();
+        /*
+         * Need to figure out modes, the below is blindly following sshd without knowing what they
+         * mean!
+         */
         modes.put(TerminalMode.ISIG, 1);
         modes.put(TerminalMode.ICANON, 1);
         modes.put(TerminalMode.ECHO, 1);
@@ -51,13 +48,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
                                        .putInt(width) //
                                        .putInt(height) //
                                        .putBytes(TerminalMode.encode(modes)) //
-        ).get(); // wait for reply
-    }
-    
-    public Buffer buildOpenRequest()
-    {
-        // TODO Auto-generated method stub
-        return null;
+        ).await(TIMEOUT); // wait for reply
     }
     
     public Boolean canDoFlowControl()
@@ -102,7 +93,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     }
     
     @Override
-    public void handleRequest(String req, Buffer buf)
+    public void handleRequest(String req, Buffer buf) throws ConnectionException, TransportException
     {
         if ("xon-xoff".equals(req))
             flowControl = buf.getBoolean();
@@ -111,7 +102,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
         else if ("exit-signal".equals(req))
             exitSignal = Signal.fromString(buf.getString());
         else
-            log.warn("Dropping {} request", req);
+            super.handleRequest(req, buf);
     }
     
     public void setEnvVar(String name, String value) throws ConnectionException, TransportException
@@ -126,7 +117,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public Shell startShell() throws ConnectionException, TransportException
     {
-        sendChannelRequest("shell", true, null).get();
+        sendChannelRequest("shell", true, null).await(TIMEOUT);
         return this;
     }
     
@@ -134,6 +125,11 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     {
         sendChannelRequest("subsystem", true, new Buffer().putString(name)).get();
         return this;
+    }
+    
+    public void waitForClose() throws ConnectionException
+    {
+        close.await(TIMEOUT);
     }
     
     @Override
@@ -156,7 +152,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
         if (dataTypeCode == 1)
             doWrite(buf, err);
         else
-            throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR);
+            super.handleExtendedData(dataTypeCode, buf);
     }
     
 }

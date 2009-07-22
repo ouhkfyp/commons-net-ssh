@@ -22,20 +22,26 @@ import static org.apache.commons.net.ssh.util.Constants.DEFAULT_PORT;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.SocketAddress;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.apache.commons.net.SocketClient;
 import org.apache.commons.net.ssh.connection.ConnectionException;
 import org.apache.commons.net.ssh.connection.ConnectionProtocol;
 import org.apache.commons.net.ssh.connection.ConnectionService;
+import org.apache.commons.net.ssh.connection.PortForwardingDaemon;
 import org.apache.commons.net.ssh.connection.Session;
 import org.apache.commons.net.ssh.keyprovider.FileKeyProvider;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.transport.TransportProtocol;
+import org.apache.commons.net.ssh.userauth.AuthMethod;
 import org.apache.commons.net.ssh.userauth.AuthParams;
 import org.apache.commons.net.ssh.userauth.AuthPassword;
 import org.apache.commons.net.ssh.userauth.AuthPublickey;
+import org.apache.commons.net.ssh.userauth.UserAuthException;
 import org.apache.commons.net.ssh.userauth.UserAuthProtocol;
 import org.apache.commons.net.ssh.userauth.UserAuthService;
 import org.apache.commons.net.ssh.util.KnownHosts;
@@ -133,7 +139,7 @@ public class SSHClient extends SocketClient
      * @throws SSHException
      *             if an error occurs during the authentication process
      */
-    public void authPassword(String username, char[] password) throws SSHException
+    public void authPassword(String username, char[] password) throws UserAuthException, TransportException
     {
         authPassword(username, PasswordFinder.Util.createOneOff(password));
     }
@@ -148,9 +154,15 @@ public class SSHClient extends SocketClient
      * @throws SSHException
      *             if an error occurs during the authentication process
      */
-    public void authPassword(String username, PasswordFinder password) throws SSHException
+    public void authPassword(String username, PasswordFinder password) throws UserAuthException, TransportException
     {
         newUserAuth(username).authenticate(new AuthPassword(password));
+    }
+    
+    public void authPublickey(String username) throws UserAuthException, TransportException
+    {
+        String base = System.getProperty("user.home") + File.separator + ".ssh" + File.separator;
+        authPublickey(username, base + "id_rsa", base + "id_dsa");
     }
     
     /**
@@ -165,9 +177,20 @@ public class SSHClient extends SocketClient
      *            the {@link KeyProvider} for private key
      * @throws SSHException
      */
-    public void authPublickey(String username, KeyProvider keyProvider) throws SSHException
+    public void authPublickey(String username, KeyProvider keyProvider) throws UserAuthException, TransportException
     {
         newUserAuth(username).authenticate(new AuthPublickey(keyProvider));
+    }
+    
+    public void authPublickey(String username, String... locations) throws UserAuthException, TransportException
+    {
+        List<AuthMethod> am = new LinkedList<AuthMethod>();
+        for (String loc : locations)
+            try {
+                am.add(new AuthPublickey(loadKeyFile(loc)));
+            } catch (IOException ignore) {
+            }
+        newUserAuth(username).authenticate(am);
     }
     
     @Override
@@ -299,6 +322,11 @@ public class SSHClient extends SocketClient
     public UserAuthService newUserAuth(String username)
     {
         return auth = new UserAuthProtocol(new AuthParams(trans, username, (Service) conn));
+    }
+    
+    public PortForwardingDaemon startLocalForwarding(SocketAddress addr, String toHost, int toPort) throws IOException
+    {
+        return new PortForwardingDaemon(conn, addr, toHost, toPort);
     }
     
     public Session startSession() throws ConnectionException, TransportException

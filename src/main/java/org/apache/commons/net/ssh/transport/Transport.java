@@ -71,6 +71,8 @@ public interface Transport
      */
     void disconnect(DisconnectReason reason, String msg);
     
+    void forceRekey() throws TransportException;
+    
     /**
      * Returns the version string used by this client to identify itself to an SSH server, e.g.
      * "NET_3.0"

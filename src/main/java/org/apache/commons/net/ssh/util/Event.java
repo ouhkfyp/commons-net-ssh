@@ -1,6 +1,5 @@
 package org.apache.commons.net.ssh.util;
 
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 /*
@@ -30,6 +29,11 @@ public class Event<Ex extends Throwable> extends Future<Boolean, Ex>
         }
     }
     
+    public Event(String name, FriendlyChainer<Ex> chainer)
+    {
+        super(name, chainer, null);
+    }
+    
     public Event(String name, FriendlyChainer<Ex> chainer, ReentrantLock lock)
     {
         super(name, chainer, lock);
@@ -43,11 +47,6 @@ public class Event<Ex extends Throwable> extends Future<Boolean, Ex>
     public void await(int timeout) throws Ex
     {
         super.get(timeout);
-    }
-    
-    public void await(long timeout, TimeUnit unit) throws Ex
-    {
-        super.get(timeout, unit);
     }
     
     public void set()

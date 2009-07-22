@@ -22,6 +22,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
@@ -29,9 +30,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
 import java.security.Signature;
-import java.security.interfaces.DSAParams;
-import java.security.interfaces.DSAPublicKey;
-import java.security.interfaces.RSAPublicKey;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
@@ -40,7 +38,6 @@ import javax.crypto.NoSuchPaddingException;
 
 import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.keyprovider.FileKeyProvider;
-import org.apache.commons.net.ssh.util.Constants.KeyType;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -148,33 +145,10 @@ public class SecurityUtils
         MessageDigest md5 = null;
         try {
             md5 = getMessageDigest("MD5");
-        } catch (NoSuchAlgorithmException e) { // can't happen.
-            throw new SSHRuntimeException(e);
-        } catch (NoSuchProviderException e) { // can't happen.
+        } catch (GeneralSecurityException e) {
             throw new SSHRuntimeException(e);
         }
-        Buffer buf = new Buffer();
-        switch (KeyType.fromKey(key))
-        {
-        case RSA:
-            RSAPublicKey rsa = (RSAPublicKey) key;
-            buf.putString(KeyType.RSA.toString());
-            buf.putMPInt(rsa.getPublicExponent());
-            buf.putMPInt(rsa.getModulus());
-            break;
-        case DSA:
-            buf.putString(KeyType.DSA.toString());
-            DSAPublicKey dsa = (DSAPublicKey) key;
-            DSAParams params = dsa.getParams();
-            buf.putMPInt(params.getP());
-            buf.putMPInt(params.getQ());
-            buf.putMPInt(params.getG());
-            buf.putMPInt(dsa.getY());
-            break;
-        default:
-            assert false;
-        }
-        md5.update(buf.array(), 0, buf.available());
+        md5.update(new Buffer().putPublicKey(key).getCompactData());
         String undelimed = BufferUtils.toHex(md5.digest());
         String fp = undelimed.substring(0, 2);
         for (int i = 2; i <= undelimed.length() - 2; i += 2)

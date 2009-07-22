@@ -18,7 +18,6 @@ public class ChannelInputStream extends InputStream
     private final byte[] b = new byte[1];
     private final LocalWindow win;
     
-    private boolean closed;
     private boolean eof;
     
     public ChannelInputStream(LocalWindow win)
@@ -37,17 +36,16 @@ public class ChannelInputStream extends InputStream
     @Override
     public void close()
     {
-        synchronized (buf) {
-            closed = true;
-            buf.notifyAll();
-        }
+        eof();
     }
     
     public void eof()
     {
         synchronized (buf) {
-            eof = true;
-            buf.notifyAll();
+            if (!eof) {
+                eof = true;
+                buf.notifyAll();
+            }
         }
     }
     
@@ -70,8 +68,6 @@ public class ChannelInputStream extends InputStream
             for (;;) {
                 if (eof)
                     return -1;
-                if (closed)
-                    throw new IOException("Pipe closed");
                 if (buf.available() > 0)
                     break;
                 try {
@@ -94,8 +90,8 @@ public class ChannelInputStream extends InputStream
     public void receive(byte[] data, int offset, int len) throws ConnectionException, TransportException
     {
         synchronized (buf) {
-            if (closed)
-                throw new ConnectionException("Stream closed");
+            if (eof)
+                throw new ConnectionException("Getting data on EOF'ed stream");
             buf.putRawBytes(data, offset, len);
             buf.notifyAll();
         }

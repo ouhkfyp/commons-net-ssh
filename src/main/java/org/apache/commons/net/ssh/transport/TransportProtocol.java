@@ -26,7 +26,6 @@ import java.net.Socket;
 import java.security.PublicKey;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.Config;
@@ -52,7 +51,7 @@ import org.slf4j.LoggerFactory;
 public class TransportProtocol implements Transport
 {
     
-    public static final int DEFAULT_TIMEOUT = 10;
+    public static final int TIMEOUT = 10;
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
@@ -120,6 +119,7 @@ public class TransportProtocol implements Transport
     private final ReentrantLock lock = new ReentrantLock();
     
     private final Event<TransportException> serviceAccept = newEvent("service accept");
+    
     private final Event<TransportException> close = newEvent("transport close");
     
     /**
@@ -160,11 +160,23 @@ public class TransportProtocol implements Transport
         if (msg == null)
             msg = "";
         log.debug("Sending SSH_MSG_DISCONNECT: reason=[{}], msg=[{}]", reason, msg);
-        IOUtils.silentWriteAttempt(this, new Buffer(Message.DISCONNECT) //
-                                                                       .putInt(reason.toInt()) //
-                                                                       .putString(msg) //
-                                                                       .putString("")); // lang tag
+        IOUtils.writeQuietly(this, new Buffer(Message.DISCONNECT) //
+                                                                 .putInt(reason.toInt()) //
+                                                                 .putString(msg) //
+                                                                 .putString("")); // lang tag
         close();
+    }
+    
+    public void forceRekey() throws TransportException
+    {
+        lock.lock();
+        try {
+            kexOngoing = true;
+            kexer.init();
+            kexer.done.await();
+        } finally {
+            lock.unlock();
+        }
     }
     
     // Documented in interface
@@ -233,7 +245,7 @@ public class TransportProtocol implements Transport
         try {
             kexer.init();
             dispatcher.start();
-            kexer.done.await(DEFAULT_TIMEOUT);
+            kexer.done.await(TIMEOUT);
         } finally {
             lock.unlock();
         }
@@ -256,7 +268,7 @@ public class TransportProtocol implements Transport
         try {
             serviceAccept.clear();
             sendServiceRequest(service.getName());
-            serviceAccept.await(DEFAULT_TIMEOUT, TimeUnit.SECONDS);
+            serviceAccept.await(TIMEOUT);
             setService(service);
         } finally {
             lock.unlock();
@@ -300,10 +312,10 @@ public class TransportProtocol implements Transport
                 // Only transport layer packets (1 to 49) allowed except SERVICE_REQUEST (5)
                 int msgID = payload.array()[payload.rpos()];
                 if (!(msgID >= 1 && msgID <= 49) || msgID == 5)
-                    kexer.done.await(DEFAULT_TIMEOUT);
+                    kexer.done.await(TIMEOUT);
             } else if (sinceKeying % 0x80000000L == 0) { // Rekey every 2**31 packets
                 kexer.init();
-                kexer.done.await(DEFAULT_TIMEOUT);
+                kexer.done.await(TIMEOUT);
             }
             
             long seq = converter.encode(payload);
@@ -322,13 +334,13 @@ public class TransportProtocol implements Transport
     private void close()
     {
         dispatcher.interrupt();
-        if (socket != null) {
-            try { // Shock it into waking up if blocked on I/O
-                socket.close();
-            } catch (IOException ignored) {
-                log.debug("Ignored - {}", ignored.toString());
-            }
-            socket = null;
+        try {
+            socket.shutdownInput();
+        } catch (IOException ignore) {
+        }
+        try {
+            socket.shutdownOutput();
+        } catch (IOException ignore) {
         }
         close.set();
     }
@@ -563,9 +575,8 @@ public class TransportProtocol implements Transport
      */
     synchronized boolean verifyHost(PublicKey key)
     {
-        while (!hostVerifiers.isEmpty()) {
-            HostKeyVerifier hkv = hostVerifiers.remove();
-            log.debug("Verifiying host key with [{}]", hkv);
+        for (HostKeyVerifier hkv : hostVerifiers) {
+            log.debug("Trying to verify host key with {}", hkv);
             if (hkv.verify(socket.getInetAddress(), key))
                 return true;
         }
