@@ -22,6 +22,11 @@ public abstract class AbstractService implements Service
         this.trans = trans;
     }
     
+    public Transport getTransport()
+    {
+        return trans;
+    }
+    
     public void notifyUnimplemented(long seqNum) throws SSHException
     {
         throw new SSHException(DisconnectReason.PROTOCOL_ERROR, "Unexpected: SSH_MSG_UNIMPLEMENTED");

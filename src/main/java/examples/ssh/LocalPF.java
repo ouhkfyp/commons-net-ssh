@@ -3,12 +3,12 @@ package examples.ssh;
 import java.net.InetSocketAddress;
 
 import org.apache.commons.net.ssh.SSHClient;
-import org.apache.commons.net.ssh.connection.PortForwardingDaemon;
+import org.apache.commons.net.ssh.connection.LocalPortForwarding;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.PatternLayout;
 
-public class PortForwarding
+public class LocalPF
 {
     
     static {
@@ -22,12 +22,14 @@ public class PortForwarding
         client.connect("localhost");
         try {
             client.authPublickey("shikhar");
-            PortForwardingDaemon pfd =
-                    client.startLocalForwarding(new InetSocketAddress("127.0.0.1", 9999), "localhost", 1234);
+            // Listens on port 127.0.0.1:9999; and forwards to localhost:22
+            LocalPortForwarding pfd =
+                    client.startLocalForwarding(new InetSocketAddress("localhost", 9999), "localhost", 22);
             pfd.startListening();
-            pfd.join();
+            pfd.join(0);
         } finally {
             client.disconnect();
         }
     }
+    
 }

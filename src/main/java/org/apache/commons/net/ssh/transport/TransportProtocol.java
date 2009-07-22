@@ -303,6 +303,11 @@ public class TransportProtocol implements Transport
         }
     }
     
+    public void join(int timeout) throws TransportException
+    {
+        close.await(timeout);
+    }
+    
     public long writePacket(Buffer payload) throws TransportException
     {
         lock.lock();

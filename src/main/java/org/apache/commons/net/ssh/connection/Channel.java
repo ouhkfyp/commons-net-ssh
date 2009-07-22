@@ -1,27 +1,40 @@
 package org.apache.commons.net.ssh.connection;
 
+import java.io.InputStream;
+import java.io.OutputStream;
+
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants;
 
-public interface Channel extends IO
+public interface Channel
 {
     
     void close() throws TransportException, ConnectionException;
     
     int getID();
     
+    InputStream getInputStream();
+    
+    int getLocalMaxPacketSize();
+    
+    int getLocalWinSize();
+    
+    OutputStream getOutputStream();
+    
     int getRecipient();
+    
+    int getRemoteMaxPacketSize();
+    
+    int getRemoteWinSize();
     
     Transport getTransport();
     
     String getType();
     
-    boolean handle(Constants.Message cmd, Buffer buf) throws ConnectionException, TransportException;
-    
-    void init(Transport trans, int id, int localWinStartSize, int localMaxPacketSize);
+    void handle(Constants.Message cmd, Buffer buf) throws ConnectionException, TransportException;
     
     boolean isOpen();
     

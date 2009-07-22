@@ -183,6 +183,8 @@ public interface Transport
      */
     void setService(Service service);
     
+    void join(int timeout) throws TransportException;
+    
     /**
      * Encodes and sends an SSH packet over the output stream for this session.
      * 

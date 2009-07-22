@@ -11,7 +11,7 @@ import org.apache.commons.net.ssh.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PortForwardingDaemon
+public class LocalPortForwarding
 {
     
     private class DirectTCPIPChannel extends AbstractChannel
@@ -20,8 +20,9 @@ public class PortForwardingDaemon
         public static final String TYPE = "direct-tcpip";
         private final Socket sock;
         
-        private DirectTCPIPChannel(Socket sock)
+        private DirectTCPIPChannel(ConnectionService conn, Socket sock)
         {
+            super(conn);
             this.sock = sock;
         }
         
@@ -67,7 +68,7 @@ public class PortForwardingDaemon
     private final Thread listener = new Thread()
         {
             {
-                setName("pfd");
+                setName("pfd"); // "port forwarding daemon"
                 setDaemon(true);
             }
             
@@ -86,10 +87,9 @@ public class PortForwardingDaemon
                         break;
                     }
                     try {
-                        DirectTCPIPChannel pfc = new DirectTCPIPChannel(sock);
-                        conn.initAndAdd(pfc);
-                        pfc.open();
-                        pfc.start();
+                        DirectTCPIPChannel chan = new DirectTCPIPChannel(conn, sock);
+                        chan.open();
+                        chan.start();
                     } catch (IOException justLog) {
                         log.error("While initializing direct-tcpip channel from {}: {}", sock.getRemoteSocketAddress(),
                                   justLog.toString());
@@ -99,7 +99,7 @@ public class PortForwardingDaemon
             }
         };
     
-    public PortForwardingDaemon(ConnectionService conn, SocketAddress listeningAddr, String toHost, int toPort)
+    public LocalPortForwarding(ConnectionService conn, SocketAddress listeningAddr, String toHost, int toPort)
             throws IOException
     {
         this.conn = conn;
@@ -110,9 +110,9 @@ public class PortForwardingDaemon
         ss.bind(listeningAddr);
     }
     
-    public void join() throws ConnectionException
+    public void join(int timeout) throws ConnectionException
     {
-        close.await();
+        close.await(timeout);
     }
     
     public void startListening()

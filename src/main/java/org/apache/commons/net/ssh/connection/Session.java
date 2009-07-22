@@ -9,7 +9,7 @@ import org.apache.commons.net.ssh.transport.TransportException;
 public interface Session
 {
     
-    interface Command extends IO
+    interface Command
     {
         
         Boolean canDoFlowControl();
@@ -28,7 +28,7 @@ public interface Session
         
     }
     
-    interface Shell extends IO
+    interface Shell
     {
         
         Boolean canDoFlowControl();
@@ -83,7 +83,7 @@ public interface Session
         
     }
     
-    interface Subsystem extends IO
+    interface Subsystem
     {
         
         Boolean canDoFlowControl();
@@ -98,7 +98,7 @@ public interface Session
     
     void allocateDefaultPTY() throws ConnectionException, TransportException;
     
-    void allocatePTY(String term, int cols, int rows, int width, int height, Map<TerminalMode, Integer> modes)
+    void allocatePTY(String term, int cols, int rows, int width, int height, Map<PTYMode, Integer> modes)
             throws ConnectionException, TransportException;
     
     void changeWindowDimensions(int cols, int rows, int width, int height) throws TransportException;

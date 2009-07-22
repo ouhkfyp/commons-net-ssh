@@ -22,6 +22,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -41,42 +42,68 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public class ConnectionProtocol extends AbstractService implements ConnectionService
 {
     
-    public class GlobalReq extends Future<Buffer, ConnectionException>
-    {
-        GlobalReq(String name, boolean wantReply, Buffer specific) throws TransportException
-        {
-            super("global req for " + name, ConnectionException.chainer, null);
-            trans.writePacket(new Buffer(Message.GLOBAL_REQUEST) //
-                                                                .putString(name) //
-                                                                .putBoolean(wantReply) //
-                                                                .putBuffer(specific)); //
-        }
-    }
-    
-    public static final int WINDOW_SIZE = 0x200000;
-    public static final int MAX_PACKET_SIZE = 0x8800;
+    protected int windowSize = 0x200000;
+    protected int maxPacketSize = 0x8800;
+    protected int timeout = 15;
     
     protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
-    protected Map<String, ChannelOpener> handlers = new ConcurrentHashMap<String, ChannelOpener>();
+    protected Map<String, OpenReqHandler> handlers = new ConcurrentHashMap<String, OpenReqHandler>();
     
-    private int nextID;
+    private final AtomicInteger nextID = new AtomicInteger();
     
     protected final Lock lock = new ReentrantLock();
-    protected Queue<GlobalReq> globalReqs = new LinkedList<GlobalReq>();
+    protected Queue<Future<Buffer, ConnectionException>> globalReqs =
+            new LinkedList<Future<Buffer, ConnectionException>>();
     
     public ConnectionProtocol(Transport session)
     {
         super(session);
     }
     
+    public void attach(Channel chan)
+    {
+        channels.put(chan.getID(), chan);
+    }
+    
+    public void attach(OpenReqHandler handler)
+    {
+        handlers.put(handler.getSupportedChannelType(), handler);
+    }
+    
+    public void forget(Channel chan)
+    {
+        channels.remove(chan.getID());
+    }
+    
+    public void forget(OpenReqHandler handler)
+    {
+        handlers.remove(handler.getSupportedChannelType());
+    }
+    
     public int getMaxPacketSize()
     {
-        return MAX_PACKET_SIZE;
+        return maxPacketSize;
     }
     
     public String getName()
     {
         return NAME;
+    }
+    
+    public int getTimeout()
+    {
+        return timeout;
+    }
+    
+    @Override
+    public Transport getTransport()
+    {
+        return trans;
+    }
+    
+    public int getWindowSize()
+    {
+        return windowSize;
     }
     
     public void handle(Message cmd, Buffer buf) throws ConnectionException, TransportException
@@ -90,33 +117,29 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
             switch (cmd)
             {
                 case REQUEST_SUCCESS:
-                    gotResponse(new Buffer(buf.getCompactData()));
+                    gotResponse(buf);
                     break;
                 case REQUEST_FAILURE:
                     gotResponse(null);
                     break;
                 case CHANNEL_OPEN:
-                    ChannelOpener handler = handlers.get(buf.getString());
-                    if (handler != null)
-                        handler.handleReq(this, buf);
+                    String type = buf.getString();
+                    log.debug("Received CHANNEL_OPEN for `{}` channel", type);
+                    if (handlers.containsKey(type))
+                        handlers.get(type).handleOpenReq(buf);
                     else
-                        trans.writePacket(new Buffer(Message.REQUEST_FAILURE));
+                        log.warn("No handler found for `{}` CHANNEL_OPEN request", type);
                     break;
                 default:
                     trans.sendUnimplemented();
             }
-        else {
-            Channel chan = getChannel(buf);
-            if (chan.handle(cmd, buf))
-                forget(chan.getID());
-        }
+        else
+            getChannel(buf).handle(cmd, buf);
     }
     
-    public synchronized void initAndAdd(Channel chan)
+    public int nextID()
     {
-        int id = nextID++;
-        chan.init(trans, id, WINDOW_SIZE, MAX_PACKET_SIZE);
-        channels.put(id, chan);
+        return nextID.getAndIncrement();
     }
     
     public synchronized void notifyError(SSHException ex)
@@ -129,31 +152,45 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         channels.clear();
     }
     
-    //        public int startRemoteForwarding(String addressToBind, int portToBind) throws TransportException,
-    //                ConnectionException
-    //        {
-    //            int port =
-    //                    new GlobalReq(PF, true, new Buffer().putString(addressToBind).putInt(portToBind)).get(TIMEOUT).getInt();
-    //            //handlers.put(PF, value);
-    //            return port;
-    //        }
-    
     public void notifyUnimplemented(int seqNum) throws ConnectionException
     {
         throw new ConnectionException("Unexpected SSH_MSG_UNIMPLEMENTED");
     }
     
-    public Session startSession() throws ChannelOpenFailureException, ConnectionException, TransportException
+    public Future<Buffer, ConnectionException> sendGlobalRequest(String name, boolean wantReply, Buffer specifics)
+            throws TransportException
     {
-        SessionChannel sess = new SessionChannel();
-        initAndAdd(sess);
-        sess.open();
-        return sess;
+        synchronized (globalReqs) {
+            log.info("Sending GLOBAL_REQUEST for {}, wantReply={}", name, wantReply);
+            trans.writePacket(new Buffer(Message.GLOBAL_REQUEST) //
+                                                                .putString(name) //
+                                                                .putBoolean(wantReply) //
+                                                                .putBuffer(specifics)); //
+            
+            Future<Buffer, ConnectionException> future = null;
+            if (wantReply) {
+                future =
+                        new Future<Buffer, ConnectionException>("global req for " + name, ConnectionException.chainer,
+                                                                null);
+                globalReqs.add(future);
+            }
+            return future;
+        }
     }
     
-    private void forget(int id)
+    public void setMaxPacketSize(int maxPacketSize)
     {
-        channels.remove(id);
+        this.maxPacketSize = maxPacketSize;
+    }
+    
+    public void setTimeout(int timeout)
+    {
+        this.timeout = timeout;
+    }
+    
+    public void setWindowSize(int windowSize)
+    {
+        this.windowSize = windowSize;
     }
     
     protected Channel getChannel(Buffer buffer) throws ConnectionException
@@ -171,7 +208,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     protected void gotResponse(Buffer response) throws ConnectionException
     {
-        GlobalReq gr = globalReqs.poll();
+        Future<Buffer, ConnectionException> gr = globalReqs.poll();
         if (gr != null) {
             if (response != null)
                 gr.set(response);

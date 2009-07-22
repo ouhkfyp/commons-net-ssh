@@ -8,7 +8,7 @@ import org.apache.commons.net.ssh.util.Buffer;
 /*
  * TODO painful 
  */
-public enum TerminalMode
+public enum PTYMode
 {
     
     //    public static final byte TTY_OP_END = (byte) 0;
@@ -76,10 +76,10 @@ public enum TerminalMode
     ECHONL(56),
     NOFLSH(57);
     
-    public static byte[] encode(Map<TerminalMode, Integer> modes)
+    public static byte[] encode(Map<PTYMode, Integer> modes)
     {
         Buffer buf = new Buffer();
-        for (Entry<TerminalMode, Integer> entry : modes.entrySet()) {
+        for (Entry<PTYMode, Integer> entry : modes.entrySet()) {
             buf.putByte(entry.getKey().getOpcode());
             buf.putInt(entry.getValue());
         }
@@ -89,7 +89,7 @@ public enum TerminalMode
     
     private final byte opcode;
     
-    private TerminalMode(int opcode)
+    private PTYMode(int opcode)
     {
         this.opcode = (byte) opcode;
     }
