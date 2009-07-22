@@ -7,6 +7,10 @@ public interface ConnectionService
     
     String NAME = "ssh-connection";
     
+    int getMaxPacketSize();
+    
+    void initAndAdd(Channel chan);
+    
     Session startSession() throws ConnectionException, TransportException;
     
 }

@@ -1,13 +1,14 @@
 package examples.ssh;
 
+import java.net.InetSocketAddress;
+
 import org.apache.commons.net.ssh.SSHClient;
-import org.apache.commons.net.ssh.connection.Session;
-import org.apache.commons.net.ssh.connection.Session.Command;
+import org.apache.commons.net.ssh.connection.PortForwardingDaemon;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.PatternLayout;
 
-public class SSHExample
+public class PortForwarding
 {
     
     static {
@@ -19,19 +20,14 @@ public class SSHExample
         SSHClient client = new SSHClient();
         client.initUserKnownHosts();
         client.connect("localhost");
-        Session session = null;
         try {
             client.authPublickey("shikhar");
-            session = client.startSession();
-            session.allocateDefaultPTY();
-            Command cmd = session.exec("true");
-            session.waitForClose();
-            System.out.println("Exit status: " + cmd.getExitStatus());
+            PortForwardingDaemon pfd =
+                    client.startLocalForwarding(new InetSocketAddress("127.0.0.1", 9999), "localhost", 1234);
+            pfd.startListening();
+            pfd.join();
         } finally {
-            if (session != null)
-                session.close();
             client.disconnect();
         }
     }
-    
 }

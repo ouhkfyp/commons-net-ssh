@@ -114,4 +114,6 @@ public interface Session
     
     Subsystem startSubsysytem(String name) throws ConnectionException, TransportException;
     
+    void waitForClose() throws ConnectionException;
+    
 }

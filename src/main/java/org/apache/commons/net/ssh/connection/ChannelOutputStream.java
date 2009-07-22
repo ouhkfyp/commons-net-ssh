@@ -32,6 +32,8 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public class ChannelOutputStream extends OutputStream
 {
     
+    //    private final Logger log = LoggerFactory.getLogger(getClass());
+    
     private final Channel chan;
     private final RemoteWindow win;
     private final byte[] b = new byte[1];

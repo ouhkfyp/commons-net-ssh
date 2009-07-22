@@ -79,16 +79,10 @@ public class Future<V, Ex extends Throwable>
     
     public V get() throws Ex
     {
-        log.warn("Unbound waiting discouraged!");
-        return get(0, null);
+        return get(0);
     }
     
     public V get(int timeout) throws Ex
-    {
-        return get(timeout, TimeUnit.SECONDS);
-    }
-    
-    public V get(long timeout, TimeUnit unit) throws Ex
     {
         lock.lock();
         try {
@@ -100,7 +94,7 @@ public class Future<V, Ex extends Throwable>
             while (val == null && pendingEx == null)
                 if (timeout == 0)
                     cond.await();
-                else if (!cond.await(timeout, unit))
+                else if (!cond.await(timeout, TimeUnit.SECONDS))
                     chainer.chain(new FutureException("Timeout expired"));
             if (pendingEx != null) {
                 log.error("Woke to: {}", pendingEx.toString());

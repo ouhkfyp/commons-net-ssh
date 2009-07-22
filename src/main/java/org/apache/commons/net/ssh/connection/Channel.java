@@ -21,6 +21,8 @@ public interface Channel extends IO
     
     boolean handle(Constants.Message cmd, Buffer buf) throws ConnectionException, TransportException;
     
+    void init(Transport trans, int id, int localWinStartSize, int localMaxPacketSize);
+    
     boolean isOpen();
     
     void notifyError(SSHException exception);

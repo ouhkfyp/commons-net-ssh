@@ -81,8 +81,8 @@ public class Config
             }
             
             List<NamedFactory<Cipher>> avail = new LinkedList<NamedFactory<Cipher>> //
-                    (Arrays.<NamedFactory<Cipher>> asList(new AES128CBC.Factory(), new AES192CTR.Factory(),
-                                                          new AES256CTR.Factory(), new AES128CTR.Factory(),
+                    (Arrays.<NamedFactory<Cipher>> asList(new AES128CTR.Factory(), new AES192CTR.Factory(),
+                                                          new AES256CTR.Factory(), new AES128CBC.Factory(),
                                                           new AES192CBC.Factory(), new AES256CBC.Factory(),
                                                           new TripleDESCBC.Factory(), new BlowfishCBC.Factory()));
             

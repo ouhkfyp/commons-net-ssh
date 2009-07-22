@@ -22,7 +22,6 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -55,12 +54,12 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     }
     
     public static final int WINDOW_SIZE = 0x200000;
-    public static final int MIN_PACKET_SIZE = 0x8800;
+    public static final int MAX_PACKET_SIZE = 0x8800;
     
     protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
     protected Map<String, ChannelOpener> handlers = new ConcurrentHashMap<String, ChannelOpener>();
     
-    protected AtomicInteger nextID = new AtomicInteger();
+    private int nextID;
     
     protected final Lock lock = new ReentrantLock();
     protected Queue<GlobalReq> globalReqs = new LinkedList<GlobalReq>();
@@ -68,6 +67,11 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     public ConnectionProtocol(Transport session)
     {
         super(session);
+    }
+    
+    public int getMaxPacketSize()
+    {
+        return MAX_PACKET_SIZE;
     }
     
     public String getName()
@@ -93,12 +97,9 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
                     break;
                 case CHANNEL_OPEN:
                     ChannelOpener handler = handlers.get(buf.getString());
-                    if (handler != null) {
-                        int id = nextID();
-                        Channel chan = handler.using(id, buf);
-                        if (chan != null)
-                            channels.put(id, chan);
-                    } else
+                    if (handler != null)
+                        handler.handleReq(this, buf);
+                    else
                         trans.writePacket(new Buffer(Message.REQUEST_FAILURE));
                     break;
                 default:
@@ -111,7 +112,14 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         }
     }
     
-    public void notifyError(SSHException ex)
+    public synchronized void initAndAdd(Channel chan)
+    {
+        int id = nextID++;
+        chan.init(trans, id, WINDOW_SIZE, MAX_PACKET_SIZE);
+        channels.put(id, chan);
+    }
+    
+    public synchronized void notifyError(SSHException ex)
     {
         Future.Util.<Buffer, ConnectionException> notifyError(ex, globalReqs);
         for (Channel chan : channels.values()) {
@@ -121,29 +129,29 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         channels.clear();
     }
     
+    //        public int startRemoteForwarding(String addressToBind, int portToBind) throws TransportException,
+    //                ConnectionException
+    //        {
+    //            int port =
+    //                    new GlobalReq(PF, true, new Buffer().putString(addressToBind).putInt(portToBind)).get(TIMEOUT).getInt();
+    //            //handlers.put(PF, value);
+    //            return port;
+    //        }
+    
     public void notifyUnimplemented(int seqNum) throws ConnectionException
     {
         throw new ConnectionException("Unexpected SSH_MSG_UNIMPLEMENTED");
     }
     
-    //    public int startRemoteForwarding(String addressToBind, int portToBind) throws TransportException,
-    //            ConnectionException
-    //    {
-    //        int port =
-    //                new GlobalReq(PF, true, new Buffer().putString(addressToBind).putInt(portToBind)).get(TIMEOUT).getInt();
-    //        //handlers.put(PF, value);
-    //        return port;
-    //    }
-    
     public Session startSession() throws ChannelOpenFailureException, ConnectionException, TransportException
     {
-        SessionChannel sess = new SessionChannel(trans, nextID(), WINDOW_SIZE, MIN_PACKET_SIZE);
-        channels.put(sess.getID(), sess);
+        SessionChannel sess = new SessionChannel();
+        initAndAdd(sess);
         sess.open();
         return sess;
     }
     
-    protected void forget(int id)
+    private void forget(int id)
     {
         channels.remove(id);
     }
@@ -171,11 +179,6 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
                 gr.error("Global request failed");
         } else
             throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR);
-    }
-    
-    int nextID()
-    {
-        return nextID.getAndIncrement();
     }
     
 }

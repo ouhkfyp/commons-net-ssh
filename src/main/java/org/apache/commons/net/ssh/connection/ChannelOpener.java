@@ -5,6 +5,6 @@ import org.apache.commons.net.ssh.util.Buffer;
 public interface ChannelOpener
 {
     
-    Channel using(int id, Buffer buf);
+    Channel handleReq(ConnectionService conn, Buffer buf);
     
 }

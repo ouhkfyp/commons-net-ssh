@@ -18,6 +18,7 @@
  */
 package org.apache.commons.net.ssh.connection;
 
+import java.io.Closeable;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.LinkedList;
@@ -42,7 +43,7 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-public abstract class AbstractChannel implements Channel
+public abstract class AbstractChannel implements Channel, Closeable
 {
     
     protected static final int TIMEOUT = 15;
@@ -51,11 +52,11 @@ public abstract class AbstractChannel implements Channel
     
     protected final Queue<Event<ConnectionException>> chanReqs = new LinkedList<Event<ConnectionException>>();
     
-    protected final int id;
-    protected final Transport trans;
-    
     protected final LocalWindow localWin = new LocalWindow(this);
     protected final RemoteWindow remoteWin = new RemoteWindow();
+    
+    protected int id;
+    protected Transport trans;
     
     protected ChannelInputStream in = new ChannelInputStream(localWin);
     protected ChannelOutputStream out = new ChannelOutputStream(this, remoteWin);
@@ -65,36 +66,15 @@ public abstract class AbstractChannel implements Channel
     
     private final ReentrantLock lock = new ReentrantLock();
     
-    private final Event<ConnectionException> open = newEvent("open");
-    private final Event<ConnectionException> close = newEvent("close");
+    protected Event<ConnectionException> open;
+    protected Event<ConnectionException> close;
     
     protected int recipient;
     
-    AbstractChannel(Transport trans, int id, int localWinSize, int localMaxPacketSize)
+    public synchronized void close() throws ConnectionException, TransportException
     {
-        this.trans = trans;
-        this.id = id;
-        localWin.init(localWinSize, localMaxPacketSize);
-    }
-    
-    public void close() throws ConnectionException, TransportException
-    {
-        lock.lock();
-        try {
-            doClose();
-            close.await(TIMEOUT);
-        } finally {
-            lock.unlock();
-        }
-    }
-    
-    public void doClose() throws TransportException
-    {
-        if (!closeReqd.getAndSet(true)) {
-            log.info("Sending SSH_MSG_CHANNEL_CLOSE for channel #{}", id);
-            IOUtils.silentWriteAttempt(trans, newBuffer(Message.CHANNEL_CLOSE));
-            closeStreams();
-        }
+        sendClose();
+        close.await(TIMEOUT);
     }
     
     public int getID()
@@ -130,6 +110,7 @@ public abstract class AbstractChannel implements Channel
             {
                 case CHANNEL_OPEN_CONFIRMATION:
                 {
+                    recipient = buf.getInt();
                     remoteWin.init(buf.getInt(), buf.getInt());
                     open.set();
                     break;
@@ -181,8 +162,9 @@ public abstract class AbstractChannel implements Channel
                 case CHANNEL_CLOSE:
                 {
                     log.debug("Received SSH_MSG_CHANNEL_CLOSE on channel #{}", id);
-                    doClose();
+                    sendClose();
                     close.set();
+                    closeStreams();
                     return true;
                 }
                 default:
@@ -196,6 +178,15 @@ public abstract class AbstractChannel implements Channel
         }
         
         return false;
+    }
+    
+    public void init(Transport trans, int id, int localWinSize, int localMaxPacketSize)
+    {
+        this.trans = trans;
+        this.id = id;
+        open = newEvent("open");
+        close = newEvent("close");
+        localWin.init(localWinSize, localMaxPacketSize);
     }
     
     public boolean isOpen()
@@ -217,24 +208,26 @@ public abstract class AbstractChannel implements Channel
     
     public void open() throws ConnectionException, TransportException
     {
-        trans.writePacket(buildOpenReq());
-        open.await(TIMEOUT);
+        lock.lock();
+        try {
+            if (!open.isSet()) {
+                trans.writePacket(buildOpenReq());
+                open.await(TIMEOUT);
+            }
+        } finally {
+            lock.unlock();
+        }
     }
     
     public void sendEOF() throws TransportException
     {
-        lock.lock();
-        try {
-            if (!eofSent.getAndSet(true))
-                try {
-                    log.info("Sending SSH_MSG_CHANNEL_EOF on channel {}", id);
-                    trans.writePacket(new Buffer(Constants.Message.CHANNEL_EOF).putInt(recipient));
-                } finally {
-                    out.close();
-                }
-        } finally {
-            lock.unlock();
-        }
+        if (!eofSent.getAndSet(true) && !closeReqd.get())
+            try {
+                log.info("Sending SSH_MSG_CHANNEL_EOF on channel {}", id);
+                trans.writePacket(new Buffer(Constants.Message.CHANNEL_EOF).putInt(recipient));
+            } finally {
+                out.close();
+            }
     }
     
     private void gotResponse(boolean success) throws ConnectionException
@@ -280,10 +273,16 @@ public abstract class AbstractChannel implements Channel
         in.eof();
     }
     
-    protected abstract void handleExtendedData(int dataTypeCode, Buffer buf) throws ConnectionException,
-            TransportException;
+    protected void handleExtendedData(int dataTypeCode, Buffer buf) throws ConnectionException, TransportException
+    {
+        throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR, "Extended data not supported on " + getType()
+                + " channel");
+    }
     
-    protected abstract void handleRequest(String reqType, Buffer buf);
+    protected void handleRequest(String reqType, Buffer buf) throws ConnectionException, TransportException
+    {
+        trans.writePacket(new Buffer(Message.CHANNEL_FAILURE));
+    }
     
     protected Buffer newBuffer(Message cmd)
     {
@@ -309,6 +308,14 @@ public abstract class AbstractChannel implements Channel
             chanReqs.add(event);
         }
         return event;
+    }
+    
+    protected void sendClose()
+    {
+        if (!closeReqd.getAndSet(true)) {
+            log.info("Sending SSH_MSG_CHANNEL_CLOSE for channel #{}", id);
+            IOUtils.writeQuietly(trans, newBuffer(Message.CHANNEL_CLOSE));
+        }
     }
     
 }
