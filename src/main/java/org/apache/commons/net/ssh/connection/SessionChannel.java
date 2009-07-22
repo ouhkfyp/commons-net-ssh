@@ -15,29 +15,34 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     private Integer exitStatus;
     
     private Signal exitSignal;
+    
     private Boolean flowControl;
     private final ChannelInputStream err = new ChannelInputStream(localWin);
-    
     public static final String TYPE = "session";
+    
+    public SessionChannel(ConnectionService conn)
+    {
+        super(conn);
+    }
     
     public void allocateDefaultPTY() throws ConnectionException, TransportException
     {
-        Map<TerminalMode, Integer> modes = new HashMap<TerminalMode, Integer>();
+        Map<PTYMode, Integer> modes = new HashMap<PTYMode, Integer>();
         /*
          * Need to figure out modes, the below is blindly following sshd without knowing what they
          * mean!
          */
-        modes.put(TerminalMode.ISIG, 1);
-        modes.put(TerminalMode.ICANON, 1);
-        modes.put(TerminalMode.ECHO, 1);
-        modes.put(TerminalMode.ECHOE, 1);
-        modes.put(TerminalMode.ECHOK, 1);
-        modes.put(TerminalMode.ECHONL, 0);
-        modes.put(TerminalMode.NOFLSH, 0);
+        modes.put(PTYMode.ISIG, 1);
+        modes.put(PTYMode.ICANON, 1);
+        modes.put(PTYMode.ECHO, 1);
+        modes.put(PTYMode.ECHOE, 1);
+        modes.put(PTYMode.ECHOK, 1);
+        modes.put(PTYMode.ECHONL, 0);
+        modes.put(PTYMode.NOFLSH, 0);
         allocatePTY("dummy", 80, 40, 640, 480, modes);
     }
     
-    public void allocatePTY(String term, int cols, int rows, int width, int height, Map<TerminalMode, Integer> modes)
+    public void allocatePTY(String term, int cols, int rows, int width, int height, Map<PTYMode, Integer> modes)
             throws ConnectionException, TransportException
     {
         sendChannelRequest("pty-req", //
@@ -47,8 +52,8 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
                                        .putInt(rows) //
                                        .putInt(width) //
                                        .putInt(height) //
-                                       .putBytes(TerminalMode.encode(modes)) //
-        ).await(TIMEOUT); // wait for reply
+                                       .putBytes(PTYMode.encode(modes)) //
+        ).await(conn.getTimeout()); // wait for reply
     }
     
     public Boolean canDoFlowControl()
@@ -68,7 +73,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public Command exec(String command) throws ConnectionException, TransportException
     {
-        sendChannelRequest("exec", true, new Buffer().putString(command)).await(TIMEOUT);
+        sendChannelRequest("exec", true, new Buffer().putString(command)).await(conn.getTimeout());
         return this;
     }
     
@@ -107,7 +112,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public void setEnvVar(String name, String value) throws ConnectionException, TransportException
     {
-        sendChannelRequest("env", true, new Buffer().putString(name).putString(value)).await(TIMEOUT);
+        sendChannelRequest("env", true, new Buffer().putString(name).putString(value)).await(conn.getTimeout());
     }
     
     public void signal(Signal sig) throws TransportException
@@ -117,7 +122,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public Shell startShell() throws ConnectionException, TransportException
     {
-        sendChannelRequest("shell", true, null).await(TIMEOUT);
+        sendChannelRequest("shell", true, null).await(conn.getTimeout());
         return this;
     }
     
@@ -129,7 +134,7 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public void waitForClose() throws ConnectionException
     {
-        close.await(TIMEOUT);
+        close.await(conn.getTimeout());
     }
     
     @Override

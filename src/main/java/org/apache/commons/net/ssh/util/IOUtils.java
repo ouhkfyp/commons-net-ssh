@@ -48,9 +48,9 @@ public class IOUtils
             }
     }
     
-    public static void pipe(final InputStream in, final OutputStream out, final int bufSize, final ErrorCallback cb)
+    public static Thread pipe(final InputStream in, final OutputStream out, final int bufSize, final ErrorCallback cb)
     {
-        new Thread()
+        return new Thread()
             {
                 {
                     setName("pipe");

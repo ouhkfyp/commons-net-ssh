@@ -23,7 +23,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.SSHException;
@@ -46,35 +45,43 @@ import org.slf4j.LoggerFactory;
 public abstract class AbstractChannel implements Channel, Closeable
 {
     
-    protected static final int TIMEOUT = 15;
-    
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
-    protected final Queue<Event<ConnectionException>> chanReqs = new LinkedList<Event<ConnectionException>>();
+    protected final Transport trans;
+    protected final ConnectionService conn;
+    protected final int id;
     
     protected final LocalWindow localWin = new LocalWindow(this);
     protected final RemoteWindow remoteWin = new RemoteWindow();
     
-    protected int id;
-    protected Transport trans;
+    protected final ChannelInputStream in = new ChannelInputStream(localWin);
+    protected final ChannelOutputStream out = new ChannelOutputStream(this, remoteWin);
     
-    protected ChannelInputStream in = new ChannelInputStream(localWin);
-    protected ChannelOutputStream out = new ChannelOutputStream(this, remoteWin);
+    protected final Queue<Event<ConnectionException>> chanReqs = new LinkedList<Event<ConnectionException>>();
     
-    private final AtomicBoolean eofSent = new AtomicBoolean();
-    private final AtomicBoolean closeReqd = new AtomicBoolean();
-    
-    private final ReentrantLock lock = new ReentrantLock();
-    
-    protected Event<ConnectionException> open;
-    protected Event<ConnectionException> close;
+    protected final ReentrantLock lock = new ReentrantLock();
+    protected final Event<ConnectionException> open;
+    protected final Event<ConnectionException> close;
     
     protected int recipient;
+    protected boolean eofSent;
+    protected boolean closeReqd;
+    
+    AbstractChannel(ConnectionService conn)
+    {
+        this.conn = conn;
+        this.trans = conn.getTransport();
+        id = conn.nextID();
+        localWin.init(conn.getWindowSize(), conn.getMaxPacketSize());
+        open = newEvent("open");
+        close = newEvent("close");
+        conn.attach(this);
+    }
     
     public synchronized void close() throws ConnectionException, TransportException
     {
         sendClose();
-        close.await(TIMEOUT);
+        close.await(conn.getTimeout());
     }
     
     public int getID()
@@ -87,6 +94,16 @@ public abstract class AbstractChannel implements Channel, Closeable
         return in;
     }
     
+    public int getLocalMaxPacketSize()
+    {
+        return localWin.getMaxPacketSize();
+    }
+    
+    public int getLocalWinSize()
+    {
+        return localWin.getSize();
+    }
+    
     public OutputStream getOutputStream()
     {
         return out;
@@ -97,12 +114,22 @@ public abstract class AbstractChannel implements Channel, Closeable
         return recipient;
     }
     
+    public int getRemoteMaxPacketSize()
+    {
+        return remoteWin.getMaxPacketSize();
+    }
+    
+    public int getRemoteWinSize()
+    {
+        return remoteWin.getSize();
+    }
+    
     public Transport getTransport()
     {
         return trans;
     }
     
-    public boolean handle(Message cmd, Buffer buf) throws ConnectionException, TransportException
+    public void handle(Message cmd, Buffer buf) throws ConnectionException, TransportException
     {
         lock.lock();
         try {
@@ -110,15 +137,14 @@ public abstract class AbstractChannel implements Channel, Closeable
             {
                 case CHANNEL_OPEN_CONFIRMATION:
                 {
-                    recipient = buf.getInt();
-                    remoteWin.init(buf.getInt(), buf.getInt());
-                    open.set();
+                    init(buf.getInt(), buf.getInt(), buf.getInt());
                     break;
                 }
                 case CHANNEL_OPEN_FAILURE:
                 {
-                    open.error(new ChannelOpenFailureException(getType(), buf.getInt(), buf.getString()));
-                    return true;
+                    open.error(new OpenFailException(getType(), buf.getInt(), buf.getString()));
+                    conn.forget(this);
+                    break;
                 }
                 case CHANNEL_WINDOW_ADJUST:
                 {
@@ -165,7 +191,8 @@ public abstract class AbstractChannel implements Channel, Closeable
                     sendClose();
                     close.set();
                     closeStreams();
-                    return true;
+                    conn.forget(this);
+                    break;
                 }
                 default:
                 {
@@ -176,24 +203,13 @@ public abstract class AbstractChannel implements Channel, Closeable
         } finally {
             lock.unlock();
         }
-        
-        return false;
     }
     
-    public void init(Transport trans, int id, int localWinSize, int localMaxPacketSize)
-    {
-        this.trans = trans;
-        this.id = id;
-        open = newEvent("open");
-        close = newEvent("close");
-        localWin.init(localWinSize, localMaxPacketSize);
-    }
-    
-    public boolean isOpen()
+    public synchronized boolean isOpen()
     {
         lock.lock();
         try {
-            return open.isSet() && !open.hasWaiters() && !(close.isSet() || close.hasWaiters());
+            return open.isSet() && !close.isSet() && !closeReqd;
         } finally {
             lock.unlock();
         }
@@ -212,17 +228,18 @@ public abstract class AbstractChannel implements Channel, Closeable
         try {
             if (!open.isSet()) {
                 trans.writePacket(buildOpenReq());
-                open.await(TIMEOUT);
+                open.await(conn.getTimeout());
             }
         } finally {
             lock.unlock();
         }
     }
     
-    public void sendEOF() throws TransportException
+    public synchronized void sendEOF() throws TransportException
     {
-        if (!eofSent.getAndSet(true) && !closeReqd.get())
+        if (!eofSent && !closeReqd)
             try {
+                eofSent = true;
                 log.info("Sending SSH_MSG_CHANNEL_EOF on channel {}", id);
                 trans.writePacket(new Buffer(Constants.Message.CHANNEL_EOF).putInt(recipient));
             } finally {
@@ -240,7 +257,7 @@ public abstract class AbstractChannel implements Channel, Closeable
                 event.error("Request failed");
         } else
             throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR,
-                                          "Received channel resonse without a corresponding request");
+                                          "Received response to channel request when none was requested");
     }
     
     protected Buffer buildOpenReq()
@@ -284,6 +301,14 @@ public abstract class AbstractChannel implements Channel, Closeable
         trans.writePacket(new Buffer(Message.CHANNEL_FAILURE));
     }
     
+    protected void init(int recipient, int remoteWinSize, int remoteMaxPacketSize)
+    {
+        this.recipient = recipient;
+        remoteWin.init(remoteWinSize, remoteMaxPacketSize);
+        out.init();
+        open.set();
+    }
+    
     protected Buffer newBuffer(Message cmd)
     {
         return new Buffer(cmd).putInt(recipient);
@@ -310,9 +335,10 @@ public abstract class AbstractChannel implements Channel, Closeable
         return event;
     }
     
-    protected void sendClose()
+    protected synchronized void sendClose()
     {
-        if (!closeReqd.getAndSet(true)) {
+        if (!closeReqd) {
+            closeReqd = true;
             log.info("Sending SSH_MSG_CHANNEL_CLOSE for channel #{}", id);
             IOUtils.writeQuietly(trans, newBuffer(Message.CHANNEL_CLOSE));
         }

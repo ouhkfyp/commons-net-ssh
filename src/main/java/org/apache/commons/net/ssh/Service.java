@@ -19,6 +19,7 @@
 package org.apache.commons.net.ssh;
 
 import org.apache.commons.net.ssh.connection.ConnectionService;
+import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.userauth.UserAuthService;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
@@ -38,6 +39,8 @@ public interface Service
      * @return service name
      */
     String getName();
+    
+    Transport getTransport();
     
     /**
      * Asks this service to handle a particular packet.

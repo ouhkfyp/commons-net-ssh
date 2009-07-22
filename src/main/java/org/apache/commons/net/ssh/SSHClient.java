@@ -30,8 +30,10 @@ import org.apache.commons.net.SocketClient;
 import org.apache.commons.net.ssh.connection.ConnectionException;
 import org.apache.commons.net.ssh.connection.ConnectionProtocol;
 import org.apache.commons.net.ssh.connection.ConnectionService;
-import org.apache.commons.net.ssh.connection.PortForwardingDaemon;
+import org.apache.commons.net.ssh.connection.LocalPortForwarding;
+import org.apache.commons.net.ssh.connection.RemotePortForwarding;
 import org.apache.commons.net.ssh.connection.Session;
+import org.apache.commons.net.ssh.connection.SessionChannel;
 import org.apache.commons.net.ssh.keyprovider.FileKeyProvider;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
 import org.apache.commons.net.ssh.transport.Transport;
@@ -90,6 +92,8 @@ public class SSHClient extends SocketClient
     protected final ConnectionService conn;
     
     private UserAuthService auth;
+    
+    private RemotePortForwarding rf;
     
     /**
      * Default constructor
@@ -262,6 +266,11 @@ public class SSHClient extends SocketClient
         return super.isConnected() && trans.isRunning();
     }
     
+    public void join(int timeout) throws TransportException
+    {
+        trans.join(timeout);
+    }
+    
     /**
      * Convenience method for creating a {@link FileKeyProvider} instance from a location where the
      * key file is located.
@@ -324,14 +333,24 @@ public class SSHClient extends SocketClient
         return auth = new UserAuthProtocol(new AuthParams(trans, username, (Service) conn));
     }
     
-    public PortForwardingDaemon startLocalForwarding(SocketAddress addr, String toHost, int toPort) throws IOException
+    public LocalPortForwarding startLocalForwarding(SocketAddress addr, String toHost, int toPort) throws IOException
     {
-        return new PortForwardingDaemon(conn, addr, toHost, toPort);
+        return new LocalPortForwarding(conn, addr, toHost, toPort);
+    }
+    
+    public int startRemoteForwarding(String addrToBind, int port, RemotePortForwarding.ConnectListener listener)
+            throws ConnectionException, TransportException
+    {
+        if (rf == null)
+            rf = new RemotePortForwarding(conn);
+        return rf.bind(addrToBind, port, listener);
     }
     
     public Session startSession() throws ConnectionException, TransportException
     {
-        return conn.startSession();
+        SessionChannel sess = new SessionChannel(conn);
+        sess.open();
+        return sess;
     }
     
     /**
