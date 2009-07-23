@@ -19,21 +19,26 @@ public class RemotePF
     {
         SSHClient client = new SSHClient();
         client.initUserKnownHosts();
-        client.connect("localhost");
-        client.authPublickey("shikhar");
-        client.startRemoteForwarding("localhost", 8081, new ConnectListener()
-            {
-                
-                public void connected(ForwardedTCPIPChannel chan)
+        
+        try {
+            client.connect("localhost");
+            client.authPublickey("shikhar");
+            client.startRemoteForwarding("localhost", 8080, new ConnectListener()
                 {
-                    System.out.println("New connection from " + chan.getOriginatingIPAddress() + ":"
-                            + chan.getOriginatingPort() + " via " + chan.getConnectedAddr() + ":"
-                            + chan.getConnectedPort());
-                    IOUtils.pipe(chan.getInputStream(), System.out, chan.getLocalMaxPacketSize(), null);
-                    IOUtils.pipe(System.in, chan.getOutputStream(), chan.getRemoteMaxPacketSize(), null);
-                }
-                
-            });
-        client.join(0);
+                    
+                    public void connected(ForwardedTCPIPChannel chan)
+                    {
+                        System.out.println("New connection from " + chan.getOriginatingIPAddress() + ":"
+                                + chan.getOriginatingPort() + " via " + chan.getConnectedAddr() + ":"
+                                + chan.getConnectedPort());
+                        IOUtils.pipe(chan.getInputStream(), System.out, chan.getLocalMaxPacketSize(), null);
+                        IOUtils.pipe(System.in, chan.getOutputStream(), chan.getRemoteMaxPacketSize(), null);
+                    }
+                    
+                });
+            client.join(0);
+        } finally {
+            client.disconnect();
+        }
     }
 }

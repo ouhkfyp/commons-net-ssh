@@ -71,8 +71,6 @@ public class IOUtils
                     } catch (IOException ioe) {
                         if (cb != null)
                             cb.onIOException(ioe);
-                    } finally {
-                        closeQuietly(in, out);
                     }
                 }
             };
