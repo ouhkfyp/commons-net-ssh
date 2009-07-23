@@ -93,8 +93,6 @@ public class SSHClient extends SocketClient
     
     private UserAuthService auth;
     
-    private RemotePortForwarding rf;
-    
     /**
      * Default constructor
      */
@@ -341,9 +339,10 @@ public class SSHClient extends SocketClient
     public int startRemoteForwarding(String addrToBind, int port, RemotePortForwarding.ConnectListener listener)
             throws ConnectionException, TransportException
     {
-        if (rf == null)
-            rf = new RemotePortForwarding(conn);
-        return rf.bind(addrToBind, port, listener);
+        RemotePortForwarding rpf = (RemotePortForwarding) conn.get(RemotePortForwarding.ForwardedTCPIPChannel.TYPE);
+        if (rpf == null)
+            conn.attach(rpf = new RemotePortForwarding(conn));
+        return rpf.bind(addrToBind, port, listener);
     }
     
     public Session startSession() throws ConnectionException, TransportException

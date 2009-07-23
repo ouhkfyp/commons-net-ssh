@@ -145,9 +145,9 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     }
     
     @Override
-    protected void eofInputStreams()
+    protected void gotEOF()
     {
-        super.eofInputStreams();
+        super.gotEOF();
         err.eof();
     }
     

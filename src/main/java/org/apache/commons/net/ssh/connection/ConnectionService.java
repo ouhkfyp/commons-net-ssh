@@ -21,6 +21,10 @@ public interface ConnectionService
     
     void forget(OpenReqHandler handler);
     
+    Channel get(int id);
+    
+    OpenReqHandler get(String chanType);
+    
     int getMaxPacketSize();
     
     int getTimeout();

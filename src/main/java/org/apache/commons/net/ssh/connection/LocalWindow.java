@@ -14,23 +14,13 @@ public class LocalWindow extends Window
         this.chan = chan;
     }
     
-    public synchronized void consumeAndCheck(int howmuch) throws TransportException
-    {
-        consume(howmuch);
-        
-    }
-    
     protected void check(int max) throws TransportException
     {
         int threshold = Math.min(maxPacketSize * 8, max / 4);
-        
         if (max - size > maxPacketSize && (max - size > threshold || size < threshold)) {
-            
             if (log.isDebugEnabled())
                 log.debug("Increasing by " + (max - size) + " up to " + max);
-            
             sendWindowAdjust(max - size);
-            
             size = max;
         }
     }

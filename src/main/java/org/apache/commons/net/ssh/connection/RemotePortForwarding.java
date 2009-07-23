@@ -20,7 +20,7 @@ public class RemotePortForwarding implements OpenReqHandler
     public class ForwardedTCPIPChannel extends AbstractChannel
     {
         
-        private static final String TYPE = "forwarded-tcpip";
+        public static final String TYPE = "forwarded-tcpip";
         
         private final String host;
         private final int port;
@@ -44,13 +44,12 @@ public class RemotePortForwarding implements OpenReqHandler
                 listeners.get(port).connected(this);
             } else {
                 conn.forget(this);
-                trans
-                     .writePacket(new Buffer(Message.CHANNEL_OPEN_FAILURE) //
-                                                                          .putInt(
-                                                                                  OpenFailException.ADMINISTRATIVELY_PROHIBITED) //
-                                                                          .putString(
-                                                                                     "Forwarding was not requested on port " //  
-                                                                                             + port));
+                Buffer msg =
+                        new Buffer(Message.CHANNEL_OPEN_FAILURE) //
+                                                                .putInt(OpenFailException.ADMINISTRATIVELY_PROHIBITED) //
+                                                                .putString("Forwarding was not requested on port " // 
+                                                                        + port);
+                trans.writePacket(msg);
             }
             
         }

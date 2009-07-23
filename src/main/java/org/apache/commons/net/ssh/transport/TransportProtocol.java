@@ -208,9 +208,14 @@ public class TransportProtocol implements Transport
     }
     
     // Documented in interface
-    public synchronized Service getService()
+    public Service getService()
     {
-        return service;
+        lock.lock();
+        try {
+            return service;
+        } finally {
+            lock.unlock();
+        }
     }
     
     // Documented in interface
@@ -262,6 +267,11 @@ public class TransportProtocol implements Transport
         }
     }
     
+    public void join(int timeout) throws TransportException
+    {
+        close.await(timeout);
+    }
+    
     public synchronized void reqService(Service service) throws TransportException
     {
         lock.lock();
@@ -277,7 +287,7 @@ public class TransportProtocol implements Transport
     
     public long sendUnimplemented() throws TransportException
     {
-        // (seqi - 1) because packetConverter always maintains the seq num applicable to the next packet
+        // (seqi - 1) because converter always maintains the seq num applicable to the next packet
         long seq = converter.seqi - 1;
         log.info("Sending SSH_MSG_UNIMPLEMENTED for packet #{}", seq);
         return writePacket(new Buffer(Message.UNIMPLEMENTED).putInt(seq));
@@ -301,11 +311,6 @@ public class TransportProtocol implements Transport
         } finally {
             lock.unlock();
         }
-    }
-    
-    public void join(int timeout) throws TransportException
-    {
-        close.await(timeout);
     }
     
     public long writePacket(Buffer payload) throws TransportException
@@ -351,7 +356,7 @@ public class TransportProtocol implements Transport
     }
     
     @SuppressWarnings("unchecked")
-    private synchronized void die(IOException ex)
+    private void die(IOException ex)
     {
         
         log.error("Dying because - {}", ex.toString());
@@ -396,7 +401,7 @@ public class TransportProtocol implements Transport
      * @param seqNum
      * @throws TransportException
      */
-    private synchronized void gotUnimplemented(long seqNum) throws SSHException
+    private void gotUnimplemented(long seqNum) throws SSHException
     {
         lock.lock();
         try {
@@ -485,10 +490,10 @@ public class TransportProtocol implements Transport
     /**
      * This is where all incoming packets are handled. If they pertain to the transport layer, they
      * are handled here; otherwise they are delegated to the active service instance if any via
-     * {@link Service#handlers}.
+     * {@link Service#handle}.
      * <p
      * Even among the transport layer specific packets, key exchange packets are delegated to
-     * {@link KexHandler#handlers}.
+     * {@link KexHandler#handle}.
      * <p>
      * This method is called in the context of the {@link #dispatcher} thread via
      * {@link Converter#munch} when a full packet has been decoded.
@@ -504,65 +509,64 @@ public class TransportProtocol implements Transport
         log.debug("Received packet {}", cmd);
         int num = cmd.toInt();
         
-        if (num > 49) // not a transport layer packet
-            synchronized (this) {
+        lock.lock();
+        
+        try {
+            
+            if (num > 49) // not a transport layer packet
                 if (service != null)
                     service.handle(cmd, packet);
                 else
                     sendUnimplemented();
-            }
-        
-        else
-            switch (cmd)
-            {
-                case DISCONNECT:
-                    DisconnectReason code = DisconnectReason.fromInt(packet.getInt());
-                    String message = packet.getString();
-                    log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, message);
-                    throw new TransportException(code, message);
-                case IGNORE:
-                    log.info("Received SSH_MSG_IGNORE");
-                    break;
-                case UNIMPLEMENTED:
-                    long seqNum = packet.getLong();
-                    log.info("Received SSH_MSG_UNIMPLEMENTED #{}", seqNum);
-                    gotUnimplemented(seqNum);
-                    break;
-                case DEBUG:
-                    boolean display = packet.getBoolean();
-                    String msg = packet.getString();
-                    log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, msg);
-                    break;
-                case SERVICE_ACCEPT:
-                    serviceAccept.set();
-                    break;
-                case NEWKEYS:
-                    lock.lock();
-                    try {
+            
+            else
+                switch (cmd)
+                {
+                    case DISCONNECT:
+                        DisconnectReason code = DisconnectReason.fromInt(packet.getInt());
+                        String message = packet.getString();
+                        log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, message);
+                        throw new TransportException(code, message);
+                    case IGNORE:
+                        log.info("Received SSH_MSG_IGNORE");
+                        break;
+                    case UNIMPLEMENTED:
+                        long seqNum = packet.getLong();
+                        log.info("Received SSH_MSG_UNIMPLEMENTED #{}", seqNum);
+                        gotUnimplemented(seqNum);
+                        break;
+                    case DEBUG:
+                        boolean display = packet.getBoolean();
+                        String msg = packet.getString();
+                        log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, msg);
+                        break;
+                    case SERVICE_ACCEPT:
+                        serviceAccept.set();
+                        break;
+                    case NEWKEYS:
+                        if (!kexOngoing)
+                            throw new TransportException(DisconnectReason.PROTOCOL_ERROR);
                         sinceKeying = 1;
                         kexOngoing = false;
                         kexer.handle(cmd, packet);
-                    } finally {
-                        lock.unlock();
-                    }
-                    break;
-                case KEXINIT:
-                    lock.lock();
-                    try {
-                        kexOngoing = true;
-                        if (kexer.done.isSet())
+                        break;
+                    case KEXINIT:
+                        if (kexer.done.isSet()) { // start reexcange {
+                            kexOngoing = true;
                             kexer.init();
+                        }
                         kexer.handle(cmd, packet);
-                    } finally {
-                        lock.unlock();
-                    }
-                    break;
-                default:
-                    if (num > 29)
-                        kexer.handle(cmd, packet);
-                    else
-                        sendUnimplemented();
-            }
+                        break;
+                    default:
+                        if (num > 29)
+                            kexer.handle(cmd, packet);
+                        else
+                            sendUnimplemented();
+                }
+            
+        } finally {
+            lock.unlock();
+        }
     }
     
     Event<TransportException> newEvent(String name)

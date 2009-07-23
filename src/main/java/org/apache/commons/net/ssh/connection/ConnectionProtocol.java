@@ -47,7 +47,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     protected int timeout = 15;
     
     protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
-    protected Map<String, OpenReqHandler> handlers = new ConcurrentHashMap<String, OpenReqHandler>();
+    protected Map<String, OpenReqHandler> orh = new ConcurrentHashMap<String, OpenReqHandler>();
     
     private final AtomicInteger nextID = new AtomicInteger();
     
@@ -67,7 +67,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     public void attach(OpenReqHandler handler)
     {
-        handlers.put(handler.getSupportedChannelType(), handler);
+        orh.put(handler.getSupportedChannelType(), handler);
     }
     
     public void forget(Channel chan)
@@ -77,7 +77,17 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     public void forget(OpenReqHandler handler)
     {
-        handlers.remove(handler.getSupportedChannelType());
+        orh.remove(handler.getSupportedChannelType());
+    }
+    
+    public Channel get(int id)
+    {
+        return channels.get(id);
+    }
+    
+    public OpenReqHandler get(String chanType)
+    {
+        return orh.get(chanType);
     }
     
     public int getMaxPacketSize()
@@ -125,8 +135,8 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
                 case CHANNEL_OPEN:
                     String type = buf.getString();
                     log.debug("Received CHANNEL_OPEN for `{}` channel", type);
-                    if (handlers.containsKey(type))
-                        handlers.get(type).handleOpenReq(buf);
+                    if (orh.containsKey(type))
+                        orh.get(type).handleOpenReq(buf);
                     else
                         log.warn("No handler found for `{}` CHANNEL_OPEN request", type);
                     break;
@@ -157,25 +167,22 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         throw new ConnectionException("Unexpected SSH_MSG_UNIMPLEMENTED");
     }
     
-    public Future<Buffer, ConnectionException> sendGlobalRequest(String name, boolean wantReply, Buffer specifics)
-            throws TransportException
+    public synchronized Future<Buffer, ConnectionException> sendGlobalRequest(String name, boolean wantReply,
+            Buffer specifics) throws TransportException
     {
-        synchronized (globalReqs) {
-            log.info("Sending GLOBAL_REQUEST for {}, wantReply={}", name, wantReply);
-            trans.writePacket(new Buffer(Message.GLOBAL_REQUEST) //
-                                                                .putString(name) //
-                                                                .putBoolean(wantReply) //
-                                                                .putBuffer(specifics)); //
-            
-            Future<Buffer, ConnectionException> future = null;
-            if (wantReply) {
-                future =
-                        new Future<Buffer, ConnectionException>("global req for " + name, ConnectionException.chainer,
-                                                                null);
-                globalReqs.add(future);
-            }
-            return future;
+        log.info("Sending GLOBAL_REQUEST for {}, wantReply={}", name, wantReply);
+        trans.writePacket(new Buffer(Message.GLOBAL_REQUEST) //
+                                                            .putString(name) //
+                                                            .putBoolean(wantReply) //
+                                                            .putBuffer(specifics)); //
+        
+        Future<Buffer, ConnectionException> future = null;
+        if (wantReply) {
+            future =
+                    new Future<Buffer, ConnectionException>("global req for " + name, ConnectionException.chainer, null);
+            globalReqs.add(future);
         }
+        return future;
     }
     
     public void setMaxPacketSize(int maxPacketSize)
@@ -206,7 +213,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         return channel;
     }
     
-    protected void gotResponse(Buffer response) throws ConnectionException
+    protected synchronized void gotResponse(Buffer response) throws ConnectionException
     {
         Future<Buffer, ConnectionException> gr = globalReqs.poll();
         if (gr != null) {

@@ -81,7 +81,7 @@ public class ChannelInputStream extends InputStream
             buf.getRawBytes(b, off, len);
             if (buf.rpos() > win.getMaxPacketSize() || buf.available() == 0)
                 buf.compact();
-            avail = win.getMaxSize() - buf.available();
+            avail = win.getInitialSize() - buf.available();
         }
         win.check(avail);
         return len;
@@ -95,7 +95,7 @@ public class ChannelInputStream extends InputStream
             buf.putRawBytes(data, offset, len);
             buf.notifyAll();
         }
-        win.consumeAndCheck(len);
+        win.consume(len);
     }
     
 }

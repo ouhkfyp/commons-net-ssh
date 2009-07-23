@@ -32,11 +32,10 @@ public abstract class Window
     protected int maxPacketSize;
     
     protected int size;
-    protected int maxSize;
+    protected int initSize;
     
     public synchronized void consume(int dec)
     {
-        //assert size > len;
         size -= dec;
         if (log.isDebugEnabled())
             log.debug("Consuming by " + dec + " down to " + size);
@@ -45,20 +44,19 @@ public abstract class Window
     public synchronized void expand(int inc)
     {
         size += inc;
-        maxSize = Math.max(size, maxSize);
         if (log.isDebugEnabled())
             log.debug("Increasing by {} up to {}", inc, size);
         notifyAll();
     }
     
+    public synchronized int getInitialSize()
+    {
+        return initSize;
+    }
+    
     public synchronized int getMaxPacketSize()
     {
         return maxPacketSize;
-    }
-    
-    public synchronized int getMaxSize()
-    {
-        return maxSize;
     }
     
     public synchronized int getSize()
@@ -68,7 +66,7 @@ public abstract class Window
     
     void init(int initialWinSize, int maxPacketSize)
     {
-        this.size = this.maxSize = initialWinSize;
+        this.size = this.initSize = initialWinSize;
         this.maxPacketSize = maxPacketSize;
     }
     

@@ -30,7 +30,6 @@ import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.BufferUtils;
-import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.Event;
 import org.apache.commons.net.ssh.util.IOUtils;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
@@ -65,6 +64,7 @@ public abstract class AbstractChannel implements Channel, Closeable
     
     protected int recipient;
     protected boolean eofSent;
+    protected boolean eofGot;
     protected boolean closeReqd;
     
     AbstractChannel(ConnectionService conn)
@@ -78,7 +78,7 @@ public abstract class AbstractChannel implements Channel, Closeable
         conn.attach(this);
     }
     
-    public synchronized void close() throws ConnectionException, TransportException
+    public void close() throws ConnectionException, TransportException
     {
         sendClose();
         close.await(conn.getTimeout());
@@ -182,12 +182,13 @@ public abstract class AbstractChannel implements Channel, Closeable
                 }
                 case CHANNEL_EOF:
                 {
-                    eofInputStreams();
+                    log.info("Received SSH_MSG_CHANNEL_EOF on channel #{}", id);
+                    gotEOF();
                     break;
                 }
                 case CHANNEL_CLOSE:
                 {
-                    log.debug("Received SSH_MSG_CHANNEL_CLOSE on channel #{}", id);
+                    log.info("Received SSH_MSG_CHANNEL_CLOSE on channel #{}", id);
                     sendClose();
                     close.set();
                     closeStreams();
@@ -205,7 +206,7 @@ public abstract class AbstractChannel implements Channel, Closeable
         }
     }
     
-    public synchronized boolean isOpen()
+    public boolean isOpen()
     {
         lock.lock();
         try {
@@ -237,17 +238,15 @@ public abstract class AbstractChannel implements Channel, Closeable
     
     public synchronized void sendEOF() throws TransportException
     {
-        if (!eofSent && !closeReqd)
-            try {
-                eofSent = true;
-                log.info("Sending SSH_MSG_CHANNEL_EOF on channel {}", id);
-                trans.writePacket(new Buffer(Constants.Message.CHANNEL_EOF).putInt(recipient));
-            } finally {
-                out.close();
-            }
+        if (!closeReqd && !eofSent) {
+            eofSent = true;
+            log.info("Sending SSH_MSG_CHANNEL_EOF for channel #{}", id);
+            trans.writePacket(newBuffer(Message.CHANNEL_EOF));
+            preemptClose();
+        }
     }
     
-    private void gotResponse(boolean success) throws ConnectionException
+    private synchronized void gotResponse(boolean success) throws ConnectionException
     {
         Event<ConnectionException> event = chanReqs.poll();
         if (event != null) {
@@ -277,17 +276,19 @@ public abstract class AbstractChannel implements Channel, Closeable
     protected void doWrite(Buffer buf, ChannelInputStream stream) throws ConnectionException, TransportException
     {
         int len = buf.getInt();
-        if (len < 0 || len > 32768)
-            throw new IllegalStateException("Bad item length: " + len);
+        if (len < 0 || len > getLocalMaxPacketSize())
+            throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR, "Bad item length: " + len);
         log.debug("Received data on channel {}", id);
         if (log.isTraceEnabled())
-            log.trace("Received channel extended data: {}", BufferUtils.printHex(buf.array(), buf.rpos(), len));
+            log.trace("IN: {}", BufferUtils.printHex(buf.array(), buf.rpos(), len));
         stream.receive(buf.array(), buf.rpos(), len);
     }
     
-    protected void eofInputStreams()
+    protected synchronized void gotEOF()
     {
+        eofGot = true;
         in.eof();
+        preemptClose();
     }
     
     protected void handleExtendedData(int dataTypeCode, Buffer buf) throws ConnectionException, TransportException
@@ -319,6 +320,12 @@ public abstract class AbstractChannel implements Channel, Closeable
         return new Event<ConnectionException>("chan#" + id + " - " + name, ConnectionException.chainer, lock);
     }
     
+    protected synchronized void preemptClose()
+    {
+        if (eofSent && eofGot)
+            sendClose();
+    }
+    
     protected synchronized Event<ConnectionException> sendChannelRequest(String reqType, boolean wantReply,
             Buffer reqSpecific) throws TransportException
     {
@@ -329,7 +336,7 @@ public abstract class AbstractChannel implements Channel, Closeable
         trans.writePacket(reqBuf);
         Event<ConnectionException> event = null;
         if (wantReply) {
-            event = newEvent("channel request - " + reqType);
+            event = newEvent("channel req for " + reqType);
             chanReqs.add(event);
         }
         return event;
