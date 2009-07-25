@@ -21,7 +21,7 @@ public class SSHExample
         client.connect("localhost");
         Session session = null;
         try {
-            client.authPublickey("shikhar");
+            client.authPublickey(System.getProperty("user.name"));
             session = client.startSession();
             session.allocateDefaultPTY();
             Command cmd = session.exec("true");

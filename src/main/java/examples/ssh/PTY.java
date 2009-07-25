@@ -6,7 +6,7 @@ import java.io.OutputStream;
 import org.apache.commons.net.ssh.SSHClient;
 import org.apache.commons.net.ssh.connection.Session;
 import org.apache.commons.net.ssh.connection.Session.Shell;
-import org.apache.commons.net.ssh.util.IOUtils;
+import org.apache.commons.net.ssh.util.Pipe;
 
 class PTY
 {
@@ -18,12 +18,12 @@ class PTY
         client.connect("localhost");
         Session session = null;
         try {
-            client.authPublickey("shikhar");
+            client.authPublickey(System.getProperty("user.name"));
             session = client.startSession();
             session.allocateDefaultPTY();
             Shell shell = session.startShell();
-            IOUtils.pipe(shell.getInputStream(), System.out, 1, null);
-            IOUtils.pipe(shell.getErrorStream(), System.out, 1, null);
+            new Pipe(shell.getInputStream(), System.out).start();
+            new Pipe(shell.getErrorStream(), System.out).start();
             OutputStream os = shell.getOutputStream();
             int i;
             while ((i = System.in.read()) != -1) {

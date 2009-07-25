@@ -51,8 +51,6 @@ import org.slf4j.LoggerFactory;
 public class TransportProtocol implements Transport
 {
     
-    public static final int TIMEOUT = 10;
-    
     private final Logger log = LoggerFactory.getLogger(getClass());
     
     private final Config config;
@@ -250,7 +248,7 @@ public class TransportProtocol implements Transport
         try {
             kexer.init();
             dispatcher.start();
-            kexer.done.await(TIMEOUT);
+            kexer.done.await(config.getTimeout());
         } finally {
             lock.unlock();
         }
@@ -278,7 +276,7 @@ public class TransportProtocol implements Transport
         try {
             serviceAccept.clear();
             sendServiceRequest(service.getName());
-            serviceAccept.await(TIMEOUT);
+            serviceAccept.await(config.getTimeout());
             setService(service);
         } finally {
             lock.unlock();
@@ -322,10 +320,10 @@ public class TransportProtocol implements Transport
                 // Only transport layer packets (1 to 49) allowed except SERVICE_REQUEST (5)
                 int msgID = payload.array()[payload.rpos()];
                 if (!(msgID >= 1 && msgID <= 49) || msgID == 5)
-                    kexer.done.await(TIMEOUT);
+                    kexer.done.await(config.getTimeout());
             } else if (sinceKeying % 0x80000000L == 0) { // Rekey every 2**31 packets
                 kexer.init();
-                kexer.done.await(TIMEOUT);
+                kexer.done.await(config.getTimeout());
             }
             
             long seq = converter.encode(payload);

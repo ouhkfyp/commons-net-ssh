@@ -61,7 +61,7 @@ public abstract class AbstractAuthMethod implements AuthMethod
     {
         return new Buffer(Message.USERAUTH_REQUEST) // SSH_MSG_USERAUTH_REQUEST
                                                    .putString(params.getUsername()) // username goes first
-                                                   .putString(params.getNextService().getName()) // the service that we'd like on success
+                                                   .putString(params.getNextServiceName()) // the service that we'd like on success
                                                    .putString(getName()); // name of auth method
         
     }

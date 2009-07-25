@@ -44,7 +44,6 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     protected int windowSize = 0x200000;
     protected int maxPacketSize = 0x8800;
-    protected int timeout = 15;
     
     protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
     protected Map<String, OpenReqHandler> orh = new ConcurrentHashMap<String, OpenReqHandler>();
@@ -102,7 +101,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     public int getTimeout()
     {
-        return timeout;
+        return trans.getConfig().getTimeout();
     }
     
     @Override
@@ -188,11 +187,6 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     public void setMaxPacketSize(int maxPacketSize)
     {
         this.maxPacketSize = maxPacketSize;
-    }
-    
-    public void setTimeout(int timeout)
-    {
-        this.timeout = timeout;
     }
     
     public void setWindowSize(int windowSize)

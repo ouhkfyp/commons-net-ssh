@@ -23,24 +23,48 @@ import static org.apache.commons.net.ssh.util.Constants.DEFAULT_PORT;
 import java.io.File;
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.commons.net.SocketClient;
+import org.apache.commons.net.ssh.cipher.AES128CBC;
+import org.apache.commons.net.ssh.cipher.AES128CTR;
+import org.apache.commons.net.ssh.cipher.AES192CBC;
+import org.apache.commons.net.ssh.cipher.AES192CTR;
+import org.apache.commons.net.ssh.cipher.AES256CBC;
+import org.apache.commons.net.ssh.cipher.AES256CTR;
+import org.apache.commons.net.ssh.cipher.BlowfishCBC;
+import org.apache.commons.net.ssh.cipher.Cipher;
+import org.apache.commons.net.ssh.cipher.TripleDESCBC;
+import org.apache.commons.net.ssh.compression.CompressionNone;
 import org.apache.commons.net.ssh.connection.ConnectionException;
 import org.apache.commons.net.ssh.connection.ConnectionProtocol;
 import org.apache.commons.net.ssh.connection.ConnectionService;
-import org.apache.commons.net.ssh.connection.LocalPortForwarding;
-import org.apache.commons.net.ssh.connection.RemotePortForwarding;
+import org.apache.commons.net.ssh.connection.LocalPortForwarder;
+import org.apache.commons.net.ssh.connection.RemotePortForwarder;
 import org.apache.commons.net.ssh.connection.Session;
 import org.apache.commons.net.ssh.connection.SessionChannel;
+import org.apache.commons.net.ssh.kex.DHG1;
+import org.apache.commons.net.ssh.kex.DHG14;
 import org.apache.commons.net.ssh.keyprovider.FileKeyProvider;
 import org.apache.commons.net.ssh.keyprovider.KeyProvider;
+import org.apache.commons.net.ssh.keyprovider.OpenSSHKeyFile;
+import org.apache.commons.net.ssh.keyprovider.PKCS8KeyFile;
+import org.apache.commons.net.ssh.mac.HMACMD5;
+import org.apache.commons.net.ssh.mac.HMACMD596;
+import org.apache.commons.net.ssh.mac.HMACSHA1;
+import org.apache.commons.net.ssh.mac.HMACSHA196;
+import org.apache.commons.net.ssh.random.BouncyCastleRandom;
+import org.apache.commons.net.ssh.random.JCERandom;
+import org.apache.commons.net.ssh.random.SingletonRandomFactory;
+import org.apache.commons.net.ssh.signature.SignatureDSA;
+import org.apache.commons.net.ssh.signature.SignatureRSA;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.transport.TransportProtocol;
 import org.apache.commons.net.ssh.userauth.AuthMethod;
-import org.apache.commons.net.ssh.userauth.AuthParams;
 import org.apache.commons.net.ssh.userauth.AuthPassword;
 import org.apache.commons.net.ssh.userauth.AuthPublickey;
 import org.apache.commons.net.ssh.userauth.UserAuthException;
@@ -74,7 +98,7 @@ import org.slf4j.LoggerFactory;
  * client.connect(&quot;localhost&quot;);
  * try {
  *     client.authPassword(&quot;username&quot;, &quot;password&quot;);
- *     // **this is the part that remains**
+ *     // TODO
  * } finally {
  *     client.disconnect();
  * }
@@ -87,18 +111,66 @@ public class SSHClient extends SocketClient
     
     protected static final Logger log = LoggerFactory.getLogger(SSHClient.class);
     
+    @SuppressWarnings("unchecked")
+    public static Config getDefaultConfig()
+    {
+        Config conf = new Config();
+        conf.setVersion("NET_3_0");
+        conf.setTimeout(30);
+        
+        if (SecurityUtils.isBouncyCastleRegistered()) {
+            conf.setKeyExchangeFactories(new DHG14.Factory(), new DHG1.Factory());
+            conf.setRandomFactory(new SingletonRandomFactory(new BouncyCastleRandom.Factory()));
+            conf.setFileKeyProviderFactories(new PKCS8KeyFile.Factory(), new OpenSSHKeyFile.Factory());
+        } else {
+            conf.setKeyExchangeFactories(new DHG1.Factory());
+            conf.setRandomFactory(new SingletonRandomFactory(new JCERandom.Factory()));
+            conf.setFileKeyProviderFactories();
+        }
+        
+        List<NamedFactory<Cipher>> avail = new LinkedList<NamedFactory<Cipher>> //
+                (Arrays.<NamedFactory<Cipher>> asList(new AES128CTR.Factory(), new AES192CTR.Factory(),
+                                                      new AES256CTR.Factory(), new AES128CBC.Factory(),
+                                                      new AES192CBC.Factory(), new AES256CBC.Factory(),
+                                                      new TripleDESCBC.Factory(), new BlowfishCBC.Factory()));
+        
+        { /*
+           * @see https://issues.apache.org/jira/browse/SSHD-24:
+           * "AES256 and AES192 requires unlimited cryptography extension"
+           */
+            for (Iterator<NamedFactory<Cipher>> i = avail.iterator(); i.hasNext();) {
+                final NamedFactory<Cipher> f = i.next();
+                try {
+                    final Cipher c = f.create();
+                    final byte[] key = new byte[c.getBlockSize()];
+                    final byte[] iv = new byte[c.getIVSize()];
+                    c.init(Cipher.Mode.Encrypt, key, iv);
+                } catch (Exception e) {
+                    log.warn("Disabling cipher: {}", f.getName());
+                    i.remove();
+                }
+            }
+        }
+        
+        conf.setCipherFactories(avail);
+        conf.setCompressionFactories(new CompressionNone.Factory());
+        conf.setMACFactories(new HMACSHA1.Factory(), new HMACSHA196.Factory(), new HMACMD5.Factory(),
+                             new HMACMD596.Factory());
+        conf.setSignatureFactories(new SignatureRSA.Factory(), new SignatureDSA.Factory());
+        
+        return conf;
+    }
+    
     protected final Transport trans;
-    
     protected final ConnectionService conn;
-    
-    private UserAuthService auth;
+    protected final UserAuthService auth;
     
     /**
      * Default constructor
      */
     public SSHClient()
     {
-        this(new Config.Builder().build());
+        this(getDefaultConfig());
     }
     
     /**
@@ -110,6 +182,7 @@ public class SSHClient extends SocketClient
     {
         setDefaultPort(DEFAULT_PORT);
         trans = new TransportProtocol(config);
+        auth = new UserAuthProtocol(trans);
         conn = new ConnectionProtocol(trans);
     }
     
@@ -129,6 +202,16 @@ public class SSHClient extends SocketClient
     public void addHostKeyVerifier(String fingerprint)
     {
         addHostKeyVerifier(HostKeyVerifier.Util.makeForFingerprint(fingerprint));
+    }
+    
+    public void auth(String username, AuthMethod... methods) throws UserAuthException, TransportException
+    {
+        auth(username, Arrays.<AuthMethod> asList(methods));
+    }
+    
+    public void auth(String username, Iterable<AuthMethod> methods) throws UserAuthException, TransportException
+    {
+        auth.authenticate(username, (Service) conn, methods);
     }
     
     /**
@@ -151,14 +234,14 @@ public class SSHClient extends SocketClient
      * 
      * @param username
      *            the username to authenticate
-     * @param password
+     * @param pfinder
      *            the {@link PasswordFinder} to use
      * @throws SSHException
      *             if an error occurs during the authentication process
      */
-    public void authPassword(String username, PasswordFinder password) throws UserAuthException, TransportException
+    public void authPassword(String username, PasswordFinder pfinder) throws UserAuthException, TransportException
     {
-        newUserAuth(username).authenticate(new AuthPassword(password));
+        auth(username, new AuthPassword(pfinder));
     }
     
     public void authPublickey(String username) throws UserAuthException, TransportException
@@ -181,7 +264,7 @@ public class SSHClient extends SocketClient
      */
     public void authPublickey(String username, KeyProvider keyProvider) throws UserAuthException, TransportException
     {
-        newUserAuth(username).authenticate(new AuthPublickey(keyProvider));
+        auth(username, new AuthPublickey(keyProvider));
     }
     
     public void authPublickey(String username, String... locations) throws UserAuthException, TransportException
@@ -192,7 +275,7 @@ public class SSHClient extends SocketClient
                 am.add(new AuthPublickey(loadKeyFile(loc)));
             } catch (IOException ignore) {
             }
-        newUserAuth(username).authenticate(am);
+        auth(username, am);
     }
     
     @Override
@@ -203,9 +286,17 @@ public class SSHClient extends SocketClient
         super.disconnect();
     }
     
-    public String getAuthBanner()
+    public ConnectionService getConnectionService()
     {
-        return auth != null ? auth.getBanner() : null;
+        return conn;
+    }
+    
+    public RemotePortForwarder getRemotePortForwarder()
+    {
+        RemotePortForwarder rpf = (RemotePortForwarder) conn.get(RemotePortForwarder.ForwardedTCPIPChannel.TYPE);
+        if (rpf == null)
+            conn.attach(rpf = new RemotePortForwarder(conn));
+        return rpf;
     }
     
     /**
@@ -214,6 +305,11 @@ public class SSHClient extends SocketClient
     public Transport getTransport()
     {
         return trans;
+    }
+    
+    public UserAuthService getUserAuthService()
+    {
+        return auth;
     }
     
     /**
@@ -326,23 +422,10 @@ public class SSHClient extends SocketClient
         return fkp;
     }
     
-    public UserAuthService newUserAuth(String username)
+    public LocalPortForwarder startLocalPortForwarding(SocketAddress addr, String toHost, int toPort)
+            throws IOException
     {
-        return auth = new UserAuthProtocol(new AuthParams(trans, username, (Service) conn));
-    }
-    
-    public LocalPortForwarding startLocalForwarding(SocketAddress addr, String toHost, int toPort) throws IOException
-    {
-        return new LocalPortForwarding(conn, addr, toHost, toPort);
-    }
-    
-    public int startRemoteForwarding(String addrToBind, int port, RemotePortForwarding.ConnectListener listener)
-            throws ConnectionException, TransportException
-    {
-        RemotePortForwarding rpf = (RemotePortForwarding) conn.get(RemotePortForwarding.ForwardedTCPIPChannel.TYPE);
-        if (rpf == null)
-            conn.attach(rpf = new RemotePortForwarding(conn));
-        return rpf.bind(addrToBind, port, listener);
+        return new LocalPortForwarder(conn, addr, toHost, toPort);
     }
     
     public Session startSession() throws ConnectionException, TransportException

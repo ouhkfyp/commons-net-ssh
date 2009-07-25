@@ -1,35 +1,14 @@
 package org.apache.commons.net.ssh.userauth;
 
-import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.Transport;
 
-public final class AuthParams
+public interface AuthParams
 {
     
-    private final Transport trans;
-    private final String username;
-    private final Service nextService;
+    String getNextServiceName();
     
-    public AuthParams(Transport trans, String username, Service nextService)
-    {
-        this.trans = trans;
-        this.username = username;
-        this.nextService = nextService;
-    }
+    Transport getTransport();
     
-    public Service getNextService()
-    {
-        return nextService;
-    }
-    
-    public Transport getTransport()
-    {
-        return trans;
-    }
-    
-    public String getUsername()
-    {
-        return username;
-    }
+    String getUsername();
     
 }
