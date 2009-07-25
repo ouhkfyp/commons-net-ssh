@@ -15,15 +15,15 @@ public interface ConnectionService
     
     void attach(Channel chan);
     
-    void attach(OpenReqHandler handler);
+    void attach(ForwardedChannelOpener handler);
     
     void forget(Channel chan);
     
-    void forget(OpenReqHandler handler);
+    void forget(ForwardedChannelOpener handler);
     
     Channel get(int id);
     
-    OpenReqHandler get(String chanType);
+    ForwardedChannelOpener get(String chanType);
     
     int getMaxPacketSize();
     

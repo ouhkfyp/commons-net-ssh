@@ -293,10 +293,7 @@ public class SSHClient extends SocketClient
     
     public RemotePortForwarder getRemotePortForwarder()
     {
-        RemotePortForwarder rpf = (RemotePortForwarder) conn.get(RemotePortForwarder.ForwardedTCPIPChannel.TYPE);
-        if (rpf == null)
-            conn.attach(rpf = new RemotePortForwarder(conn));
-        return rpf;
+        return RemotePortForwarder.getInstance(conn);
     }
     
     /**
@@ -422,8 +419,7 @@ public class SSHClient extends SocketClient
         return fkp;
     }
     
-    public LocalPortForwarder startLocalPortForwarding(SocketAddress addr, String toHost, int toPort)
-            throws IOException
+    public LocalPortForwarder newLocalPortForwarder(SocketAddress addr, String toHost, int toPort) throws IOException
     {
         return new LocalPortForwarder(conn, addr, toHost, toPort);
     }

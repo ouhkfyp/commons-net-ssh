@@ -43,40 +43,40 @@ public class Pipe extends Thread
     }
     
     protected final InputStream in;
-    
     protected final OutputStream out;
     protected int bufSize = 1;
-    
+    protected boolean closeStreamOnEOF;
     protected ErrorCallback errCB;
     
-    protected EOFCallback eofCB;
-    
     public Pipe(InputStream in, OutputStream out)
-    {
-        this(in, out, true);
-    }
-    
-    public Pipe(InputStream in, OutputStream out, boolean daemon)
     {
         this.in = in;
         this.out = out;
         setName("pipe");
-        setDaemon(daemon);
     }
     
-    public void bufSize(int size)
+    public Pipe bufSize(int size)
     {
         bufSize = size;
+        return this;
     }
     
-    public void eofCallback(EOFCallback cb)
+    public Pipe closeOutputStreamOnEOF(boolean choice)
     {
-        eofCB = cb;
+        closeStreamOnEOF = choice;
+        return this;
     }
     
-    public void errorCallback(ErrorCallback cb)
+    public Pipe daemon(boolean choice)
+    {
+        setDaemon(choice);
+        return this;
+    }
+    
+    public Pipe errorCallback(ErrorCallback cb)
     {
         errCB = cb;
+        return this;
     }
     
     @Override
@@ -89,8 +89,8 @@ public class Pipe extends Thread
                 out.write(buf, 0, len);
                 out.flush();
             }
-            if (eofCB != null)
-                eofCB.hadEOF();
+            if (closeStreamOnEOF)
+                out.close();
         } catch (IOException ioe) {
             if (errCB != null)
                 errCB.hadIOException(ioe);

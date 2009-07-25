@@ -118,6 +118,9 @@ public interface Session
     
     Subsystem startSubsysytem(String name) throws ConnectionException, TransportException;
     
+    void startX11Forwarding(boolean singleConnection, String authProto, String authCookie, int screen,
+            ConnectListener listener) throws ConnectionException, TransportException;
+    
     void waitForClose() throws ConnectionException;
     
 }

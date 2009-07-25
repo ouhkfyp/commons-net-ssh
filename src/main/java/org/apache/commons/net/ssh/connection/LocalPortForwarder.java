@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 public class LocalPortForwarder
 {
     
-    private class DirectTCPIPChannel extends AbstractChannel
+    private class DirectTCPIPChannel extends AbstractDirectChannel
     {
         
         public static final String TYPE = "direct-tcpip";
@@ -38,18 +38,20 @@ public class LocalPortForwarder
             
             ErrorCallback chanCloser = Pipe.closeOnErrorCallback(this);
             
-            Pipe toSock = new Pipe(in, sock.getOutputStream());
-            toSock.bufSize(getLocalMaxPacketSize());
-            toSock.eofCallback(Pipe.closeOnEOFCallback(sock.getOutputStream()));
-            toSock.errorCallback(chanCloser);
+            new Pipe(in, sock.getOutputStream()) //
+                                                .bufSize(getLocalMaxPacketSize()) //
+                                                .closeOutputStreamOnEOF(true) //
+                                                .errorCallback(chanCloser) //
+                                                .daemon(true) //
+                                                .start();
             
-            Pipe fromSock = new Pipe(sock.getInputStream(), out);
-            fromSock.bufSize(getRemoteMaxPacketSize());
-            fromSock.eofCallback(Pipe.closeOnEOFCallback(out));
-            fromSock.errorCallback(chanCloser);
+            new Pipe(sock.getInputStream(), out) //
+                                                .bufSize(getRemoteMaxPacketSize()) //
+                                                .closeOutputStreamOnEOF(true) //
+                                                .errorCallback(chanCloser) //
+                                                .daemon(true) //
+                                                .start();
             
-            fromSock.start();
-            toSock.start();
         }
         
         @Override
@@ -130,6 +132,11 @@ public class LocalPortForwarder
     public void stopListening()
     {
         listener.interrupt();
+        close();
+    }
+    
+    protected void close()
+    {
         try {
             ss.close(); // in case it is blocked on accept (as it will be...)
         } catch (IOException ignore) {

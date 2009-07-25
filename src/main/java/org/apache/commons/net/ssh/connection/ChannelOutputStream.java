@@ -48,6 +48,7 @@ public class ChannelOutputStream extends OutputStream
     {
         this.chan = chan;
         this.win = win;
+        newBuffer();
     }
     
     @Override
@@ -112,11 +113,6 @@ public class ChannelOutputStream extends OutputStream
         buffer.putInt(chan.getRecipient());
         buffer.putInt(0);
         bufferLength = 0;
-    }
-    
-    void init()
-    {
-        newBuffer();
     }
     
     synchronized boolean isClosed()

@@ -8,7 +8,7 @@ import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.IOUtils;
 
-public class SessionChannel extends AbstractChannel implements Session, Session.Command, Session.Shell,
+public class SessionChannel extends AbstractDirectChannel implements Session, Session.Command, Session.Shell,
         Session.Subsystem
 {
     
@@ -128,8 +128,20 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     
     public Subsystem startSubsysytem(String name) throws ConnectionException, TransportException
     {
-        sendChannelRequest("subsystem", true, new Buffer().putString(name)).get();
+        sendChannelRequest("subsystem", true, new Buffer().putString(name)).await(conn.getTimeout());
         return this;
+    }
+    
+    public void startX11Forwarding(boolean singleConnection, String authProto, String authCookie, int screen,
+            ConnectListener listener) throws ConnectionException, TransportException
+    {
+        sendChannelRequest("x11-req", true, //
+                           new Buffer() //
+                                       .putBoolean(singleConnection) //
+                                       .putString(authProto) //
+                                       .putString(authCookie) //
+                                       .putInt(screen)).await(conn.getTimeout());
+        new X11Forwarder(conn, listener);
     }
     
     public void waitForClose() throws ConnectionException
