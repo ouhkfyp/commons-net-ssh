@@ -36,6 +36,8 @@ public interface Channel
     
     void handle(Constants.Message cmd, Buffer buf) throws ConnectionException, TransportException;
     
+    void init(int recipient, int remoteWinSize, int remoteMaxPacketSize);
+    
     boolean isOpen();
     
     void notifyError(SSHException exception);

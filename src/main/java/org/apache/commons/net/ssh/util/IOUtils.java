@@ -20,8 +20,6 @@ package org.apache.commons.net.ssh.util;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 import org.apache.commons.net.ssh.transport.Transport;
 
@@ -33,11 +31,6 @@ import org.apache.commons.net.ssh.transport.Transport;
 public class IOUtils
 {
     
-    public interface ErrorCallback
-    {
-        void onIOException(IOException e);
-    }
-    
     public static void closeQuietly(Closeable... closeables)
     {
         for (Closeable c : closeables)
@@ -46,34 +39,6 @@ public class IOUtils
                     c.close();
             } catch (IOException ignored) {
             }
-    }
-    
-    public static Thread pipe(final InputStream in, final OutputStream out, final int bufSize, final ErrorCallback cb)
-    {
-        return new Thread()
-            {
-                {
-                    setName("pipe");
-                    setDaemon(true);
-                    start();
-                }
-                
-                @Override
-                public void run()
-                {
-                    try {
-                        byte[] buf = new byte[bufSize];
-                        int len;
-                        while ((len = in.read(buf)) != -1) {
-                            out.write(buf, 0, len);
-                            out.flush();
-                        }
-                    } catch (IOException ioe) {
-                        if (cb != null)
-                            cb.onIOException(ioe);
-                    }
-                }
-            };
     }
     
     public static long writeQuietly(Transport trans, Buffer payload)

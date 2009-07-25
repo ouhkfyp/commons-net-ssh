@@ -145,10 +145,10 @@ public class SessionChannel extends AbstractChannel implements Session, Session.
     }
     
     @Override
-    protected void gotEOF()
+    protected void gotEOF() throws TransportException
     {
-        super.gotEOF();
         err.eof();
+        super.gotEOF();
     }
     
     @Override

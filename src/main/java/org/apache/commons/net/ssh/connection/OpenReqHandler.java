@@ -8,6 +8,6 @@ public interface OpenReqHandler
     
     String getSupportedChannelType();
     
-    void handleOpenReq(Buffer buf) throws TransportException;
+    void handleOpenReq(Buffer buf) throws ConnectionException, TransportException;
     
 }

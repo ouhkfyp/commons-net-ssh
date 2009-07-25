@@ -88,6 +88,8 @@ public interface Session
         
         Boolean canDoFlowControl();
         
+        Integer getExitStatus();
+        
         InputStream getInputStream();
         
         OutputStream getOutputStream();
@@ -106,6 +108,8 @@ public interface Session
     void close() throws ConnectionException, TransportException;
     
     Command exec(String command) throws ConnectionException, TransportException;
+    
+    boolean isOpen();
     
     /* With OpenSSH default is to reject env vars: "AcceptEnv" config var shd be set * */
     void setEnvVar(String name, String value) throws ConnectionException, TransportException;

@@ -7,11 +7,12 @@ import java.net.SocketAddress;
 
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Event;
-import org.apache.commons.net.ssh.util.IOUtils;
+import org.apache.commons.net.ssh.util.Pipe;
+import org.apache.commons.net.ssh.util.Pipe.ErrorCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LocalPortForwarding
+public class LocalPortForwarder
 {
     
     private class DirectTCPIPChannel extends AbstractChannel
@@ -34,15 +35,21 @@ public class LocalPortForwarding
         private void start() throws IOException
         {
             sock.setSendBufferSize(remoteWin.getMaxPacketSize());
-            IOUtils.ErrorCallback cb = new IOUtils.ErrorCallback()
-                {
-                    public void onIOException(IOException e)
-                    {
-                        sendClose();
-                    }
-                };
-            IOUtils.pipe(in, sock.getOutputStream(), localWin.getMaxPacketSize(), cb);
-            IOUtils.pipe(sock.getInputStream(), out, remoteWin.getMaxPacketSize(), cb);
+            
+            ErrorCallback chanCloser = Pipe.closeOnErrorCallback(this);
+            
+            Pipe toSock = new Pipe(in, sock.getOutputStream());
+            toSock.bufSize(getLocalMaxPacketSize());
+            toSock.eofCallback(Pipe.closeOnEOFCallback(sock.getOutputStream()));
+            toSock.errorCallback(chanCloser);
+            
+            Pipe fromSock = new Pipe(sock.getInputStream(), out);
+            fromSock.bufSize(getRemoteMaxPacketSize());
+            fromSock.eofCallback(Pipe.closeOnEOFCallback(out));
+            fromSock.errorCallback(chanCloser);
+            
+            fromSock.start();
+            toSock.start();
         }
         
         @Override
@@ -99,7 +106,7 @@ public class LocalPortForwarding
             }
         };
     
-    public LocalPortForwarding(ConnectionService conn, SocketAddress listeningAddr, String toHost, int toPort)
+    public LocalPortForwarder(ConnectionService conn, SocketAddress listeningAddr, String toHost, int toPort)
             throws IOException
     {
         this.conn = conn;

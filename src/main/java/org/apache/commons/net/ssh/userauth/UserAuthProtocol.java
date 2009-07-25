@@ -27,6 +27,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.SSHException;
+import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Event;
@@ -37,42 +39,40 @@ import org.apache.commons.net.ssh.util.Constants.Message;
  * 
  * @author shikhar
  */
-public class UserAuthProtocol extends AbstractService implements UserAuthService
+public class UserAuthProtocol extends AbstractService implements UserAuthService, AuthParams
 {
     
-    private static final int TIMEOUT = 60;
-    
-    private final AuthParams params;
-    
-    private final ReentrantLock lock = new ReentrantLock();
-    private final Event<UserAuthException> result =
+    protected final ReentrantLock lock = new ReentrantLock();
+    protected final Event<UserAuthException> result =
             new Event<UserAuthException>("userauth result", UserAuthException.chainer, lock);
-    private final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
-    private final Set<String> allowed = new HashSet<String>();
     
-    private AuthMethod method; // currently active method
-    private String banner; // auth banner
+    protected final Deque<UserAuthException> savedEx = new ArrayDeque<UserAuthException>();
+    protected final Set<String> allowed = new HashSet<String>();
     
-    private boolean partialSuccess;
+    protected AuthMethod method; // currently active method
+    protected String banner; // auth banner
     
-    public UserAuthProtocol(AuthParams params)
+    protected boolean partialSuccess;
+    
+    protected String username;
+    protected Service nextService;
+    
+    public UserAuthProtocol(Transport trans)
     {
-        super(params.getTransport());
-        this.params = params;
+        super(trans);
     }
     
-    public synchronized void authenticate(AuthMethod... methods) throws UserAuthException, TransportException
+    public synchronized void authenticate(String username, Service nextService, Iterable<AuthMethod> methods)
+            throws UserAuthException, TransportException
     {
-        authenticate(Arrays.<AuthMethod> asList(methods));
-    }
-    
-    public synchronized void authenticate(Iterable<AuthMethod> methods) throws UserAuthException, TransportException
-    {
-        // initially all methods allowed
+        this.username = username;
+        this.nextService = nextService;
+        
         for (AuthMethod meth : methods)
+            // initially all methods allowed
             allowed.add(meth.getName());
-        // service request
-        request();
+        
+        request(); // request "ssh-userauth" service
         
         for (AuthMethod meth : methods) {
             
@@ -83,14 +83,14 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
             lock.lock();
             try {
                 this.method = meth;
-                meth.init(params);
+                meth.init(this);
                 result.clear();
                 meth.request();
-                if (result.get(TIMEOUT)) { // success
+                if (result.get(trans.getConfig().getTimeout())) { // success
                     // puts delayed compression into force if applicable
                     trans.setAuthenticated();
                     // we aren't in charge anymore, next service is
-                    trans.setService(params.getNextService());
+                    trans.setService(nextService);
                     return;
                 }
             } catch (UserAuthException e) {
@@ -106,16 +106,19 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         throw new UserAuthException("Exhausted availalbe authentication methods", savedEx.peek());
     }
     
-    // Documented in interface
-    public synchronized String getBanner()
+    public String getBanner()
     {
         return banner;
     }
     
-    // Documented in interface
     public String getName()
     {
         return NAME;
+    }
+    
+    public String getNextServiceName()
+    {
+        return nextService.getName();
     }
     
     /**
@@ -129,8 +132,12 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         return savedEx;
     }
     
-    // Documented in interface
-    public synchronized boolean hadPartialSuccess()
+    public String getUsername()
+    {
+        return username;
+    }
+    
+    public boolean hadPartialSuccess()
     {
         return partialSuccess;
     }
@@ -140,31 +147,29 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         if (cmd.toInt() < 51 || cmd.toInt() > 79)
             throw new TransportException(DisconnectReason.PROTOCOL_ERROR);
         
-        if (cmd == Message.USERAUTH_BANNER)
-            banner = buf.getString();
-        else {
-            lock.lock();
-            try {
-                if (result.hasWaiters()) {
-                    if (cmd == Message.USERAUTH_FAILURE) {
-                        allowed.clear();
-                        allowed.addAll(Arrays.<String> asList(buf.getString().split(",")));
-                        partialSuccess |= buf.getBoolean();
-                        if (allowed.contains(method.getName()) && method.shouldRetry())
-                            method.request();
-                        else
-                            result.set(false);
-                    } else if (cmd == Message.USERAUTH_SUCCESS)
-                        result.set(true);
-                    else {
-                        log.debug("Asking {} method to handle", method.getName());
-                        method.handle(cmd, buf);
-                    }
-                } else
-                    trans.sendUnimplemented();
-            } finally {
-                lock.unlock();
-            }
+        lock.lock();
+        try {
+            if (cmd == Message.USERAUTH_BANNER)
+                banner = buf.getString();
+            else if (result.hasWaiters()) { // i.e. made an auth req & waiting for result 
+                if (cmd == Message.USERAUTH_FAILURE) {
+                    allowed.clear();
+                    allowed.addAll(Arrays.<String> asList(buf.getString().split(",")));
+                    partialSuccess |= buf.getBoolean();
+                    if (allowed.contains(method.getName()) && method.shouldRetry())
+                        method.request();
+                    else
+                        result.set(false);
+                } else if (cmd == Message.USERAUTH_SUCCESS)
+                    result.set(true);
+                else {
+                    log.debug("Asking {} method to handle", method.getName());
+                    method.handle(cmd, buf);
+                }
+            } else
+                trans.sendUnimplemented();
+        } finally {
+            lock.unlock();
         }
     }
     

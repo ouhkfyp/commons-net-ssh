@@ -18,6 +18,7 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
+import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.transport.TransportException;
 
 /**
@@ -33,9 +34,8 @@ public interface UserAuthService
      */
     String NAME = "ssh-userauth";
     
-    void authenticate(AuthMethod... methods) throws UserAuthException, TransportException;
-    
-    void authenticate(Iterable<AuthMethod> methods) throws UserAuthException, TransportException;;
+    void authenticate(String username, Service nextService, Iterable<AuthMethod> methods) throws UserAuthException,
+            TransportException;
     
     /**
      * Returns the authentication banner (if any)
