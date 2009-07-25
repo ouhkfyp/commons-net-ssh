@@ -3,13 +3,13 @@ package examples.ssh;
 import java.net.InetSocketAddress;
 
 import org.apache.commons.net.ssh.SSHClient;
-import org.apache.commons.net.ssh.connection.ConnectListener;
-import org.apache.commons.net.ssh.connection.RemotePortForwarder.Forward;
+import org.apache.commons.net.ssh.connection.Session;
+import org.apache.commons.net.ssh.connection.ConnectListener.SocketForwardingConnectListener;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.PatternLayout;
 
-public class RemotePF
+public class X11
 {
     
     static {
@@ -25,14 +25,11 @@ public class RemotePF
         try {
             
             client.authPublickey(System.getProperty("user.name"));
+            Session sess = client.startSession();
+            sess.startX11Forwarding(false, "MIT-MAGIC-COOKIE-1", "02cc4dbca07b749b9044add2a7399326", 0,
+                                    new SocketForwardingConnectListener(new InetSocketAddress("localhost", 6000)));
             
-            /*
-             * Server listens on port 8080, and forwards all connections to us, and we further
-             * forward to google.com:80
-             */
-            client.getRemotePortForwarder() //
-                  .bind(new Forward(8080), //
-                        new ConnectListener.SocketForwardingConnectListener(new InetSocketAddress("google.com", 80)));
+            sess.exec("kwrite");
             
             client.join(0);
             

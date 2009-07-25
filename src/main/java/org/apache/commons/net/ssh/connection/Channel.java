@@ -1,5 +1,6 @@
 package org.apache.commons.net.ssh.connection;
 
+import java.io.Closeable;
 import java.io.InputStream;
 import java.io.OutputStream;
 
@@ -9,8 +10,17 @@ import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants;
 
-public interface Channel
+public interface Channel extends Closeable
 {
+    
+    interface Forwarded extends Channel
+    {
+        
+        String getOriginatorIP();
+        
+        int getOriginatorPort();
+        
+    }
     
     void close() throws TransportException, ConnectionException;
     
@@ -36,13 +46,9 @@ public interface Channel
     
     void handle(Constants.Message cmd, Buffer buf) throws ConnectionException, TransportException;
     
-    void init(int recipient, int remoteWinSize, int remoteMaxPacketSize);
-    
     boolean isOpen();
     
     void notifyError(SSHException exception);
-    
-    void open() throws ConnectionException, TransportException;
     
     void sendEOF() throws TransportException;
     

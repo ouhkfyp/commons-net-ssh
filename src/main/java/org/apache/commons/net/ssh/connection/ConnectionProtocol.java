@@ -23,8 +23,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.AbstractService;
 import org.apache.commons.net.ssh.SSHException;
@@ -42,17 +40,16 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public class ConnectionProtocol extends AbstractService implements ConnectionService
 {
     
+    protected final AtomicInteger nextID = new AtomicInteger();
+    protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
+    protected final Map<String, ForwardedChannelOpener> orh = new ConcurrentHashMap<String, ForwardedChannelOpener>();
+    protected final Queue<Future<Buffer, ConnectionException>> globalReqs =
+            new LinkedList<Future<Buffer, ConnectionException>>();
+    
     protected int windowSize = 0x200000;
     protected int maxPacketSize = 0x8800;
     
-    protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
-    protected Map<String, OpenReqHandler> orh = new ConcurrentHashMap<String, OpenReqHandler>();
-    
-    private final AtomicInteger nextID = new AtomicInteger();
-    
-    protected final Lock lock = new ReentrantLock();
-    protected Queue<Future<Buffer, ConnectionException>> globalReqs =
-            new LinkedList<Future<Buffer, ConnectionException>>();
+    //    protected final Lock lock = new ReentrantLock();
     
     public ConnectionProtocol(Transport session)
     {
@@ -64,9 +61,9 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         channels.put(chan.getID(), chan);
     }
     
-    public void attach(OpenReqHandler handler)
+    public void attach(ForwardedChannelOpener handler)
     {
-        orh.put(handler.getSupportedChannelType(), handler);
+        orh.put(handler.getChannelType(), handler);
     }
     
     public void forget(Channel chan)
@@ -74,9 +71,9 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         channels.remove(chan.getID());
     }
     
-    public void forget(OpenReqHandler handler)
+    public void forget(ForwardedChannelOpener handler)
     {
-        orh.remove(handler.getSupportedChannelType());
+        orh.remove(handler.getChannelType());
     }
     
     public Channel get(int id)
@@ -84,7 +81,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         return channels.get(id);
     }
     
-    public OpenReqHandler get(String chanType)
+    public ForwardedChannelOpener get(String chanType)
     {
         return orh.get(chanType);
     }
@@ -135,9 +132,11 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
                     String type = buf.getString();
                     log.debug("Received CHANNEL_OPEN for `{}` channel", type);
                     if (orh.containsKey(type))
-                        orh.get(type).handleOpenReq(buf);
-                    else
-                        log.warn("No handler found for `{}` CHANNEL_OPEN request", type);
+                        orh.get(type).handleOpen(buf);
+                    else {
+                        log.warn("No handler found for `{}` CHANNEL_OPEN request -- rejecting", type);
+                        sendOpenFailure(buf.getInt(), OpenFailException.UNKNOWN_CHANNEL_TYPE, "");
+                    }
                     break;
                 default:
                     trans.sendUnimplemented();
@@ -217,6 +216,12 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
                 gr.error("Global request failed");
         } else
             throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR);
+    }
+    
+    protected void sendOpenFailure(int recipient, int reasonCode, String message) throws TransportException
+    {
+        trans.writePacket(new Buffer(Message.CHANNEL_OPEN_FAILURE).putInt(recipient).putInt(reasonCode)
+                                                                  .putString(message));
     }
     
 }

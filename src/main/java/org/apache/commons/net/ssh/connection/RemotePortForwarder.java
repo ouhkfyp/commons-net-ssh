@@ -7,14 +7,11 @@ import java.util.Set;
 
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class RemotePortForwarder extends AbstractOpenReqHandler
+public class RemotePortForwarder implements ForwardedChannelOpener
 {
-    
-    public interface ConnectListener
-    {
-        void gotConnect(ForwardedTCPIPChannel chan) throws IOException;
-    }
     
     public static final class Forward
     {
@@ -71,32 +68,19 @@ public class RemotePortForwarder extends AbstractOpenReqHandler
         
     }
     
-    public static class ForwardedTCPIPChannel extends AbstractChannel
+    public static class ForwardedTCPIPChannel extends AbstractForwardedChannel
     {
         
         public static final String TYPE = "forwarded-tcpip";
         
         private final Forward fwd;
-        private final String origIP;
-        private final int origPort;
         
-        public ForwardedTCPIPChannel(ConnectionService conn, Forward fwd, String origIP, int origPort)
-                throws TransportException
+        public ForwardedTCPIPChannel(ConnectionService conn, Buffer buf) throws TransportException
         {
-            super(conn);
-            this.fwd = fwd;
-            this.origIP = origIP;
-            this.origPort = origPort;
-        }
-        
-        public String getOriginatingIP()
-        {
-            return origIP;
-        }
-        
-        public int getOriginatingPort()
-        {
-            return origPort;
+            super(conn, buf);
+            this.fwd = new Forward(buf.getString(), buf.getInt());
+            this.origIP = buf.getString();
+            this.origPort = buf.getInt();
         }
         
         public Forward getParentForward()
@@ -109,22 +93,28 @@ public class RemotePortForwarder extends AbstractOpenReqHandler
             return TYPE;
         }
         
-        @Override
-        public void open()
-        {
-            // Disable
-        }
-        
     }
     
     public static final String PF_REQ = "tcpip-forward";
     public static final String PF_CANCEL = "cancel-tcpip-forward";
     
+    public static RemotePortForwarder getInstance(ConnectionService conn)
+    {
+        RemotePortForwarder rpf = (RemotePortForwarder) conn.get(ForwardedTCPIPChannel.TYPE);
+        if (rpf == null)
+            conn.attach(rpf = new RemotePortForwarder(conn));
+        return rpf;
+    }
+    
+    protected final Logger log = LoggerFactory.getLogger(getClass());
+    
+    protected final ConnectionService conn;
+    
     protected final Map<Forward, ConnectListener> listeners = new HashMap<Forward, ConnectListener>();
     
-    public RemotePortForwarder(ConnectionService conn)
+    private RemotePortForwarder(ConnectionService conn)
     {
-        super(conn);
+        this.conn = conn;
     }
     
     public Forward bind(Forward forward, ConnectListener listener) throws ConnectionException, TransportException
@@ -137,6 +127,11 @@ public class RemotePortForwarder extends AbstractOpenReqHandler
             forward.port = reply.getInt();
         log.info("Remote end listening on {}", forward);
         listeners.put(forward, listener);
+        if (listeners.isEmpty())
+            if (conn.get(getChannelType()) != null && conn.get(getChannelType()) != this)
+                throw new AssertionError("Singleton soft-constraint violated");
+            else
+                conn.attach(this);
         return forward;
     }
     
@@ -159,26 +154,25 @@ public class RemotePortForwarder extends AbstractOpenReqHandler
         return listeners.keySet();
     }
     
-    public String getSupportedChannelType()
+    public String getChannelType()
     {
         return ForwardedTCPIPChannel.TYPE;
     }
     
-    public void handleOpenReq(Buffer buf) throws ConnectionException, TransportException
+    public void handleOpen(Buffer buf) throws ConnectionException, TransportException
     {
-        OpenReq or = new OpenReq(buf);
-        Forward fwd = new Forward(buf.getString(), buf.getInt());
-        if (listeners.containsKey(fwd)) {
-            ForwardedTCPIPChannel chan = new ForwardedTCPIPChannel(conn, fwd, buf.getString(), buf.getInt());
-            or.confirm(chan);
+        ForwardedTCPIPChannel chan = new ForwardedTCPIPChannel(conn, buf);
+        if (listeners.containsKey(chan.getParentForward())) {
+            chan.confirm();
             try {
-                listeners.get(fwd).gotConnect(chan);
+                listeners.get(chan.getParentForward()).gotConnect(chan);
             } catch (IOException logged) {
                 log.warn("Error in ConnectListener callback: {}", logged.toString());
                 chan.close();
             }
         } else
-            or.reject(OpenFailException.ADMINISTRATIVELY_PROHIBITED, "Forwarding was not requested on [" + fwd + "]");
+            chan.reject(OpenFailException.ADMINISTRATIVELY_PROHIBITED, "Forwarding was not requested on ["
+                    + chan.getParentForward() + "]");
     }
     
 }

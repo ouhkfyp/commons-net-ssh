@@ -18,7 +18,6 @@
  */
 package org.apache.commons.net.ssh.connection;
 
-import java.io.Closeable;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.LinkedList;
@@ -41,7 +40,7 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-public abstract class AbstractChannel implements Channel, Closeable
+public abstract class AbstractChannel implements Channel
 {
     
     protected final Logger log = LoggerFactory.getLogger(getClass());
@@ -53,29 +52,28 @@ public abstract class AbstractChannel implements Channel, Closeable
     protected final LocalWindow localWin = new LocalWindow(this);
     protected final RemoteWindow remoteWin = new RemoteWindow();
     
-    protected final ChannelInputStream in = new ChannelInputStream(localWin);
-    protected final ChannelOutputStream out = new ChannelOutputStream(this, remoteWin);
-    
     protected final Queue<Event<ConnectionException>> chanReqs = new LinkedList<Event<ConnectionException>>();
     
     protected final ReentrantLock lock = new ReentrantLock();
-    protected final Event<ConnectionException> open;
+    protected final Event<ConnectionException> init;
     protected final Event<ConnectionException> close;
+    
+    protected ChannelInputStream in;
+    protected ChannelOutputStream out;
     
     protected int recipient;
     protected boolean eofSent;
     protected boolean eofGot;
     protected boolean closeReqd;
     
-    AbstractChannel(ConnectionService conn)
+    protected AbstractChannel(ConnectionService conn)
     {
         this.conn = conn;
         this.trans = conn.getTransport();
         id = conn.nextID();
         localWin.init(conn.getWindowSize(), conn.getMaxPacketSize());
-        open = newEvent("open");
+        init = newEvent("init");
         close = newEvent("close");
-        conn.attach(this);
     }
     
     public void close() throws ConnectionException, TransportException
@@ -133,17 +131,6 @@ public abstract class AbstractChannel implements Channel, Closeable
     {
         switch (cmd)
         {
-            case CHANNEL_OPEN_CONFIRMATION:
-            {
-                init(buf.getInt(), buf.getInt(), buf.getInt());
-                break;
-            }
-            case CHANNEL_OPEN_FAILURE:
-            {
-                open.error(new OpenFailException(getType(), buf.getInt(), buf.getString()));
-                conn.forget(this);
-                break;
-            }
             case CHANNEL_WINDOW_ADJUST:
             {
                 log.info("Received SSH_MSG_CHANNEL_WINDOW_ADJUST on channel {}", id);
@@ -195,25 +182,25 @@ public abstract class AbstractChannel implements Channel, Closeable
             }
             default:
             {
-                trans.sendUnimplemented();
-                break;
+                gotUnknown(cmd, buf);
             }
         }
     }
     
-    public void init(int recipient, int remoteWinSize, int remoteMaxPacketSize)
+    public void init(Buffer buf)
     {
-        this.recipient = recipient;
-        remoteWin.init(remoteWinSize, remoteMaxPacketSize);
-        out.init();
-        open.set();
+        this.recipient = buf.getInt();
+        remoteWin.init(buf.getInt(), buf.getInt());
+        in = new ChannelInputStream(localWin);
+        out = new ChannelOutputStream(this, remoteWin);
+        init.set();
     }
     
     public synchronized boolean isOpen()
     {
         lock.lock();
         try {
-            return open.isSet() && !close.isSet() && !closeReqd;
+            return init.isSet() && !close.isSet() && !closeReqd;
         } finally {
             lock.unlock();
         }
@@ -222,21 +209,8 @@ public abstract class AbstractChannel implements Channel, Closeable
     @SuppressWarnings("unchecked")
     public void notifyError(SSHException exception)
     {
-        Event.Util.<ConnectionException> notifyError(exception, open, close);
+        Event.Util.<ConnectionException> notifyError(exception, init, close);
         Event.Util.<ConnectionException> notifyError(exception, chanReqs);
-    }
-    
-    public void open() throws ConnectionException, TransportException
-    {
-        lock.lock();
-        try {
-            if (!open.isSet()) {
-                trans.writePacket(buildOpenReq());
-                open.await(conn.getTimeout());
-            }
-        } finally {
-            lock.unlock();
-        }
     }
     
     public synchronized void sendEOF() throws TransportException
@@ -251,15 +225,6 @@ public abstract class AbstractChannel implements Channel, Closeable
         } finally {
             eofSent = true;
         }
-    }
-    
-    protected Buffer buildOpenReq()
-    {
-        return new Buffer(Message.CHANNEL_OPEN) //
-                                               .putString(getType()) //
-                                               .putInt(id) //
-                                               .putInt(localWin.getSize()) //
-                                               .putInt(localWin.getMaxPacketSize());
     }
     
     protected void closeStreams()
@@ -297,6 +262,11 @@ public abstract class AbstractChannel implements Channel, Closeable
         } else
             throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR,
                                           "Received response to channel request when none was requested");
+    }
+    
+    protected void gotUnknown(Message cmd, Buffer buf) throws TransportException
+    {
+        trans.sendUnimplemented();
     }
     
     protected void handleExtendedData(int dataTypeCode, Buffer buf) throws ConnectionException, TransportException

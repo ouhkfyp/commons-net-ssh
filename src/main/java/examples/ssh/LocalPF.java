@@ -18,15 +18,24 @@ public class LocalPF
     public static void main(String... args) throws Exception
     {
         SSHClient client = new SSHClient();
+        
         client.initUserKnownHosts();
+        
         client.connect("localhost");
         try {
+            
             client.authPublickey(System.getProperty("user.name"));
-            // Listens on port localhost:8080 and forwards to google.com:80
+            
+            /*
+             * We listen on port localhost:8080 and forward all connections on to server, which then
+             * forwards it to google.com:80
+             */
             LocalPortForwarder pfd =
-                    client.startLocalPortForwarding(new InetSocketAddress("localhost", 8080), "google.com", 80);
+                    client.newLocalPortForwarder(new InetSocketAddress("localhost", 8080), "google.com", 80);
             pfd.startListening();
+            
             pfd.join(0);
+            
         } finally {
             client.disconnect();
         }

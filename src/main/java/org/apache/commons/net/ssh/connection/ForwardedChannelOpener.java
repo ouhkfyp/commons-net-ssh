@@ -3,11 +3,11 @@ package org.apache.commons.net.ssh.connection;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 
-public interface OpenReqHandler
+public interface ForwardedChannelOpener
 {
     
-    String getSupportedChannelType();
+    String getChannelType();
     
-    void handleOpenReq(Buffer buf) throws ConnectionException, TransportException;
+    void handleOpen(Buffer buf) throws ConnectionException, TransportException;
     
 }
