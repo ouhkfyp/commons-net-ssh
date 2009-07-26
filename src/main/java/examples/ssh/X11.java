@@ -25,16 +25,18 @@ public class X11
         try {
             
             client.authPublickey(System.getProperty("user.name"));
+            
             Session sess = client.startSession();
-            sess.startX11Forwarding(false, "MIT-MAGIC-COOKIE-1", "02cc4dbca07b749b9044add2a7399326", 0,
+            sess.startX11Forwarding(false, "MIT-MAGIC-COOKIE-1", "50450f76cbd53589c65a8eec5b597197", 0,
                                     new SocketForwardingConnectListener(new InetSocketAddress("localhost", 6000)));
             
-            sess.exec("kwrite");
+            sess.exec("firefox");
             
-            client.join(0);
+            client.getConnectionService().join();
             
         } finally {
             client.disconnect();
         }
+        
     }
 }

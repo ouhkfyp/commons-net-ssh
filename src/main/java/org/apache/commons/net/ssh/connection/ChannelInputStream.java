@@ -6,6 +6,8 @@ import java.io.InterruptedIOException;
 
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
@@ -17,6 +19,8 @@ public class ChannelInputStream extends InputStream
     private final Buffer buf = new Buffer();
     private final byte[] b = new byte[1];
     private final LocalWindow win;
+    
+    protected final Logger log = LoggerFactory.getLogger(getClass());
     
     private boolean eof;
     

@@ -7,26 +7,26 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public class LocalWindow extends Window
 {
     
-    private final Channel chan;
+    protected final Channel chan;
     
     public LocalWindow(Channel chan)
     {
         this.chan = chan;
     }
     
-    protected void check(int max) throws TransportException
+    public void check(int max) throws TransportException
     {
         int threshold = Math.min(maxPacketSize * 8, max / 4);
-        if (max - size > maxPacketSize && (max - size > threshold || size < threshold)) {
-            if (log.isDebugEnabled())
-                log.debug("Increasing by " + (max - size) + " up to " + max);
-            sendWindowAdjust(max - size);
-            size = max;
+        int diff = max - size;
+        if (diff > maxPacketSize && (diff > threshold || size < threshold)) {
+            sendWindowAdjust(diff);
+            expand(diff);
         }
     }
     
-    protected void sendWindowAdjust(int inc) throws TransportException
+    public void sendWindowAdjust(int inc) throws TransportException
     {
+        log.debug("Sending SSH_MSG_CHANNEL_WINDOW_ADJUST to #{} for {} bytes", chan.getRecipient(), inc);
         chan.getTransport().writePacket(new Buffer(Message.CHANNEL_WINDOW_ADJUST) //
                                                                                  .putInt(chan.getRecipient()) //
                                                                                  .putInt(inc));

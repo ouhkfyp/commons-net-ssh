@@ -357,11 +357,6 @@ public class SSHClient extends SocketClient
         return super.isConnected() && trans.isRunning();
     }
     
-    public void join(int timeout) throws TransportException
-    {
-        trans.join(timeout);
-    }
-    
     /**
      * Convenience method for creating a {@link FileKeyProvider} instance from a location where the
      * key file is located.
@@ -432,7 +427,7 @@ public class SSHClient extends SocketClient
     }
     
     /**
-     * On connection establishment, also initialize the SSH transport via {@link Transport#init}
+     * On connection establishment, also initialize the SSH transport via {@link Transport#open}
      */
     @Override
     protected void _connectAction_() throws IOException
