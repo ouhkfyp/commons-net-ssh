@@ -23,14 +23,22 @@ class PTY
             session = client.startSession();
             session.allocateDefaultPTY();
             Shell shell = session.startShell();
+            
+            // remote stdout -> System.out
             new Pipe(shell.getInputStream(), System.out) //
                                                         .bufSize(((Channel) session).getLocalMaxPacketSize()) //
                                                         .daemon(true) //
                                                         .start();
+            
+            // remote stderr -> System.out
             new Pipe(shell.getErrorStream(), System.out) //
                                                         .bufSize(((Channel) session).getLocalMaxPacketSize()) //
                                                         .daemon(true) //
                                                         .start();
+            
+            // make System.in act as stdin for shell
+            // this is kinda messy because java only allows input after you hit return
+            // but this is just an example...
             OutputStream os = shell.getOutputStream();
             int i;
             while ((i = System.in.read()) != -1) {
@@ -38,6 +46,7 @@ class PTY
                 os.flush();
             }
             os.close();
+            
         } finally {
             if (session != null)
                 session.close();
