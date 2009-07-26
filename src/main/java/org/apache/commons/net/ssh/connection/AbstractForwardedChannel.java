@@ -23,7 +23,7 @@ public abstract class AbstractForwardedChannel extends AbstractChannel implement
                                                                       .putInt(id) //
                                                                       .putInt(localWin.getSize()) //
                                                                       .putInt(localWin.getMaxPacketSize()));
-        init.set();
+        open.set();
         conn.attach(this);
     }
     

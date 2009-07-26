@@ -33,6 +33,8 @@ public interface ConnectionService
     
     int getWindowSize();
     
+    void join() throws InterruptedException;
+    
     int nextID();
     
     void setMaxPacketSize(int maxPacketSize);

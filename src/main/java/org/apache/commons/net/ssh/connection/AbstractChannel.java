@@ -55,7 +55,7 @@ public abstract class AbstractChannel implements Channel
     protected final Queue<Event<ConnectionException>> chanReqs = new LinkedList<Event<ConnectionException>>();
     
     protected final ReentrantLock lock = new ReentrantLock();
-    protected final Event<ConnectionException> init;
+    protected final Event<ConnectionException> open;
     protected final Event<ConnectionException> close;
     
     protected ChannelInputStream in;
@@ -72,7 +72,7 @@ public abstract class AbstractChannel implements Channel
         this.trans = conn.getTransport();
         id = conn.nextID();
         localWin.init(conn.getWindowSize(), conn.getMaxPacketSize());
-        init = newEvent("init");
+        open = newEvent("open");
         close = newEvent("close");
     }
     
@@ -193,14 +193,13 @@ public abstract class AbstractChannel implements Channel
         remoteWin.init(buf.getInt(), buf.getInt());
         in = new ChannelInputStream(localWin);
         out = new ChannelOutputStream(this, remoteWin);
-        init.set();
     }
     
     public synchronized boolean isOpen()
     {
         lock.lock();
         try {
-            return init.isSet() && !close.isSet() && !closeReqd;
+            return open.isSet() && !close.isSet() && !closeReqd;
         } finally {
             lock.unlock();
         }
@@ -209,7 +208,7 @@ public abstract class AbstractChannel implements Channel
     @SuppressWarnings("unchecked")
     public void notifyError(SSHException exception)
     {
-        Event.Util.<ConnectionException> notifyError(exception, init, close);
+        Event.Util.<ConnectionException> notifyError(exception, open, close);
         Event.Util.<ConnectionException> notifyError(exception, chanReqs);
     }
     

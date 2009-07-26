@@ -17,9 +17,9 @@ public abstract class AbstractDirectChannel extends AbstractChannel
     {
         lock.lock();
         try {
-            if (!init.isSet()) {
+            if (!open.isSet()) {
                 trans.writePacket(buildOpenReq());
-                init.await(conn.getTimeout());
+                open.await(conn.getTimeout());
             }
         } finally {
             lock.unlock();
@@ -43,11 +43,12 @@ public abstract class AbstractDirectChannel extends AbstractChannel
             case CHANNEL_OPEN_CONFIRMATION:
             {
                 init(buf);
+                open.set();
                 break;
             }
             case CHANNEL_OPEN_FAILURE:
             {
-                init.error(new OpenFailException(getType(), buf.getInt(), buf.getString()));
+                open.error(new OpenFailException(getType(), buf.getInt(), buf.getString()));
                 conn.forget(this);
                 break;
             }

@@ -66,9 +66,10 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         orh.put(handler.getChannelType(), handler);
     }
     
-    public void forget(Channel chan)
+    public synchronized void forget(Channel chan)
     {
         channels.remove(chan.getID());
+        notifyAll();
     }
     
     public void forget(ForwardedChannelOpener handler)
@@ -143,6 +144,12 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
             }
         else
             getChannel(buf).handle(cmd, buf);
+    }
+    
+    public synchronized void join() throws InterruptedException
+    {
+        while (!channels.isEmpty())
+            wait();
     }
     
     public int nextID()

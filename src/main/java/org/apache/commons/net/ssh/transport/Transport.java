@@ -111,7 +111,7 @@ public interface Transport
     /**
      * Returns the session identifier computed during key exchange.
      * <p>
-     * If the session has not yet been initialized via {@link #init}, it will be {@code null}.
+     * If the session has not yet been initialized via {@link #open}, it will be {@code null}.
      * 
      * @return session identifier as a byte array
      */
@@ -140,6 +140,8 @@ public interface Transport
      * @return {@code true} or {@code false} indicating whether the session is running
      */
     boolean isRunning();
+    
+    void join(int timeout) throws TransportException;
     
     /**
      * Request a SSH service represented by a {@link Service} instance.
@@ -182,8 +184,6 @@ public interface Transport
      *            (null-ok)
      */
     void setService(Service service);
-    
-    void join(int timeout) throws TransportException;
     
     /**
      * Encodes and sends an SSH packet over the output stream for this session.
