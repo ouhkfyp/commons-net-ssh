@@ -32,6 +32,7 @@ public class X11
             
             sess.exec("firefox");
             
+            // wait for session to get closed
             client.getConnectionService().join();
             
         } finally {

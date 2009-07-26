@@ -34,6 +34,7 @@ public class LocalPF
                     client.newLocalPortForwarder(new InetSocketAddress("localhost", 8080), "google.com", 80);
             pfd.startListening();
             
+            // something to hang on to
             pfd.join(0);
             
         } finally {

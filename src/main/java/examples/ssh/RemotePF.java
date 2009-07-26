@@ -34,6 +34,7 @@ public class RemotePF
                   .bind(new Forward(8080), //
                         new ConnectListener.SocketForwardingConnectListener(new InetSocketAddress("google.com", 80)));
             
+            // something to hang on to so forwarding stays
             client.getTransport().join(0);
             
         } finally {
