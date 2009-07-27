@@ -13,6 +13,11 @@ import org.apache.commons.net.ssh.util.Constants;
 public interface Channel extends Closeable
 {
     
+    interface Direct extends Channel
+    {
+        void open() throws ConnectionException, TransportException;
+    }
+    
     interface Forwarded extends Channel
     {
         

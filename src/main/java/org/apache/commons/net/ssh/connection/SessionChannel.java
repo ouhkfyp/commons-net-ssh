@@ -1,5 +1,6 @@
 package org.apache.commons.net.ssh.connection;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,10 +29,6 @@ public class SessionChannel extends AbstractDirectChannel implements Session, Se
     public void allocateDefaultPTY() throws ConnectionException, TransportException
     {
         Map<PTYMode, Integer> modes = new HashMap<PTYMode, Integer>();
-        /*
-         * Need to figure out modes, the below is blindly following sshd without knowing what they
-         * mean!
-         */
         modes.put(PTYMode.ISIG, 1);
         modes.put(PTYMode.ICANON, 1);
         modes.put(PTYMode.ECHO, 0);
@@ -39,7 +36,7 @@ public class SessionChannel extends AbstractDirectChannel implements Session, Se
         modes.put(PTYMode.ECHOK, 0);
         modes.put(PTYMode.ECHONL, 0);
         modes.put(PTYMode.NOFLSH, 0);
-        allocatePTY("dummy", 80, 40, 640, 480, modes);
+        allocatePTY("vt100", 80, 40, 640, 480, modes);
     }
     
     public void allocatePTY(String term, int cols, int rows, int width, int height, Map<PTYMode, Integer> modes)
@@ -90,6 +87,15 @@ public class SessionChannel extends AbstractDirectChannel implements Session, Se
     public Integer getExitStatus()
     {
         return exitStatus;
+    }
+    
+    public String getOutputAsString() throws IOException
+    {
+        StringBuilder sb = new StringBuilder();
+        int r;
+        while ((r = in.read()) != -1)
+            sb.append((char) r);
+        return sb.toString();
     }
     
     public String getType()
@@ -171,5 +177,4 @@ public class SessionChannel extends AbstractDirectChannel implements Session, Se
         else
             super.handleExtendedData(dataTypeCode, buf);
     }
-    
 }

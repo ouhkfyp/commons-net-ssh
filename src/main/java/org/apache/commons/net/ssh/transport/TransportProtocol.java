@@ -31,7 +31,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.net.ssh.Config;
 import org.apache.commons.net.ssh.HostKeyVerifier;
 import org.apache.commons.net.ssh.SSHException;
-import org.apache.commons.net.ssh.SSHRuntimeException;
 import org.apache.commons.net.ssh.Service;
 import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.util.Buffer;
@@ -126,7 +125,6 @@ public class TransportProtocol implements Transport
      */
     public TransportProtocol(Config config)
     {
-        assert config != null;
         this.config = config;
         clientID = "SSH-2.0-" + config.getVersion();
         prng = config.getRandomFactory().create();
@@ -270,6 +268,7 @@ public class TransportProtocol implements Transport
         close.await(timeout);
     }
     
+    // synchronized keyword used for mutual exclusion -- for protection 'lock' is used
     public synchronized void reqService(Service service) throws TransportException
     {
         lock.lock();
@@ -303,7 +302,7 @@ public class TransportProtocol implements Transport
         lock.lock();
         try {
             if (!serviceAccept.isSet())
-                throw new SSHRuntimeException("Contract violation");
+                throw new AssertionError();
             log.info("Setting active service to {}", service.getName());
             this.service = service;
         } finally {

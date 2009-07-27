@@ -26,7 +26,6 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
      */
     public KeyedAuthMethod(KeyProvider kProv)
     {
-        assert kProv != null;
         this.kProv = kProv;
     }
     
@@ -55,8 +54,7 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
             throw new UserAuthException("Problem getting private key", ioe);
         }
         String kt = KeyType.fromKey(key).toString();
-        Signature sigger =
-                NamedFactory.Utils.create(params.getTransport().getConfig().getSignatureFactories(), kt);
+        Signature sigger = NamedFactory.Utils.create(params.getTransport().getConfig().getSignatureFactories(), kt);
         sigger.init(null, key);
         sigger.update(new Buffer().putString(params.getTransport().getSessionID()) // sessionID string
                                   .putBuffer(reqBuf) // & rest of the data for sig

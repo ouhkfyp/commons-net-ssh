@@ -43,7 +43,6 @@ public abstract class AbstractAuthMethod implements AuthMethod
     
     public void init(AuthParams params)
     {
-        assert params != null;
         this.params = params;
     }
     

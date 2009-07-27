@@ -1,5 +1,6 @@
 package org.apache.commons.net.ssh.connection;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Map;
@@ -21,6 +22,8 @@ public interface Session
         Integer getExitStatus();
         
         InputStream getInputStream();
+        
+        String getOutputAsString() throws IOException;
         
         OutputStream getOutputStream();
         

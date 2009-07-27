@@ -33,7 +33,6 @@ public class AuthPassword extends AbstractAuthMethod
     
     public AuthPassword(PasswordFinder pwdf)
     {
-        assert pwdf != null;
         this.pwdf = pwdf;
     }
     

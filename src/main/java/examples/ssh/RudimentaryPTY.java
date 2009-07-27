@@ -32,12 +32,10 @@ class RudimentaryPTY
             
             new Pipe("stdout", shell.getInputStream(), System.out) //
                                                                   .bufSize(((Channel) session).getLocalMaxPacketSize()) //
-                                                                  .daemon(true) //
                                                                   .start();
             
             new Pipe("stderr", shell.getErrorStream(), System.err) //
                                                                   .bufSize(((Channel) session).getLocalMaxPacketSize()) //
-                                                                  .daemon(true) //
                                                                   .start();
             
             // Now make System.in act as stdin. To exit, hit Ctrl+D.
@@ -46,9 +44,10 @@ class RudimentaryPTY
             // But this is just an example... a GUI app could implement a proper PTY
             
             OutputStream os = shell.getOutputStream();
-            int i;
-            while ((i = System.in.read()) != -1) {
-                os.write(i);
+            byte[] buf = new byte[((Channel) session).getRemoteMaxPacketSize()];
+            int len;
+            while ((len = System.in.read(buf)) != -1) {
+                os.write(buf, 0, len);
                 os.flush();
             }
             os.close();
