@@ -43,25 +43,26 @@ import org.slf4j.LoggerFactory;
 public abstract class AbstractChannel implements Channel
 {
     
-    protected final Logger log = LoggerFactory.getLogger(getClass());
+    protected final Logger log;
     
     protected final Transport trans;
     protected final ConnectionService conn;
     protected final int id;
     
-    protected final LocalWindow localWin = new LocalWindow(this);
-    protected final RemoteWindow remoteWin = new RemoteWindow();
+    protected final LocalWindow lwin = new LocalWindow(this);
+    protected final RemoteWindow rwin = new RemoteWindow(this);
     
-    protected final Queue<Event<ConnectionException>> chanReqs = new LinkedList<Event<ConnectionException>>();
+    protected final Queue<Event<ConnectionException>> reqs = new LinkedList<Event<ConnectionException>>();
     
     protected final ReentrantLock lock = new ReentrantLock();
     protected final Event<ConnectionException> open;
     protected final Event<ConnectionException> close;
     
-    protected ChannelInputStream in;
-    protected ChannelOutputStream out;
-    
     protected int recipient;
+    
+    protected ChannelInputStream in = new ChannelInputStream(this, lwin);
+    protected ChannelOutputStream out; // initialized in init()
+    
     protected boolean eofSent;
     protected boolean eofGot;
     protected boolean closeReqd;
@@ -71,7 +72,8 @@ public abstract class AbstractChannel implements Channel
         this.conn = conn;
         this.trans = conn.getTransport();
         id = conn.nextID();
-        localWin.init(conn.getWindowSize(), conn.getMaxPacketSize());
+        log = LoggerFactory.getLogger("chan#" + id);
+        lwin.init(conn.getWindowSize(), conn.getMaxPacketSize());
         open = newEvent("open");
         close = newEvent("close");
     }
@@ -94,12 +96,12 @@ public abstract class AbstractChannel implements Channel
     
     public int getLocalMaxPacketSize()
     {
-        return localWin.getMaxPacketSize();
+        return lwin.getMaxPacketSize();
     }
     
     public int getLocalWinSize()
     {
-        return localWin.getSize();
+        return lwin.getSize();
     }
     
     public OutputStream getOutputStream()
@@ -114,12 +116,12 @@ public abstract class AbstractChannel implements Channel
     
     public int getRemoteMaxPacketSize()
     {
-        return remoteWin.getMaxPacketSize();
+        return rwin.getMaxPacketSize();
     }
     
     public int getRemoteWinSize()
     {
-        return remoteWin.getSize();
+        return rwin.getSize();
     }
     
     public Transport getTransport()
@@ -133,8 +135,9 @@ public abstract class AbstractChannel implements Channel
         {
             case CHANNEL_WINDOW_ADJUST:
             {
-                log.info("Received SSH_MSG_CHANNEL_WINDOW_ADJUST on channel {}", id);
-                remoteWin.expand(buf.getInt());
+                int howmuch = buf.getInt();
+                log.info("Received window adjustment for {} bytes", howmuch);
+                rwin.expand(howmuch);
                 break;
             }
             case CHANNEL_DATA:
@@ -151,7 +154,7 @@ public abstract class AbstractChannel implements Channel
             {
                 String reqType = buf.getString();
                 buf.getBoolean(); // We don't ever reply to requests, so ignore this value
-                log.info("Received SSH_MSG_CHANNEL_REQUEST on channel #{} for [{}]", id, reqType);
+                log.info("Got request for `{}`", reqType);
                 handleRequest(reqType, buf);
                 break;
             }
@@ -167,13 +170,13 @@ public abstract class AbstractChannel implements Channel
             }
             case CHANNEL_EOF:
             {
-                log.info("Received SSH_MSG_CHANNEL_EOF on channel #{}", id);
+                log.info("Got EOF");
                 gotEOF();
                 break;
             }
             case CHANNEL_CLOSE:
             {
-                log.info("Received SSH_MSG_CHANNEL_CLOSE on channel #{}", id);
+                log.info("Got close");
                 sendClose();
                 close.set();
                 closeStreams();
@@ -190,9 +193,9 @@ public abstract class AbstractChannel implements Channel
     public void init(Buffer buf)
     {
         this.recipient = buf.getInt();
-        remoteWin.init(buf.getInt(), buf.getInt());
-        in = new ChannelInputStream(localWin);
-        out = new ChannelOutputStream(this, remoteWin);
+        rwin.init(buf.getInt(), buf.getInt());
+        log.info("Initialized - {}", this);
+        out = new ChannelOutputStream(this, rwin);
     }
     
     public synchronized boolean isOpen()
@@ -209,14 +212,14 @@ public abstract class AbstractChannel implements Channel
     public void notifyError(SSHException exception)
     {
         Event.Util.<ConnectionException> notifyError(exception, open, close);
-        Event.Util.<ConnectionException> notifyError(exception, chanReqs);
+        Event.Util.<ConnectionException> notifyError(exception, reqs);
     }
     
     public synchronized void sendEOF() throws TransportException
     {
         try {
             if (!closeReqd && !eofSent) {
-                log.info("Sending SSH_MSG_CHANNEL_EOF for channel #{}", id);
+                log.info("Sending EOF");
                 trans.writePacket(newBuffer(Message.CHANNEL_EOF));
                 if (eofGot)
                     sendClose();
@@ -224,6 +227,13 @@ public abstract class AbstractChannel implements Channel
         } finally {
             eofSent = true;
         }
+    }
+    
+    @Override
+    public String toString()
+    {
+        return "< " + getType() + " channel: id=" + id + ", recipient=" + recipient + ", localWin=" + lwin
+                + ", remoteWin=" + rwin + " >";
     }
     
     protected void closeStreams()
@@ -236,7 +246,7 @@ public abstract class AbstractChannel implements Channel
         int len = buf.getInt();
         if (len < 0 || len > getLocalMaxPacketSize())
             throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR, "Bad item length: " + len);
-        log.debug("Received data on channel {}", id);
+        // log.debug("Got data");
         if (log.isTraceEnabled())
             log.trace("IN: {}", BufferUtils.printHex(buf.array(), buf.rpos(), len));
         stream.receive(buf.array(), buf.rpos(), len);
@@ -252,7 +262,7 @@ public abstract class AbstractChannel implements Channel
     
     protected synchronized void gotResponse(boolean success) throws ConnectionException
     {
-        Event<ConnectionException> event = chanReqs.poll();
+        Event<ConnectionException> event = reqs.poll();
         if (event != null) {
             if (success)
                 event.set();
@@ -292,7 +302,7 @@ public abstract class AbstractChannel implements Channel
     protected synchronized Event<ConnectionException> sendChannelRequest(String reqType, boolean wantReply,
             Buffer reqSpecific) throws TransportException
     {
-        log.info("Sending SSH_MSG_CHANNEL_REQUEST on chan#{} for {}", id, reqType);
+        log.info("Making channel request for `{}`", reqType);
         Buffer reqBuf = newBuffer(Message.CHANNEL_REQUEST).putString(reqType) //
                                                           .putBoolean(wantReply) //
                                                           .putBuffer(reqSpecific);
@@ -300,7 +310,7 @@ public abstract class AbstractChannel implements Channel
         Event<ConnectionException> event = null;
         if (wantReply) {
             event = newEvent("chanreq for " + reqType);
-            chanReqs.add(event);
+            reqs.add(event);
         }
         return event;
     }
@@ -309,7 +319,7 @@ public abstract class AbstractChannel implements Channel
     {
         try {
             if (!closeReqd) {
-                log.info("Sending SSH_MSG_CHANNEL_CLOSE for channel #{}", id);
+                log.info("Sending close");
                 trans.writePacket(newBuffer(Message.CHANNEL_CLOSE));
             }
         } finally {

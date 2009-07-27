@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class Pipe extends Thread
 {
     
@@ -15,19 +18,7 @@ public class Pipe extends Thread
     
     public interface ErrorCallback
     {
-        void hadIOException(IOException e);
-    }
-    
-    public static EOFCallback closeOnEOFCallback(final Closeable closable)
-    {
-        return new EOFCallback()
-            {
-                
-                public void hadEOF()
-                {
-                    IOUtils.closeQuietly(closable);
-                }
-            };
+        void hadError(IOException e);
     }
     
     public static ErrorCallback closeOnErrorCallback(final Closeable closable)
@@ -35,12 +26,14 @@ public class Pipe extends Thread
         return new ErrorCallback()
             {
                 
-                public void hadIOException(IOException ioe)
+                public void hadError(IOException ioe)
                 {
                     IOUtils.closeQuietly(closable);
                 }
             };
     }
+    
+    protected final Logger log;
     
     protected final InputStream in;
     protected final OutputStream out;
@@ -48,11 +41,13 @@ public class Pipe extends Thread
     protected boolean closeStreamOnEOF;
     protected ErrorCallback errCB;
     
-    public Pipe(InputStream in, OutputStream out)
+    public Pipe(String name, InputStream in, OutputStream out)
     {
         this.in = in;
         this.out = out;
+        
         setName("pipe");
+        log = LoggerFactory.getLogger(name);
     }
     
     public Pipe bufSize(int size)
@@ -89,11 +84,15 @@ public class Pipe extends Thread
                 out.write(buf, 0, len);
                 out.flush();
             }
-            if (closeStreamOnEOF)
+            if (closeStreamOnEOF) {
+                log.debug("EOF on {}, closing {}", in, out);
                 out.close();
+            } else
+                log.debug("EOF on {}", in);
         } catch (IOException ioe) {
+            log.error("In pipe from {} to {}: " + ioe.toString(), in, out);
             if (errCB != null)
-                errCB.hadIOException(ioe);
+                errCB.hadError(ioe);
         }
     }
     

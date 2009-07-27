@@ -47,7 +47,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
             new LinkedList<Future<Buffer, ConnectionException>>();
     
     protected int windowSize = 0x200000;
-    protected int maxPacketSize = 0x8800;
+    protected int maxPacketSize = 0x8000;
     
     //    protected final Lock lock = new ReentrantLock();
     
@@ -58,23 +58,27 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     public void attach(Channel chan)
     {
+        log.info("Attaching {} channel (#{})", chan.getType(), chan.getID());
         channels.put(chan.getID(), chan);
     }
     
-    public void attach(ForwardedChannelOpener handler)
+    public void attach(ForwardedChannelOpener fco)
     {
-        orh.put(handler.getChannelType(), handler);
+        log.info("Attaching: {}", fco);
+        orh.put(fco.getChannelType(), fco);
     }
     
     public synchronized void forget(Channel chan)
     {
+        log.info("Forgetting {} channel (#{})", chan.getType(), chan.getID());
         channels.remove(chan.getID());
         notifyAll();
     }
     
-    public void forget(ForwardedChannelOpener handler)
+    public void forget(ForwardedChannelOpener fco)
     {
-        orh.remove(handler.getChannelType());
+        log.info("Forgetting: {}", fco);
+        orh.remove(fco.getChannelType());
     }
     
     public Channel get(int id)
@@ -175,7 +179,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     public synchronized Future<Buffer, ConnectionException> sendGlobalRequest(String name, boolean wantReply,
             Buffer specifics) throws TransportException
     {
-        log.info("Sending GLOBAL_REQUEST for {}, wantReply={}", name, wantReply);
+        log.info("Making global request for `{}`", name);
         trans.writePacket(new Buffer(Message.GLOBAL_REQUEST) //
                                                             .putString(name) //
                                                             .putBoolean(wantReply) //

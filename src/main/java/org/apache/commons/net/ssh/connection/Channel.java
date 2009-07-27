@@ -16,9 +16,13 @@ public interface Channel extends Closeable
     interface Forwarded extends Channel
     {
         
+        void confirm() throws TransportException;
+        
         String getOriginatorIP();
         
         int getOriginatorPort();
+        
+        void reject(int reasonCode, String message) throws TransportException;
         
     }
     

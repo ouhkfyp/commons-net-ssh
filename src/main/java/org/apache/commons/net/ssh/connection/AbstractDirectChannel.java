@@ -31,8 +31,8 @@ public abstract class AbstractDirectChannel extends AbstractChannel
         return new Buffer(Message.CHANNEL_OPEN) //
                                                .putString(getType()) //
                                                .putInt(id) //
-                                               .putInt(localWin.getSize()) //
-                                               .putInt(localWin.getMaxPacketSize());
+                                               .putInt(lwin.getSize()) //
+                                               .putInt(lwin.getMaxPacketSize());
     }
     
     @Override

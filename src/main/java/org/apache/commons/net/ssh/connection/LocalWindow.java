@@ -7,11 +7,9 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public class LocalWindow extends Window
 {
     
-    protected final Channel chan;
-    
-    public LocalWindow(Channel chan)
+    LocalWindow(Channel chan)
     {
-        this.chan = chan;
+        super(chan, true);
     }
     
     public void check(int max) throws TransportException
@@ -26,7 +24,7 @@ public class LocalWindow extends Window
     
     public void sendWindowAdjust(int inc) throws TransportException
     {
-        log.debug("Sending SSH_MSG_CHANNEL_WINDOW_ADJUST to #{} for {} bytes", chan.getRecipient(), inc);
+        log.info("Sending SSH_MSG_CHANNEL_WINDOW_ADJUST to #{} for {} bytes", chan.getRecipient(), inc);
         chan.getTransport().writePacket(new Buffer(Message.CHANNEL_WINDOW_ADJUST) //
                                                                                  .putInt(chan.getRecipient()) //
                                                                                  .putInt(inc));

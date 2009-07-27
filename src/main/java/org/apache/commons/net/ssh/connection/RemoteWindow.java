@@ -3,6 +3,11 @@ package org.apache.commons.net.ssh.connection;
 public class RemoteWindow extends Window
 {
     
+    RemoteWindow(Channel chan)
+    {
+        super(chan, false);
+    }
+    
     public synchronized void waitAndConsume(int howMuch) throws InterruptedException
     {
         while (size < howMuch) {

@@ -33,23 +33,25 @@ public interface ConnectListener
             Socket sock = new Socket();
             sock.connect(addr);
             
+            // ok so far -- could connect, let's confirm the channel
+            chan.confirm();
+            
             ErrorCallback chanCloser = Pipe.closeOnErrorCallback(chan);
             
-            // sock2chan
-            new Pipe(sock.getInputStream(), chan.getOutputStream()) //
-                                                                   .bufSize(chan.getRemoteMaxPacketSize()) //
-                                                                   .closeOutputStreamOnEOF(true) //
-                                                                   .errorCallback(chanCloser) //
-                                                                   .daemon(true) //
-                                                                   .start();
+            new Pipe("soc2chan", sock.getInputStream(), chan.getOutputStream()) //
+                                                                               .bufSize(chan.getRemoteMaxPacketSize()) //
+                                                                               .closeOutputStreamOnEOF(true) //
+                                                                               .errorCallback(chanCloser) //
+                                                                               .daemon(true) //
+                                                                               .start();
             
             // chan2sock
-            new Pipe(chan.getInputStream(), sock.getOutputStream()) //
-                                                                   .bufSize(chan.getLocalMaxPacketSize()) //                                                       
-                                                                   .closeOutputStreamOnEOF(true) //
-                                                                   .errorCallback(chanCloser) //
-                                                                   .daemon(true) //
-                                                                   .start();
+            new Pipe("chan2soc", chan.getInputStream(), sock.getOutputStream()) //
+                                                                               .bufSize(chan.getLocalMaxPacketSize()) //                                                       
+                                                                               .closeOutputStreamOnEOF(true) //
+                                                                               .errorCallback(chanCloser) //
+                                                                               .daemon(true) //
+                                                                               .start();
         }
         
     }

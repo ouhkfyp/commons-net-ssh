@@ -17,7 +17,7 @@ public class SessionChannel extends AbstractDirectChannel implements Session, Se
     private Signal exitSignal;
     
     private Boolean flowControl;
-    private final ChannelInputStream err = new ChannelInputStream(localWin);
+    private final ChannelInputStream err = new ChannelInputStream(this, lwin);
     public static final String TYPE = "session";
     
     public SessionChannel(ConnectionService conn)
@@ -34,9 +34,9 @@ public class SessionChannel extends AbstractDirectChannel implements Session, Se
          */
         modes.put(PTYMode.ISIG, 1);
         modes.put(PTYMode.ICANON, 1);
-        modes.put(PTYMode.ECHO, 1);
-        modes.put(PTYMode.ECHOE, 1);
-        modes.put(PTYMode.ECHOK, 1);
+        modes.put(PTYMode.ECHO, 0);
+        modes.put(PTYMode.ECHOE, 0);
+        modes.put(PTYMode.ECHOK, 0);
         modes.put(PTYMode.ECHONL, 0);
         modes.put(PTYMode.NOFLSH, 0);
         allocatePTY("dummy", 80, 40, 640, 480, modes);

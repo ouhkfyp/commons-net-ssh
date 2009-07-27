@@ -21,8 +21,8 @@ public abstract class AbstractForwardedChannel extends AbstractChannel implement
         log.info("Confirming `{}` channel #{}", getType(), id);
         trans.writePacket(newBuffer(Message.CHANNEL_OPEN_CONFIRMATION) //
                                                                       .putInt(id) //
-                                                                      .putInt(localWin.getSize()) //
-                                                                      .putInt(localWin.getMaxPacketSize()));
+                                                                      .putInt(lwin.getSize()) //
+                                                                      .putInt(lwin.getMaxPacketSize()));
         open.set();
         conn.attach(this);
     }
