@@ -58,12 +58,4 @@ public class TransportException extends SSHException
         super(cause);
     }
     
-    public TransportException chain(Throwable t)
-    {
-        if (t instanceof TransportException)
-            return (TransportException) t;
-        else
-            return new TransportException(t);
-    }
-    
 }

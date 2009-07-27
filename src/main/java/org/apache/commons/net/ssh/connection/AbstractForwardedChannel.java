@@ -4,6 +4,7 @@ import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
+//TODO: move to ConnProto
 public abstract class AbstractForwardedChannel extends AbstractChannel implements Channel.Forwarded
 {
     

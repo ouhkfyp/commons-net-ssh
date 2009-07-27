@@ -4,7 +4,8 @@ import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
 
-public abstract class AbstractDirectChannel extends AbstractChannel
+// TODO: move channel opening to ConnProto
+public abstract class AbstractDirectChannel extends AbstractChannel implements Channel.Direct
 {
     
     protected AbstractDirectChannel(ConnectionService conn)

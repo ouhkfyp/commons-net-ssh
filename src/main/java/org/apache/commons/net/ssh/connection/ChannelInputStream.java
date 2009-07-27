@@ -56,10 +56,7 @@ public class ChannelInputStream extends InputStream
     public int read() throws IOException
     {
         synchronized (b) {
-            int l = read(b, 0, 1);
-            if (l == -1)
-                return -1;
-            return b[0];
+            return read(b, 0, 1) == -1 ? -1 : b[0];
         }
     }
     
@@ -69,10 +66,10 @@ public class ChannelInputStream extends InputStream
         int avail;
         synchronized (buf) {
             for (;;) {
-                if (eof)
-                    return -1;
                 if (buf.available() > 0)
                     break;
+                if (eof)
+                    return -1;
                 try {
                     buf.wait();
                 } catch (InterruptedException e) {

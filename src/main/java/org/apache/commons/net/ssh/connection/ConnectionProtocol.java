@@ -42,7 +42,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     protected final AtomicInteger nextID = new AtomicInteger();
     protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
-    protected final Map<String, ForwardedChannelOpener> orh = new ConcurrentHashMap<String, ForwardedChannelOpener>();
+    protected final Map<String, ForwardedChannelOpener> openers = new ConcurrentHashMap<String, ForwardedChannelOpener>();
     protected final Queue<Future<Buffer, ConnectionException>> globalReqs =
             new LinkedList<Future<Buffer, ConnectionException>>();
     
@@ -62,10 +62,10 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         channels.put(chan.getID(), chan);
     }
     
-    public void attach(ForwardedChannelOpener fco)
+    public void attach(ForwardedChannelOpener opener)
     {
-        log.info("Attaching: {}", fco);
-        orh.put(fco.getChannelType(), fco);
+        log.info("Attaching: {}", opener);
+        openers.put(opener.getChannelType(), opener);
     }
     
     public synchronized void forget(Channel chan)
@@ -75,10 +75,10 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         notifyAll();
     }
     
-    public void forget(ForwardedChannelOpener fco)
+    public void forget(ForwardedChannelOpener opener)
     {
-        log.info("Forgetting: {}", fco);
-        orh.remove(fco.getChannelType());
+        log.info("Forgetting: {}", opener);
+        openers.remove(opener.getChannelType());
     }
     
     public Channel get(int id)
@@ -88,7 +88,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     public ForwardedChannelOpener get(String chanType)
     {
-        return orh.get(chanType);
+        return openers.get(chanType);
     }
     
     public int getMaxPacketSize()
@@ -136,8 +136,8 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
                 case CHANNEL_OPEN:
                     String type = buf.getString();
                     log.debug("Received CHANNEL_OPEN for `{}` channel", type);
-                    if (orh.containsKey(type))
-                        orh.get(type).handleOpen(buf);
+                    if (openers.containsKey(type))
+                        openers.get(type).handleOpen(buf);
                     else {
                         log.warn("No handler found for `{}` CHANNEL_OPEN request -- rejecting", type);
                         sendOpenFailure(buf.getInt(), OpenFailException.UNKNOWN_CHANNEL_TYPE, "");

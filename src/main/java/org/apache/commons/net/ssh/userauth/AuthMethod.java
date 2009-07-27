@@ -26,9 +26,8 @@ import org.apache.commons.net.ssh.util.Constants.Message;
  * An authentication method of the <a href="http://www.ietf.org/rfc/rfc4252.txt">SSH Authentication
  * Protocol</a>.
  * 
- * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
- * @author Shikhar Bhushan
- * @see UserAuthProtocol
+ * @author shikhar
+ * @see UserAuthService
  */
 public interface AuthMethod
 {
