@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
  * Hashed hostnames are correctly handled.
  * 
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
+ * @see <a href="http://nms.lcs.mit.edu/projects/ssh/README.hashed-hosts">Hashed hostnames spec</a>
  */
 public class KnownHosts implements HostKeyVerifier
 {
@@ -182,11 +183,7 @@ public class KnownHosts implements HostKeyVerifier
                     continue;
                 }
         } finally {
-            try {
-                if (br != null)
-                    br.close();
-            } catch (IOException ignored) {
-            }
+            IOUtils.closeQuietly(br);
         }
     }
     
