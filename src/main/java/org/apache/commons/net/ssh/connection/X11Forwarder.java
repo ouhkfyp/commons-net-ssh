@@ -47,11 +47,11 @@ public class X11Forwarder implements ForwardedChannelOpener
     public void handleOpen(Buffer buf) throws ConnectionException, TransportException
     {
         X11Channel chan = new X11Channel(conn, buf);
-        chan.confirm();
         try {
             listener.gotConnect(chan);
         } catch (IOException ioe) {
-            chan.close();
+            if (chan.isOpen())
+                chan.close();
         }
     }
     

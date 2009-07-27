@@ -27,12 +27,19 @@ import org.slf4j.LoggerFactory;
 public abstract class Window
 {
     
-    protected final Logger log = LoggerFactory.getLogger(getClass());
+    protected final Logger log;
     
-    protected int maxPacketSize;
+    protected final Channel chan;
     
     protected int size;
     protected int initSize;
+    protected int maxPacketSize;
+    
+    Window(Channel chan, boolean local)
+    {
+        this.chan = chan;
+        log = LoggerFactory.getLogger("<< chan#" + chan.getID() + " / " + (local ? "local" : "remote") + " window >>");
+    }
     
     public synchronized void consume(int dec)
     {
@@ -62,6 +69,12 @@ public abstract class Window
     public synchronized int getSize()
     {
         return size;
+    }
+    
+    @Override
+    public String toString()
+    {
+        return "[ size=" + size + " | maxPacketSize=" + maxPacketSize + "]";
     }
     
     void init(int initialWinSize, int maxPacketSize)

@@ -27,14 +27,14 @@ public class LocalPF
             client.authPublickey(System.getProperty("user.name"));
             
             /*
-             * We listen on port localhost:8080 and forward all connections on to server, which then
-             * forwards it to google.com:80
+             * _We_ listen on port localhost:8080 and forward all connections on to server, which
+             * then forwards it to google.com:80
              */
             LocalPortForwarder pfd =
                     client.newLocalPortForwarder(new InetSocketAddress("localhost", 8080), "google.com", 80);
             pfd.startListening();
             
-            // something to hang on to
+            // Something to hang on to
             pfd.join(0);
             
         } finally {

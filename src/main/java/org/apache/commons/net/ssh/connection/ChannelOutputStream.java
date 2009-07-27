@@ -25,8 +25,6 @@ import java.io.OutputStream;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
@@ -34,15 +32,14 @@ import org.slf4j.LoggerFactory;
 public class ChannelOutputStream extends OutputStream
 {
     
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    protected final Channel chan;
+    protected final RemoteWindow win;
     
-    private final Channel chan;
-    private final RemoteWindow win;
-    private final byte[] b = new byte[1];
-    private Buffer buffer;
-    private int bufferLength;
+    protected final byte[] b = new byte[1];
     
-    private boolean closed;
+    protected Buffer buffer;
+    protected int bufferLength;
+    protected boolean closed;
     
     public ChannelOutputStream(Channel chan, RemoteWindow win)
     {
@@ -80,6 +77,12 @@ public class ChannelOutputStream extends OutputStream
         } finally {
             newBuffer();
         }
+    }
+    
+    @Override
+    public String toString()
+    {
+        return "< ChannelOutputStream for Channel #" + chan.getID() + " >";
     }
     
     @Override

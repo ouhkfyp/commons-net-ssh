@@ -34,23 +34,23 @@ public class LocalPortForwarder
         
         private void start() throws IOException
         {
-            sock.setSendBufferSize(remoteWin.getMaxPacketSize());
+            sock.setSendBufferSize(rwin.getMaxPacketSize());
             
             ErrorCallback chanCloser = Pipe.closeOnErrorCallback(this);
             
-            new Pipe(in, sock.getOutputStream()) //
-                                                .bufSize(getLocalMaxPacketSize()) //
-                                                .closeOutputStreamOnEOF(true) //
-                                                .errorCallback(chanCloser) //
-                                                .daemon(true) //
-                                                .start();
+            new Pipe("chan2soc", in, sock.getOutputStream()) //
+                                                            .bufSize(getLocalMaxPacketSize()) //
+                                                            .closeOutputStreamOnEOF(true) //
+                                                            .errorCallback(chanCloser) //
+                                                            .daemon(true) //
+                                                            .start();
             
-            new Pipe(sock.getInputStream(), out) //
-                                                .bufSize(getRemoteMaxPacketSize()) //
-                                                .closeOutputStreamOnEOF(true) //
-                                                .errorCallback(chanCloser) //
-                                                .daemon(true) //
-                                                .start();
+            new Pipe("soc2chan", sock.getInputStream(), out) //
+                                                            .bufSize(getRemoteMaxPacketSize()) //
+                                                            .closeOutputStreamOnEOF(true) //
+                                                            .errorCallback(chanCloser) //
+                                                            .daemon(true) //
+                                                            .start();
             
         }
         

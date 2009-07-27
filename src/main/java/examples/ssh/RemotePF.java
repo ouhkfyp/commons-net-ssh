@@ -27,11 +27,11 @@ public class RemotePF
             client.authPublickey(System.getProperty("user.name"));
             
             /*
-             * Server listens on port 8080, and forwards all connections to us, and we further
-             * forward to google.com:80
+             * We make _server_ listen on port 8080, which forwards all connections to us as a
+             * channel, and we further forward all such channels to google.com:80
              */
             client.getRemotePortForwarder() //
-                  .bind(new Forward(8080), //
+                  .bind(new Forward("127.0.0.1", 8080), //
                         new ConnectListener.SocketForwardingConnectListener(new InetSocketAddress("google.com", 80)));
             
             // something to hang on to so forwarding stays

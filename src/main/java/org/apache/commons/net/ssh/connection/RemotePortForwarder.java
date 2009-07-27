@@ -162,17 +162,18 @@ public class RemotePortForwarder implements ForwardedChannelOpener
     public void handleOpen(Buffer buf) throws ConnectionException, TransportException
     {
         ForwardedTCPIPChannel chan = new ForwardedTCPIPChannel(conn, buf);
-        if (listeners.containsKey(chan.getParentForward())) {
-            chan.confirm();
+        if (listeners.containsKey(chan.getParentForward()))
             try {
                 listeners.get(chan.getParentForward()).gotConnect(chan);
             } catch (IOException logged) {
                 log.warn("Error in ConnectListener callback: {}", logged.toString());
-                chan.close();
+                if (chan.isOpen())
+                    chan.sendClose();
+                else
+                    chan.reject(OpenFailException.CONNECT_FAILED, "");
             }
-        } else
+        else
             chan.reject(OpenFailException.ADMINISTRATIVELY_PROHIBITED, "Forwarding was not requested on ["
                     + chan.getParentForward() + "]");
     }
-    
 }
