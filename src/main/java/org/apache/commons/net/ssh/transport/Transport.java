@@ -71,7 +71,7 @@ public interface Transport
      */
     void disconnect(DisconnectReason reason, String msg);
     
-    void forceRekey() throws TransportException;
+    void forcedRekey() throws TransportException;
     
     /**
      * Returns the version string used by this client to identify itself to an SSH server, e.g.
@@ -116,6 +116,8 @@ public interface Transport
      * @return session identifier as a byte array
      */
     byte[] getSessionID();
+    
+    int getTimeout();
     
     /**
      * Initializes this session by exchanging identification information and performing key exchange
@@ -184,6 +186,8 @@ public interface Transport
      *            (null-ok)
      */
     void setService(Service service);
+    
+    void setTimeout(int timeout);
     
     /**
      * Encodes and sends an SSH packet over the output stream for this session.

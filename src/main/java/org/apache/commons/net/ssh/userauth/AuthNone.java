@@ -18,15 +18,12 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
-
 public class AuthNone extends AbstractAuthMethod
 {
     
-    public static final String NAME = "none";
-    
-    public String getName()
+    AuthNone()
     {
-        return NAME;
+        super("none");
     }
     
 }

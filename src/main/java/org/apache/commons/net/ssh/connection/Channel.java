@@ -15,7 +15,9 @@ public interface Channel extends Closeable
     
     interface Direct extends Channel
     {
+        
         void open() throws ConnectionException, TransportException;
+        
     }
     
     interface Forwarded extends Channel
@@ -49,6 +51,8 @@ public interface Channel extends Closeable
     
     int getRemoteWinSize();
     
+    int getTimeout();
+    
     Transport getTransport();
     
     String getType();
@@ -60,5 +64,7 @@ public interface Channel extends Closeable
     void notifyError(SSHException exception);
     
     void sendEOF() throws TransportException;
+    
+    void setTimeout(int timeout);
     
 }

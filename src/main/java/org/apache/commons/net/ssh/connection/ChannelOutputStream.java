@@ -45,11 +45,10 @@ public class ChannelOutputStream extends OutputStream
     {
         this.chan = chan;
         this.win = win;
-        newBuffer();
     }
     
     @Override
-    public synchronized void close() throws TransportException
+    public synchronized void close() throws ConnectionException, TransportException
     {
         if (!closed) {
             closed = true;
@@ -77,6 +76,11 @@ public class ChannelOutputStream extends OutputStream
         } finally {
             newBuffer();
         }
+    }
+    
+    public void init()
+    {
+        newBuffer();
     }
     
     @Override

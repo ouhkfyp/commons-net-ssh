@@ -8,9 +8,9 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public abstract class AbstractDirectChannel extends AbstractChannel implements Channel.Direct
 {
     
-    protected AbstractDirectChannel(ConnectionService conn)
+    protected AbstractDirectChannel(String name, ConnectionService conn)
     {
-        super(conn);
+        super(name, conn);
         conn.attach(this);
     }
     
@@ -30,7 +30,7 @@ public abstract class AbstractDirectChannel extends AbstractChannel implements C
     protected Buffer buildOpenReq()
     {
         return new Buffer(Message.CHANNEL_OPEN) //
-                                               .putString(getType()) //
+                                               .putString(type) //
                                                .putInt(id) //
                                                .putInt(lwin.getSize()) //
                                                .putInt(lwin.getMaxPacketSize());
@@ -43,13 +43,13 @@ public abstract class AbstractDirectChannel extends AbstractChannel implements C
         {
             case CHANNEL_OPEN_CONFIRMATION:
             {
-                init(buf);
+                init(buf.getInt(), buf.getInt(), buf.getInt());
                 open.set();
                 break;
             }
             case CHANNEL_OPEN_FAILURE:
             {
-                open.error(new OpenFailException(getType(), buf.getInt(), buf.getString()));
+                open.error(new OpenFailException(type, buf.getInt(), buf.getString()));
                 conn.forget(this);
                 break;
             }

@@ -15,11 +15,19 @@ public abstract class AbstractService implements Service
 {
     
     protected final Logger log = LoggerFactory.getLogger(getClass());
+    
     protected final Transport trans;
+    protected int timeout;
     
     public AbstractService(Transport trans)
     {
         this.trans = trans;
+        timeout = trans.getTimeout();
+    }
+    
+    public int getTimeout()
+    {
+        return this.timeout;
     }
     
     public Transport getTransport()
@@ -40,6 +48,11 @@ public abstract class AbstractService implements Service
                 trans.setService(this);
             else
                 trans.reqService(this);
+    }
+    
+    public void setTimeout(int timeout)
+    {
+        this.timeout = timeout;
     }
     
 }

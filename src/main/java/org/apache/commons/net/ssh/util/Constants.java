@@ -207,15 +207,36 @@ public interface Constants
             this.b = (byte) b;
         }
         
+        public boolean gt(int num)
+        {
+            return b > num;
+        }
+        
+        public boolean lt(int num)
+        {
+            return b < num;
+        }
+        
+        public boolean in(int x, int y)
+        {
+            return b >= x && b <= y;
+        }
+        
+        public boolean geq(int num)
+        {
+            return b >= num;
+        }
+        
+        public boolean leq(int num)
+        {
+            return b <= num;
+        }
+        
         public byte toByte()
         {
             return b;
         }
         
-        public short toInt()
-        {
-            return b;
-        }
     }
     
     /**

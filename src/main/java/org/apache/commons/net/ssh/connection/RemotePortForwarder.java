@@ -75,22 +75,16 @@ public class RemotePortForwarder implements ForwardedChannelOpener
         
         private final Forward fwd;
         
-        public ForwardedTCPIPChannel(ConnectionService conn, Buffer buf) throws TransportException
+        public ForwardedTCPIPChannel(ConnectionService conn, int recipient, int remoteWinSize, int remoteMaxPacketSize,
+                Forward fwd, String origIP, int origPort) throws TransportException
         {
-            super(conn, buf);
-            this.fwd = new Forward(buf.getString(), buf.getInt());
-            this.origIP = buf.getString();
-            this.origPort = buf.getInt();
+            super(TYPE, conn, recipient, remoteWinSize, remoteMaxPacketSize, origIP, origPort);
+            this.fwd = fwd;
         }
         
         public Forward getParentForward()
         {
             return fwd;
-        }
-        
-        public String getType()
-        {
-            return TYPE;
         }
         
     }
@@ -161,7 +155,9 @@ public class RemotePortForwarder implements ForwardedChannelOpener
     
     public void handleOpen(Buffer buf) throws ConnectionException, TransportException
     {
-        ForwardedTCPIPChannel chan = new ForwardedTCPIPChannel(conn, buf);
+        ForwardedTCPIPChannel chan = new ForwardedTCPIPChannel(conn, buf.getInt(), buf.getInt(), buf.getInt(), //
+                                                               new Forward(buf.getString(), buf.getInt()), //
+                                                               buf.getString(), buf.getInt());
         if (listeners.containsKey(chan.getParentForward()))
             try {
                 listeners.get(chan.getParentForward()).gotConnect(chan);
@@ -176,4 +172,5 @@ public class RemotePortForwarder implements ForwardedChannelOpener
             chan.reject(OpenFailException.ADMINISTRATIVELY_PROHIBITED, "Forwarding was not requested on ["
                     + chan.getParentForward() + "]");
     }
+    
 }

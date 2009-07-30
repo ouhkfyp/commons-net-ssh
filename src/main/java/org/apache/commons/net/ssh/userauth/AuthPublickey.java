@@ -37,19 +37,9 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public class AuthPublickey extends KeyedAuthMethod
 {
     
-    /**
-     * Assigned name of this authentication method
-     */
-    public static final String NAME = "publickey";
-    
     public AuthPublickey(KeyProvider kProv)
     {
-        super(kProv);
-    }
-    
-    public String getName()
-    {
-        return NAME;
+        super("publickey", kProv);
     }
     
     @Override

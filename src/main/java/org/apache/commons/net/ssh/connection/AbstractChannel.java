@@ -45,14 +45,16 @@ public abstract class AbstractChannel implements Channel
     
     protected final Logger log;
     
+    protected final String type;
+    
     protected final Transport trans;
     protected final ConnectionService conn;
     protected final int id;
     
     protected final LocalWindow lwin = new LocalWindow(this);
-    protected final RemoteWindow rwin = new RemoteWindow(this);
+    protected final RemoteWindow rwin = new RemoteWindow(this);;
     
-    protected final Queue<Event<ConnectionException>> reqs = new LinkedList<Event<ConnectionException>>();
+    protected Queue<Event<ConnectionException>> reqs = new LinkedList<Event<ConnectionException>>();
     
     protected final ReentrantLock lock = new ReentrantLock();
     protected final Event<ConnectionException> open;
@@ -61,21 +63,25 @@ public abstract class AbstractChannel implements Channel
     protected int recipient;
     
     protected ChannelInputStream in = new ChannelInputStream(this, lwin);
-    protected ChannelOutputStream out; // initialized in init()
+    protected ChannelOutputStream out = new ChannelOutputStream(this, rwin);
     
     protected boolean eofSent;
     protected boolean eofGot;
     protected boolean closeReqd;
     
-    protected AbstractChannel(ConnectionService conn)
+    protected int timeout;
+    
+    protected AbstractChannel(String type, ConnectionService conn)
     {
+        this.type = type;
         this.conn = conn;
         this.trans = conn.getTransport();
         id = conn.nextID();
-        log = LoggerFactory.getLogger("chan#" + id);
         lwin.init(conn.getWindowSize(), conn.getMaxPacketSize());
+        log = LoggerFactory.getLogger("chan#" + id);
         open = newEvent("open");
         close = newEvent("close");
+        timeout = conn.getTimeout();
     }
     
     public void close() throws ConnectionException, TransportException
@@ -124,22 +130,26 @@ public abstract class AbstractChannel implements Channel
         return rwin.getSize();
     }
     
+    public int getTimeout()
+    {
+        return timeout;
+    }
+    
     public Transport getTransport()
     {
         return trans;
+    }
+    
+    public String getType()
+    {
+        return type;
     }
     
     public void handle(Message cmd, Buffer buf) throws ConnectionException, TransportException
     {
         switch (cmd)
         {
-            case CHANNEL_WINDOW_ADJUST:
-            {
-                int howmuch = buf.getInt();
-                log.info("Received window adjustment for {} bytes", howmuch);
-                rwin.expand(howmuch);
-                break;
-            }
+            
             case CHANNEL_DATA:
             {
                 doWrite(buf, in);
@@ -150,6 +160,14 @@ public abstract class AbstractChannel implements Channel
                 handleExtendedData(buf.getInt(), buf);
                 break;
             }
+            case CHANNEL_WINDOW_ADJUST:
+            {
+                int howmuch = buf.getInt();
+                log.info("Received window adjustment for {} bytes", howmuch);
+                rwin.expand(howmuch);
+                break;
+            }
+                
             case CHANNEL_REQUEST:
             {
                 String reqType = buf.getString();
@@ -168,6 +186,7 @@ public abstract class AbstractChannel implements Channel
                 gotResponse(false);
                 break;
             }
+                
             case CHANNEL_EOF:
             {
                 log.info("Got EOF");
@@ -183,6 +202,7 @@ public abstract class AbstractChannel implements Channel
                 conn.forget(this);
                 break;
             }
+                
             default:
             {
                 gotUnknown(cmd, buf);
@@ -190,12 +210,12 @@ public abstract class AbstractChannel implements Channel
         }
     }
     
-    public void init(Buffer buf)
+    public void init(int recipient, int remoteWinSize, int remoteMaxPacketSize)
     {
-        this.recipient = buf.getInt();
-        rwin.init(buf.getInt(), buf.getInt());
+        this.recipient = recipient;
+        rwin.init(remoteWinSize, remoteMaxPacketSize);
+        out.init();
         log.info("Initialized - {}", this);
-        out = new ChannelOutputStream(this, rwin);
     }
     
     public synchronized boolean isOpen()
@@ -229,11 +249,16 @@ public abstract class AbstractChannel implements Channel
         }
     }
     
+    public void setTimeout(int timeout)
+    {
+        this.timeout = timeout;
+    }
+    
     @Override
     public String toString()
     {
-        return "< " + getType() + " channel: id=" + id + ", recipient=" + recipient + ", localWin=" + lwin
-                + ", remoteWin=" + rwin + " >";
+        return "< " + type + " channel: id=" + id + ", recipient=" + recipient + ", localWin=" + lwin + ", remoteWin="
+                + rwin + " >";
     }
     
     protected void closeStreams()
@@ -280,7 +305,7 @@ public abstract class AbstractChannel implements Channel
     
     protected void handleExtendedData(int dataTypeCode, Buffer buf) throws ConnectionException, TransportException
     {
-        throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR, "Extended data not supported on " + getType()
+        throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR, "Extended data not supported on " + type
                 + " channel");
     }
     

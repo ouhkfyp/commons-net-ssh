@@ -116,7 +116,6 @@ public class SSHClient extends SocketClient
     {
         Config conf = new Config();
         conf.setVersion("NET_3_0");
-        conf.setTimeout(30);
         
         if (SecurityUtils.isBouncyCastleRegistered()) {
             conf.setKeyExchangeFactories(new DHG14.Factory(), new DHG1.Factory());

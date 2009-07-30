@@ -8,18 +8,21 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public abstract class AbstractForwardedChannel extends AbstractChannel implements Channel.Forwarded
 {
     
-    protected String origIP;
-    protected int origPort;
+    protected final String origIP;
+    protected final int origPort;
     
-    protected AbstractForwardedChannel(ConnectionService conn, Buffer buf)
+    protected AbstractForwardedChannel(String name, ConnectionService conn, int recipient, int remoteWinSize,
+            int remoteMaxPacketSize, String origIP, int origPort)
     {
-        super(conn);
-        init(buf);
+        super(name, conn);
+        this.origIP = origIP;
+        this.origPort = origPort;
+        init(recipient, remoteWinSize, remoteMaxPacketSize);
     }
     
     public void confirm() throws TransportException
     {
-        log.info("Confirming `{}` channel #{}", getType(), id);
+        log.info("Confirming `{}` channel #{}", type, id);
         trans.writePacket(newBuffer(Message.CHANNEL_OPEN_CONFIRMATION) //
                                                                       .putInt(id) //
                                                                       .putInt(lwin.getSize()) //
@@ -40,7 +43,7 @@ public abstract class AbstractForwardedChannel extends AbstractChannel implement
     
     public void reject(int reasonCode, String message) throws TransportException
     {
-        log.info("Rejecting `{}` channel: {}", getType(), message);
+        log.info("Rejecting `{}` channel: {}", type, message);
         trans.writePacket(new Buffer(Message.CHANNEL_OPEN_FAILURE) //
                                                                   .putInt(reasonCode) //
                                                                   .putString(message));
