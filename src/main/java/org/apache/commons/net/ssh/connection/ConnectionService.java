@@ -39,6 +39,8 @@ public interface ConnectionService
     
     void setMaxPacketSize(int maxPacketSize);
     
+    void setTimeout(int timeout);
+    
     void setWindowSize(int windowSize);
     
 }

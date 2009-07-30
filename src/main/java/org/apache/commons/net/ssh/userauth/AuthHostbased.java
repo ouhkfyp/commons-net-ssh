@@ -29,11 +29,6 @@ import org.apache.commons.net.ssh.util.Buffer;
 public class AuthHostbased extends KeyedAuthMethod
 {
     
-    /**
-     * Assigned name of this authentication method
-     */
-    public static final String NAME = "hostbased";
-    
     protected final String hostname;
     protected final String hostuser;
     
@@ -44,15 +39,10 @@ public class AuthHostbased extends KeyedAuthMethod
     
     public AuthHostbased(KeyProvider kProv, String hostuser, String hostname)
     {
-        super(kProv);
+        super("hostbased", kProv);
         assert hostuser != null;
         this.hostuser = hostuser;
         this.hostname = hostname;
-    }
-    
-    public String getName()
-    {
-        return NAME;
     }
     
     @Override

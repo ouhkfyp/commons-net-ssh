@@ -42,14 +42,13 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     protected final AtomicInteger nextID = new AtomicInteger();
     protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
-    protected final Map<String, ForwardedChannelOpener> openers = new ConcurrentHashMap<String, ForwardedChannelOpener>();
+    protected final Map<String, ForwardedChannelOpener> openers =
+            new ConcurrentHashMap<String, ForwardedChannelOpener>();
     protected final Queue<Future<Buffer, ConnectionException>> globalReqs =
             new LinkedList<Future<Buffer, ConnectionException>>();
     
     protected int windowSize = 0x200000;
     protected int maxPacketSize = 0x8000;
-    
-    //    protected final Lock lock = new ReentrantLock();
     
     public ConnectionProtocol(Transport session)
     {
@@ -58,26 +57,26 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     
     public void attach(Channel chan)
     {
-        log.info("Attaching {} channel (#{})", chan.getType(), chan.getID());
+        log.info("Attaching `{}` channel (#{})", chan.getType(), chan.getID());
         channels.put(chan.getID(), chan);
     }
     
     public void attach(ForwardedChannelOpener opener)
     {
-        log.info("Attaching: {}", opener);
+        log.info("Attaching opener for `{}` channels: {}", opener.getChannelType(), opener);
         openers.put(opener.getChannelType(), opener);
     }
     
     public synchronized void forget(Channel chan)
     {
-        log.info("Forgetting {} channel (#{})", chan.getType(), chan.getID());
+        log.info("Forgetting `{}` channel (#{})", chan.getType(), chan.getID());
         channels.remove(chan.getID());
         notifyAll();
     }
     
     public void forget(ForwardedChannelOpener opener)
     {
-        log.info("Forgetting: {}", opener);
+        log.info("Forgetting opener for `{}` channels: {}", opener.getChannelType(), opener);
         openers.remove(opener.getChannelType());
     }
     
@@ -101,11 +100,6 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         return NAME;
     }
     
-    public int getTimeout()
-    {
-        return trans.getConfig().getTimeout();
-    }
-    
     @Override
     public Transport getTransport()
     {
@@ -117,15 +111,13 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         return windowSize;
     }
     
-    public void handle(Message cmd, Buffer buf) throws ConnectionException, TransportException
+    public void handle(Message msg, Buffer buf) throws ConnectionException, TransportException
     {
-        int num = cmd.toInt();
+        if (msg.in(91, 100))
+            getChannel(buf).handle(msg, buf);
         
-        if (num < 80 || num > 100)
-            throw new TransportException(DisconnectReason.PROTOCOL_ERROR);
-        
-        else if (num <= 90)
-            switch (cmd)
+        else if (msg.in(80, 90))
+            switch (msg)
             {
                 case REQUEST_SUCCESS:
                     gotResponse(buf);
@@ -139,15 +131,16 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
                     if (openers.containsKey(type))
                         openers.get(type).handleOpen(buf);
                     else {
-                        log.warn("No handler found for `{}` CHANNEL_OPEN request -- rejecting", type);
+                        log.warn("No opener found for `{}` CHANNEL_OPEN request -- rejecting", type);
                         sendOpenFailure(buf.getInt(), OpenFailException.UNKNOWN_CHANNEL_TYPE, "");
                     }
                     break;
                 default:
                     trans.sendUnimplemented();
             }
+        
         else
-            getChannel(buf).handle(cmd, buf);
+            throw new TransportException(DisconnectReason.PROTOCOL_ERROR, "Not an ssh-connection packet");
     }
     
     public synchronized void join() throws InterruptedException
@@ -210,7 +203,7 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
         Channel channel = channels.get(recipient);
         if (channel == null) {
             buffer.rpos(buffer.rpos() - 5);
-            Constants.Message cmd = buffer.getCommand();
+            Constants.Message cmd = buffer.getMessageID();
             throw new ConnectionException(DisconnectReason.PROTOCOL_ERROR, "Received " + cmd + " on unknown channel #"
                     + recipient);
         }

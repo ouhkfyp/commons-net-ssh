@@ -99,8 +99,6 @@ public interface Session
         
     }
     
-    String NAME = "session";
-    
     void allocateDefaultPTY() throws ConnectionException, TransportException;
     
     void allocatePTY(String term, int cols, int rows, int width, int height, Map<PTYMode, Integer> modes)

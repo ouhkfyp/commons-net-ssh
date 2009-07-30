@@ -18,18 +18,12 @@ public class LocalPortForwarder
     private class DirectTCPIPChannel extends AbstractDirectChannel
     {
         
-        public static final String TYPE = "direct-tcpip";
         private final Socket sock;
         
         private DirectTCPIPChannel(ConnectionService conn, Socket sock)
         {
-            super(conn);
+            super("direct-tcpip", conn);
             this.sock = sock;
-        }
-        
-        public String getType()
-        {
-            return TYPE;
         }
         
         private void start() throws IOException

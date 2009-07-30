@@ -56,12 +56,12 @@ public abstract class Window
         notifyAll();
     }
     
-    public synchronized int getInitialSize()
+    public int getInitialSize()
     {
         return initSize;
     }
     
-    public synchronized int getMaxPacketSize()
+    public int getMaxPacketSize()
     {
         return maxPacketSize;
     }
@@ -74,7 +74,7 @@ public abstract class Window
     @Override
     public String toString()
     {
-        return "[ size=" + size + " | maxPacketSize=" + maxPacketSize + "]";
+        return "[ size=" + size + " | maxPacketSize=" + maxPacketSize + " ]";
     }
     
     void init(int initialWinSize, int maxPacketSize)

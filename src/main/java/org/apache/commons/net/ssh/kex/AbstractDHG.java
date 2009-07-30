@@ -97,10 +97,9 @@ public abstract class AbstractDHG implements KeyExchange
     
     public boolean next(Buffer buffer) throws TransportException
     {
-        Message cmd = buffer.getCommand();
-        if (cmd != Message.KEXDH_31)
-            throw new TransportException(DisconnectReason.KEY_EXCHANGE_FAILED, "Protocol error: expected packet "
-                    + Message.KEXDH_31 + ", got " + cmd);
+        Message msg = buffer.getMessageID();
+        if (msg != Message.KEXDH_31)
+            throw new TransportException(DisconnectReason.KEY_EXCHANGE_FAILED, "Unxpected packet: " + msg);
         
         log.info("Received SSH_MSG_KEXDH_REPLY");
         byte[] K_S = buffer.getBytes();

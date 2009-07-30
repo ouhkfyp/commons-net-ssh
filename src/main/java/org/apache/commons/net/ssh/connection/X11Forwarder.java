@@ -14,17 +14,12 @@ public class X11Forwarder implements ForwardedChannelOpener
     {
         public static final String TYPE = "x11";
         
-        protected X11Channel(ConnectionService conn, Buffer buf)
+        protected X11Channel(ConnectionService conn, int recipient, int remoteWinSize, int remoteMaxPacketSize,
+                String origIP, int origPort)
         {
-            super(conn, buf);
-            this.origIP = buf.getString();
-            this.origPort = buf.getInt();
+            super(TYPE, conn, recipient, remoteWinSize, remoteMaxPacketSize, origIP, origPort);
         }
         
-        public String getType()
-        {
-            return TYPE;
-        }
     }
     
     protected final Logger log = LoggerFactory.getLogger(getClass());
@@ -46,7 +41,7 @@ public class X11Forwarder implements ForwardedChannelOpener
     
     public void handleOpen(Buffer buf) throws ConnectionException, TransportException
     {
-        X11Channel chan = new X11Channel(conn, buf);
+        X11Channel chan = new X11Channel(conn, buf.getInt(), buf.getInt(), buf.getInt(), buf.getString(), buf.getInt());
         try {
             listener.gotConnect(chan);
         } catch (IOException ioe) {

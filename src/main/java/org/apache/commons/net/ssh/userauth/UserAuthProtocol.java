@@ -68,11 +68,17 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         this.username = username;
         this.nextService = nextService;
         
-        for (AuthMethod meth : methods)
-            // initially all methods allowed
-            allowed.add(meth.getName());
+        {
+            /*
+             * Standard practice is to try "none" auth which would give us the real allowed methods
+             * list when it fails... maybe should be doing that.
+             */
+            for (AuthMethod meth : methods)
+                // Initially assume all methods allowed
+                allowed.add(meth.getName());
+        }
         
-        request(); // request "ssh-userauth" service
+        request(); // Request "ssh-userauth" service
         
         for (AuthMethod meth : methods) {
             
@@ -86,15 +92,15 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                 meth.init(this);
                 result.clear();
                 meth.request();
-                if (result.get(trans.getConfig().getTimeout())) { // success
-                    // puts delayed compression into force if applicable
+                if (result.get(timeout)) { // Success
+                    // Puts delayed compression into force if applicable
                     trans.setAuthenticated();
-                    // we aren't in charge anymore, next service is
+                    // We aren't in charge anymore, next service is
                     trans.setService(nextService);
                     return;
                 }
             } catch (UserAuthException e) {
-                // an exception requesting the method, let's give other methods a shot
+                // Let's give other methods a shot
                 log.error("Saving for later - {}", e.toString());
                 savedEx.push(e);
             } finally {
@@ -142,17 +148,20 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
         return partialSuccess;
     }
     
-    public void handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
+    public void handle(Message msg, Buffer buf) throws UserAuthException, TransportException
     {
-        if (cmd.toInt() < 51 || cmd.toInt() > 79)
+        // ssh-userauth packets have message numbers between 50-80
+        if (!msg.in(50, 80))
             throw new TransportException(DisconnectReason.PROTOCOL_ERROR);
         
         lock.lock();
         try {
-            if (cmd == Message.USERAUTH_BANNER)
+            if (msg == Message.USERAUTH_BANNER)
                 banner = buf.getString();
-            else if (result.hasWaiters()) { // i.e. made an auth req & waiting for result 
-                if (cmd == Message.USERAUTH_FAILURE) {
+            else if (result.hasWaiters()) { // i.e. we made an auth req & are waiting for result 
+                if (msg == Message.USERAUTH_SUCCESS)
+                    result.set(true);
+                else if (msg == Message.USERAUTH_FAILURE) {
                     allowed.clear();
                     allowed.addAll(Arrays.<String> asList(buf.getString().split(",")));
                     partialSuccess |= buf.getBoolean();
@@ -160,11 +169,9 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
                         method.request();
                     else
                         result.set(false);
-                } else if (cmd == Message.USERAUTH_SUCCESS)
-                    result.set(true);
-                else {
-                    log.debug("Asking {} method to handle", method.getName());
-                    method.handle(cmd, buf);
+                } else {
+                    log.debug("Asking {} method to handle {} packet", method.getName(), msg);
+                    method.handle(msg, buf);
                 }
             } else
                 trans.sendUnimplemented();

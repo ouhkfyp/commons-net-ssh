@@ -24,8 +24,9 @@ public abstract class KeyedAuthMethod extends AbstractAuthMethod
      * @param kProv
      *            key provider
      */
-    public KeyedAuthMethod(KeyProvider kProv)
+    public KeyedAuthMethod(String name, KeyProvider kProv)
     {
+        super(name);
         this.kProv = kProv;
     }
     

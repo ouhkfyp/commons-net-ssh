@@ -34,7 +34,19 @@ public abstract class AbstractAuthMethod implements AuthMethod
     
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
+    protected final String name;
+    
     protected AuthParams params;
+    
+    AbstractAuthMethod(String name)
+    {
+        this.name = name;
+    }
+    
+    public String getName()
+    {
+        return name;
+    }
     
     public void handle(Message cmd, Buffer buf) throws UserAuthException, TransportException
     {

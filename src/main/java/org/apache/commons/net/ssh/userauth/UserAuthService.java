@@ -44,6 +44,10 @@ public interface UserAuthService
      */
     String getBanner();
     
+    int getTimeout();
+    
     boolean hadPartialSuccess();
+    
+    void setTimeout(int timeout);
     
 }

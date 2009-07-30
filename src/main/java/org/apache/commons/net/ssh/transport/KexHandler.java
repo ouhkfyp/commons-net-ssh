@@ -56,7 +56,7 @@ class KexHandler
     private final TransportProtocol transport;
     private final Config fm;
     
-    /** Current state */
+    /** What we are expecting from the next packet */
     private Expected expected;
     
     /** Negotiated algorithms */
@@ -313,27 +313,25 @@ class KexHandler
         transport.writePacket(new Buffer(Message.NEWKEYS));
     }
     
-    void handle(Message cmd, Buffer buffer) throws TransportException
+    void handle(Message msg, Buffer buf) throws TransportException
     {
         switch (expected)
         {
             case KEXINIT:
             {
-                if (cmd != Message.KEXINIT) {
-                    transport.sendUnimplemented();
-                    break;
-                }
+                if (msg != Message.KEXINIT)
+                    throw new TransportException(DisconnectReason.PROTOCOL_ERROR, "Was expecting SSH_MSG_KEXINIT");
                 log.info("Received SSH_MSG_KEXINIT");
-                gotKexInit(buffer);
-                // State transition - expect kex followup data
+                gotKexInit(buf);
+                // Now, expect kex followup data in next message
                 expected = Expected.FOLLOWUP;
                 break;
             }
             case FOLLOWUP:
             {
                 log.info("Received kex followup data");
-                buffer.rpos(buffer.rpos() - 1);
-                if (kex.next(buffer)) {
+                buf.rpos(buf.rpos() - 1);
+                if (kex.next(buf)) {
                     // Basically done; now verify host key
                     PublicKey hostKey = kex.getHostKey();
                     if (!transport.verifyHost(hostKey))
@@ -342,16 +340,15 @@ class KexHandler
                                 + SecurityUtils.getFingerprint(hostKey) + "]");
                     // Declare all is well
                     sendNewKeys();
-                    // State transition - expect server to tell us the same thing
+                    // Now, expect server to tell us the same thing in next message
                     expected = Expected.NEWKEYS;
                 }
                 break;
             }
             case NEWKEYS:
             {
-                if (cmd != Message.NEWKEYS)
-                    throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
-                                                 "Protocol error: expected packet SSH_MSG_NEWKEYS, got " + cmd);
+                if (msg != Message.NEWKEYS)
+                    throw new TransportException(DisconnectReason.PROTOCOL_ERROR, "Was expecting SSH_MSG_NEWKEYS");
                 log.info("Received SSH_MSG_NEWKEYS");
                 gotNewKeys();
                 done.set();

@@ -28,7 +28,6 @@ public class Config
     protected static final Logger log = LoggerFactory.getLogger(Config.class);
     
     protected String version;
-    protected int timeout;
     protected List<NamedFactory<KeyExchange>> keyExchangeFactories;
     protected List<NamedFactory<Cipher>> cipherFactories;
     protected List<NamedFactory<Compression>> compressionFactories;
@@ -107,11 +106,6 @@ public class Config
         return signatureFactories;
     }
     
-    public int getTimeout()
-    {
-        return timeout;
-    }
-    
     public String getVersion()
     {
         return version;
@@ -180,11 +174,6 @@ public class Config
     public void setSignatureFactories(NamedFactory<Signature>... signatureFactories)
     {
         setSignatureFactories(Arrays.<NamedFactory<Signature>> asList(signatureFactories));
-    }
-    
-    public void setTimeout(int timeout)
-    {
-        this.timeout = timeout;
     }
     
     public void setVersion(String version)

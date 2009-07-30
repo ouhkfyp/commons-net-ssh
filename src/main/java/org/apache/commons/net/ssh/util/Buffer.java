@@ -119,11 +119,11 @@ public class Buffer
      * @param cmd
      *            the SSH command
      */
-    public Buffer(Message cmd)
+    public Buffer(Message msg)
     {
         this();
         rpos = wpos = 5;
-        putByte(cmd.toByte());
+        data[wpos++] = msg.toByte();
     }
     
     public byte[] array()
@@ -192,20 +192,6 @@ public class Buffer
         return b;
     }
     
-    /**
-     * Reads an SSH byte and returns it as {@link Constants.Message}
-     * 
-     * @return the message identifier
-     */
-    public Message getCommand()
-    {
-        byte b = getByte();
-        Message cmd = Message.fromByte(b);
-        if (cmd == null)
-            throw new BufferException("Unknown command code: " + b);
-        return cmd;
-    }
-    
     public byte[] getCompactData()
     {
         int len = available();
@@ -222,6 +208,16 @@ public class Buffer
         return (int) getLong();
     }
     
+    public long getLong()
+    {
+        ensureAvailable(4);
+        long i = data[rpos++] << 24 & 0xff000000L // 
+                | data[rpos++] << 16 & 0x00ff0000L //
+                | data[rpos++] << 8 & 0x0000ff00L //
+                | data[rpos++] & 0x000000ffL;
+        return i;
+    }
+    
     //    /**
     //     * Reads two SSH strings in order, the first one is taken to be the text and the second one is
     //     * taken to be te language tag.
@@ -234,14 +230,18 @@ public class Buffer
     //    }
     //    
     
-    public long getLong()
+    /**
+     * Reads an SSH byte and returns it as {@link Constants.Message}
+     * 
+     * @return the message identifier
+     */
+    public Message getMessageID()
     {
-        ensureAvailable(4);
-        long i = data[rpos++] << 24 & 0xff000000L // 
-                | data[rpos++] << 16 & 0x00ff0000L //
-                | data[rpos++] << 8 & 0x0000ff00L //
-                | data[rpos++] & 0x000000ffL;
-        return i;
+        byte b = getByte();
+        Message cmd = Message.fromByte(b);
+        if (cmd == null)
+            throw new BufferException("Unknown command code: " + b);
+        return cmd;
     }
     
     /**
@@ -425,18 +425,6 @@ public class Buffer
     }
     
     /**
-     * Writes a byte indicating the SSH message identifier
-     * 
-     * @param cmd
-     *            the identifier as a {@link Constants.Message} type
-     * @return this
-     */
-    public Buffer putCommand(Message cmd)
-    {
-        return putByte(cmd.toByte());
-    }
-    
-    /**
      * Writes an integer
      * 
      * @param uint32
@@ -452,6 +440,18 @@ public class Buffer
         data[wpos++] = (byte) (uint32 >> 8);
         data[wpos++] = (byte) uint32;
         return this;
+    }
+    
+    /**
+     * Writes a byte indicating the SSH message identifier
+     * 
+     * @param cmd
+     *            the identifier as a {@link Constants.Message} type
+     * @return this
+     */
+    public Buffer putMessageID(Message cmd)
+    {
+        return putByte(cmd.toByte());
     }
     
     /**

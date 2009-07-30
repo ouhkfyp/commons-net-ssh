@@ -147,14 +147,12 @@ public class KnownHosts implements HostKeyVerifier
         @Override
         public String toString()
         {
-            StringBuilder sb = new StringBuilder(hosts[0]);
+            String s = hosts[0];
             for (int i = 1; i < hosts.length; i++)
-                sb.append("," + hosts[i]);
-            sb.append(" ");
-            sb.append(type.toString());
-            sb.append(" ");
-            sb.append(sKey);
-            return sb.toString();
+                s += "," + hosts[i];
+            s += " " + type.toString();
+            s += " " + sKey;
+            return s;
         }
     }
     
@@ -213,7 +211,7 @@ public class KnownHosts implements HostKeyVerifier
             String match;
             if (e.getType() == type && (match = e.appliesTo(possibilities)) != null)
                 if (key.equals(e.getKey())) {
-                    log.info("Matched against `{}` @ {}", match);
+                    log.info("Matched against `{}`", match);
                     return true;
                 } else {
                     log.warn("Host key for `{}` has changed!", match);

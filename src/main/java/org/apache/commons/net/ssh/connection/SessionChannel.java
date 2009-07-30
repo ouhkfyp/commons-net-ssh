@@ -18,12 +18,12 @@ public class SessionChannel extends AbstractDirectChannel implements Session, Se
     private Signal exitSignal;
     
     private Boolean flowControl;
+    
     private final ChannelInputStream err = new ChannelInputStream(this, lwin);
-    public static final String TYPE = "session";
     
     public SessionChannel(ConnectionService conn)
     {
-        super(conn);
+        super("session", conn);
     }
     
     public void allocateDefaultPTY() throws ConnectionException, TransportException
@@ -96,11 +96,6 @@ public class SessionChannel extends AbstractDirectChannel implements Session, Se
         while ((r = in.read()) != -1)
             sb.append((char) r);
         return sb.toString();
-    }
-    
-    public String getType()
-    {
-        return TYPE;
     }
     
     @Override

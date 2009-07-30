@@ -27,12 +27,11 @@ import org.apache.commons.net.ssh.util.Constants.Message;
 public class AuthPassword extends AbstractAuthMethod
 {
     
-    public static final String NAME = "password";
-    
     private final PasswordFinder pwdf;
     
     public AuthPassword(PasswordFinder pwdf)
     {
+        super("password");
         this.pwdf = pwdf;
     }
     
@@ -52,11 +51,6 @@ public class AuthPassword extends AbstractAuthMethod
         } finally {
             password = null;
         }
-    }
-    
-    public String getName()
-    {
-        return NAME;
     }
     
     @Override
