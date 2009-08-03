@@ -30,13 +30,20 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.net.ssh.Config;
 import org.apache.commons.net.ssh.HostKeyVerifier;
+import org.apache.commons.net.ssh.NullService;
+import org.apache.commons.net.ssh.PacketHandler;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.cipher.Cipher;
+import org.apache.commons.net.ssh.compression.Compression;
+import org.apache.commons.net.ssh.mac.MAC;
 import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Event;
 import org.apache.commons.net.ssh.util.IOUtils;
+import org.apache.commons.net.ssh.util.SecurityUtils;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
+import org.apache.commons.net.ssh.util.Constants.KeyType;
 import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,15 +54,16 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-public class TransportProtocol implements Transport
+public class TransportProtocol implements Transport, PacketHandler
 {
     
     private final Logger log = LoggerFactory.getLogger(getClass());
     
     private final Config config;
     
-    /** Currently active service i.e. ssh-userauth, ssh-connection */
-    private Service service;
+    private final Service nullService = new NullService(this);
+    /** Currently active service e.g. UserAuthService, ConnectionService */
+    private Service service = nullService;
     
     private Socket socket;
     private InputStream input;
@@ -67,10 +75,8 @@ public class TransportProtocol implements Transport
      */
     private final Queue<HostKeyVerifier> hostVerifiers = new LinkedList<HostKeyVerifier>();
     
-    private boolean kexOngoing;
-    
     /** For key (re)exchange */
-    private final KexHandler kexer;
+    private final KeyExchanger kexer;
     
     /** Message identifier for last packet received */
     private Message msg;
@@ -87,30 +93,28 @@ public class TransportProtocol implements Transport
             {
                 try {
                     while (!Thread.currentThread().isInterrupted())
-                        converter.received((byte) input.read());
+                        decoder.received((byte) input.read());
                 } catch (IOException e) {
-                    // We are meant to shut up and draw to a close if interrupted
-                    if (!Thread.currentThread().isInterrupted())
+                    if (Thread.currentThread().isInterrupted()) {
+                        // We are meant to shut up and draw to a close if interrupted
+                    } else
                         die(e);
                 }
                 log.debug("Stopping");
             }
         };
     
-    /** For encoding and decoding SSH packets */
-    final Converter converter;
+    private final Encoder encoder;
+    private final Decoder decoder;
     
     /** Psuedo-random number generator as retrieved from the factory manager */
-    final Random prng;
-    
-    /** Whether this session has been authenticated */
-    boolean authed = false;
+    private final Random prng;
     
     /** Client version identification string */
-    final String clientID;
+    private final String clientID;
     
     /** Server version identification string */
-    String serverID;
+    private String serverID;
     
     private final ReentrantLock lock = new ReentrantLock();
     
@@ -120,38 +124,36 @@ public class TransportProtocol implements Transport
     
     private int timeout = 30;
     
-    /**
-     * 
-     * @param config
-     */
     public TransportProtocol(Config config)
+    {
+        this(config, null, null, null);
+    }
+    
+    public TransportProtocol(Config config, KeyExchanger kexer, Encoder encoder, Decoder decoder)
     {
         this.config = config;
         clientID = "SSH-2.0-" + config.getVersion();
         prng = config.getRandomFactory().create();
-        converter = new Converter(this);
-        kexer = new KexHandler(this);
+        this.kexer = kexer == null ? new KeyExchanger(this) : kexer;
+        this.encoder = encoder == null ? new Encoder(prng) : encoder;
+        this.decoder = decoder == null ? new Decoder(this) : decoder;
     }
     
-    // Documented in interface
     public synchronized void addHostKeyVerifier(HostKeyVerifier hkv)
     {
         hostVerifiers.add(hkv);
     }
     
-    // Documented in interface
     public void disconnect()
     {
         disconnect(DisconnectReason.BY_APPLICATION);
     }
     
-    // Documented in interface
     public void disconnect(DisconnectReason reason)
     {
         disconnect(reason, "");
     }
     
-    // Documented in interface
     public void disconnect(DisconnectReason reason, String msg)
     {
         if (msg == null)
@@ -164,27 +166,29 @@ public class TransportProtocol implements Transport
         close();
     }
     
-    public void forcedRekey() throws TransportException
+    public String getClientID()
     {
-        lock.lock();
-        try {
-            startKex();
-            kexer.done.await(timeout);
-        } finally {
-            lock.unlock();
-        }
+        return clientID;
     }
     
-    // Documented in interface
     public String getClientVersion()
     {
         return clientID.substring(8);
     }
     
-    // Documented in interface
     public Config getConfig()
     {
         return config;
+    }
+    
+    public KeyExchanger getKeyExchanger()
+    {
+        return kexer;
+    }
+    
+    public Random getPRNG()
+    {
+        return prng;
     }
     
     public InetAddress getRemoteHost()
@@ -197,32 +201,97 @@ public class TransportProtocol implements Transport
         return socket.getPort();
     }
     
-    // Documented in interface
+    public String getServerID()
+    {
+        return serverID;
+    }
+    
     public String getServerVersion()
     {
         return serverID == null ? serverID : serverID.substring(8);
     }
     
-    // Documented in interface
-    public Service getService()
+    public synchronized Service getService()
     {
-        lock.lock();
-        try {
-            return service;
-        } finally {
-            lock.unlock();
-        }
+        return service;
     }
     
-    // Documented in interface
     public byte[] getSessionID()
     {
-        return kexer.sessionID;
+        return kexer.getSessionID();
     }
     
     public int getTimeout()
     {
         return timeout;
+    }
+    
+    /**
+     * This is where all incoming packets are handled. If they pertain to the transport layer, they
+     * are handled here; otherwise they are delegated to the active service instance if any via
+     * {@link Service#handle}.
+     * <p
+     * Even among the transport layer specific packets, key exchange packets are delegated to
+     * {@link KeyExchanger#handle}.
+     * <p>
+     * This method is called in the context of the {@link #dispatcher} thread via
+     * {@link Converter#munch} when a full packet has been decoded.
+     * 
+     * @param buf
+     *            buffer containg the packet
+     * @throws SSHException
+     *             if an error occurs during handling
+     */
+    public void handle(Message msg, Buffer buf) throws SSHException
+    {
+        log.debug("Received packet {}", msg);
+        
+        if (msg.geq(50))
+            getService().handle(msg, buf);
+        
+        else if (msg.in(20, 21) || msg.in(30, 49)) // kex packet
+            kexer.handle(msg, buf);
+        
+        else
+            switch (msg)
+            {
+                case DISCONNECT:
+                {
+                    DisconnectReason code = DisconnectReason.fromInt(buf.getInt());
+                    String message = buf.getString();
+                    log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, message);
+                    throw new TransportException(code, message);
+                }
+                case IGNORE:
+                {
+                    log.info("Received SSH_MSG_IGNORE");
+                    break;
+                }
+                case UNIMPLEMENTED:
+                {
+                    long seqNum = buf.getLong();
+                    log.info("Received SSH_MSG_UNIMPLEMENTED #{}", seqNum);
+                    gotUnimplemented(seqNum);
+                    break;
+                }
+                case DEBUG:
+                {
+                    boolean display = buf.getBoolean();
+                    String message = buf.getString();
+                    log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, message);
+                    break;
+                }
+                case SERVICE_ACCEPT:
+                {
+                    if (!serviceAccept.hasWaiters())
+                        throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
+                                                     "Got a service accept notification when none was awaited");
+                    serviceAccept.set();
+                    break;
+                }
+                default:
+                    sendUnimplemented();
+            }
     }
     
     // Documented in interface
@@ -246,34 +315,19 @@ public class TransportProtocol implements Transport
             throw new TransportException(e);
         }
         
-        long t = System.nanoTime();
-        lock.lock();
-        try {
-            startKex();
-            dispatcher.start();
-            kexer.done.await(timeout);
-        } finally {
-            lock.unlock();
-        }
-        log.info("Initialized in {} seconds", (System.nanoTime() - t) / 1000000000.0);
+        dispatcher.start();
     }
     
     public boolean isRunning()
     {
         lock.lock();
         try {
-            return !close.isSet() && (kexOngoing || kexer.done.isSet());
+            return !close.isSet() && (kexer.isKexOngoing() || kexer.isKexDone());
         } finally {
             lock.unlock();
         }
     }
     
-    public void join(int timeout) throws TransportException
-    {
-        close.await(timeout);
-    }
-    
-    // synchronized keyword used for mutual exclusion -- for protection 'lock' is used
     public synchronized void reqService(Service service) throws TransportException
     {
         lock.lock();
@@ -289,30 +343,39 @@ public class TransportProtocol implements Transport
     
     public long sendUnimplemented() throws TransportException
     {
-        // (seqi - 1) because converter always maintains the seq num applicable to the next packet
-        long seq = converter.seqi - 1;
+        long seq = decoder.getSequenceNumber() - 1;
         log.info("Sending SSH_MSG_UNIMPLEMENTED for packet #{}", seq);
         return writePacket(new Buffer(Message.UNIMPLEMENTED).putInt(seq));
     }
     
     public void setAuthenticated()
     {
-        synchronized (converter) {
-            authed = true;
+        lock.lock();
+        try {
+            encoder.setAuthenticated();
+            decoder.setAuthenticated();
+        } finally {
+            lock.unlock();
         }
+    }
+    
+    public void setClientToServerAlgorithms(Cipher cipher, MAC mac, Compression comp)
+    {
+        encoder.setAlgorithms(cipher, mac, comp);
+    }
+    
+    public void setServerToClientAlgorithms(Cipher cipher, MAC mac, Compression comp)
+    {
+        decoder.setAlgorithms(cipher, mac, comp);
     }
     
     public synchronized void setService(Service service)
     {
-        lock.lock();
-        try {
-            if (!serviceAccept.isSet())
-                throw new AssertionError();
-            log.info("Setting active service to {}", service.getName());
-            this.service = service;
-        } finally {
-            lock.unlock();
-        }
+        if (service == null)
+            service = nullService;
+        
+        log.info("Setting active service to {}", service.getName());
+        this.service = service;
     }
     
     public void setTimeout(int timeout)
@@ -320,21 +383,43 @@ public class TransportProtocol implements Transport
         this.timeout = timeout;
     }
     
+    /**
+     * Tries to validate host key with all the host key verifiers known to this instance (
+     * {@link #hostVerifiers})
+     * 
+     * @param key
+     *            the host key to verify
+     */
+    public synchronized void verifyHost(PublicKey key) throws TransportException
+    {
+        for (HostKeyVerifier hkv : hostVerifiers) {
+            log.debug("Trying to verify host key with {}", hkv);
+            if (hkv.verify(socket.getInetAddress(), key))
+                return;
+        }
+        
+        throw new TransportException(DisconnectReason.HOST_KEY_NOT_VERIFIABLE, "Could not verify ["
+                + KeyType.fromKey(key) + "] host key with fingerprint [" + SecurityUtils.getFingerprint(key) + "]");
+    }
+    
+    public void waitForClose(int timeout) throws TransportException
+    {
+        close.await(timeout);
+    }
+    
     public long writePacket(Buffer payload) throws TransportException
     {
-        lock.lock();
         // Ensure packets sent in correct order
+        lock.lock();
         try {
-            if (kexOngoing) {
-                // Only transport layer packets (1 to 49) allowed except SERVICE_REQUEST (5)
+            if (kexer.isKexOngoing()) {
+                // Only transport layer packets (1 to 49) allowed except SERVICE_REQUEST
                 Message m = Message.fromByte(payload.array()[payload.rpos()]);
                 if (!m.in(1, 49) || m == Message.SERVICE_REQUEST)
-                    kexer.done.await(timeout);
-            } else if (converter.seqo == 0) { // True every 2**32'th packet
-                startKex();
-                kexer.done.await(timeout);
-            }
-            long seq = converter.encode(payload);
+                    kexer.waitForDone();
+            } else if (encoder.getSequenceNumber() == 0)
+                kexer.startKex(true);
+            long seq = encoder.encode(payload);
             try {
                 output.write(payload.array(), payload.rpos(), payload.available());
             } catch (IOException e) {
@@ -371,28 +456,25 @@ public class TransportProtocol implements Transport
         lock.lock();
         try {
             
-            // Takes care of notifying service
-            if (service != null) {
-                log.debug("Notifying {}", service);
-                try {
-                    service.notifyError(causeOfDeath);
-                } catch (Exception ignored) {
-                    log.debug("Service spewed - {}", ignored.toString());
-                }
-                service = null;
-            }
-            
             // Throw the exception in any thread waiting for state change
-            Event.Util.<TransportException> notifyError(causeOfDeath, kexer.done, close, serviceAccept);
+            Event.Util.<TransportException> notifyError(causeOfDeath, close, serviceAccept);
             
-            if (causeOfDeath.getDisconnectReason() != DisconnectReason.UNKNOWN && msg != Message.DISCONNECT)
-                /*
-                 * Send SSH_MSG_DISCONNECT if we have the required info in the exception and the
-                 * exception does not arise from receiving a SSH_MSG_DISCONNECT ourself
-                 */
+            kexer.notifyError(causeOfDeath);
+            
+            log.debug("Notifying {}", getService());
+            try {
+                getService().notifyError(causeOfDeath);
+            } catch (Exception ignored) {
+                log.debug("Service spewed - {}", ignored.toString());
+            }
+            setService(nullService);
+            
+            final boolean gotRequiredInfo = causeOfDeath.getDisconnectReason() != DisconnectReason.UNKNOWN;
+            final boolean didNotReceiveDisconnect = msg != Message.DISCONNECT;
+            
+            if (gotRequiredInfo && didNotReceiveDisconnect)
                 disconnect(causeOfDeath.getDisconnectReason(), causeOfDeath.getMessage());
             else
-                // stop inPump without sending disconnect message
                 close();
             
         } finally {
@@ -408,18 +490,14 @@ public class TransportProtocol implements Transport
      */
     private void gotUnimplemented(long seqNum) throws SSHException
     {
-        lock.lock();
-        try {
-            if (kexOngoing)
-                throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
-            else if (service != null)
-                // The service might throw an exception, but that's okay and encouraged
-                service.notifyUnimplemented(seqNum);
-            else
-                log.warn("Ignoring unimplemented message for packet #{}", seqNum);
-        } finally {
-            lock.unlock();
-        }
+        if (kexer.isKexOngoing())
+            throw new TransportException("Received SSH_MSG_UNIMPLEMENTED while exchanging keys");
+        getService().notifyUnimplemented(seqNum);
+    }
+    
+    private Event<TransportException> newEvent(String name)
+    {
+        return new Event<TransportException>(name, TransportException.chainer, lock);
     }
     
     /**
@@ -486,149 +564,7 @@ public class TransportProtocol implements Transport
     private void sendServiceRequest(String serviceName) throws TransportException
     {
         log.debug("Sending SSH_MSG_SERVICE_REQUEST for {}", serviceName);
-        Buffer buffer = new Buffer(Message.SERVICE_REQUEST);
-        buffer.putString(serviceName);
-        writePacket(buffer);
-    }
-    
-    private void startKex() throws TransportException
-    {
-        lock.lock();
-        try {
-            kexOngoing = true;
-            kexer.init();
-        } finally {
-            lock.unlock();
-        }
-    }
-    
-    /**
-     * This is where all incoming packets are handled. If they pertain to the transport layer, they
-     * are handled here; otherwise they are delegated to the active service instance if any via
-     * {@link Service#handle}.
-     * <p
-     * Even among the transport layer specific packets, key exchange packets are delegated to
-     * {@link KexHandler#handle}.
-     * <p>
-     * This method is called in the context of the {@link #dispatcher} thread via
-     * {@link Converter#munch} when a full packet has been decoded.
-     * 
-     * @param buf
-     *            buffer containg the packet
-     * @throws SSHException
-     *             if an error occurs during handling
-     */
-    void handle(Buffer buf) throws SSHException
-    {
-        msg = buf.getMessageID();
-        log.debug("Received packet {}", msg);
-        
-        lock.lock();
-        try {
-            
-            if (msg.geq(50)) // => Not a transport layer packet
-                if (service != null)
-                    service.handle(msg, buf);
-                else
-                    throw new TransportException("Got a non-transport-layer message but no Service instance registered");
-            
-            else
-                switch (msg)
-                {
-                    case DISCONNECT:
-                    {
-                        DisconnectReason code = DisconnectReason.fromInt(buf.getInt());
-                        String message = buf.getString();
-                        log.info("Received SSH_MSG_DISCONNECT (reason={}, msg={})", code, message);
-                        throw new TransportException(code, message);
-                    }
-                    case IGNORE:
-                    {
-                        log.info("Received SSH_MSG_IGNORE");
-                        break;
-                    }
-                    case UNIMPLEMENTED:
-                    {
-                        long seqNum = buf.getLong();
-                        log.info("Received SSH_MSG_UNIMPLEMENTED #{}", seqNum);
-                        gotUnimplemented(seqNum);
-                        break;
-                    }
-                    case DEBUG:
-                    {
-                        boolean display = buf.getBoolean();
-                        String message = buf.getString();
-                        log.info("Received SSH_MSG_DEBUG (display={}) '{}'", display, message);
-                        break;
-                    }
-                    case SERVICE_ACCEPT:
-                    {
-                        if (!serviceAccept.hasWaiters())
-                            throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
-                                                         "Got a service accept notification when none was awaited");
-                        serviceAccept.set();
-                        break;
-                    }
-                    case NEWKEYS:
-                    {
-                        if (!kexOngoing)
-                            throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
-                                                         "Strange receiving NEWKEYS without a key-exchange ongoing");
-                        kexOngoing = false;
-                        kexer.handle(msg, buf);
-                        break;
-                    }
-                    case KEXINIT:
-                    {
-                        /*
-                         * If nobody's waiting on the kex done event, take it to mean it is a
-                         * server-initiated exchange.
-                         */
-                        if (kexer.done.isSet())
-                            startKex();
-                        kexer.handle(msg, buf);
-                        break;
-                    }
-                    default:
-                    {
-                        if (msg.in(30, 49)) // kex packets
-                        {
-                            if (kexOngoing)
-                                kexer.handle(msg, buf);
-                            else
-                                throw new TransportException(DisconnectReason.PROTOCOL_ERROR,
-                                                             "Key exchange packet received when kex was not on");
-                        } else
-                            sendUnimplemented();
-                    }
-                }
-            
-        } finally {
-            lock.unlock();
-        }
-    }
-    
-    Event<TransportException> newEvent(String name)
-    {
-        return new Event<TransportException>(name, TransportException.chainer, lock);
-    }
-    
-    /**
-     * Tries to validate host key with all the host key verifiers known to this instance (
-     * {@link #hostVerifiers})
-     * 
-     * @param key
-     *            the host key to verify
-     * @return {@code true} if host key could be verified, {@code false} if not
-     */
-    synchronized boolean verifyHost(PublicKey key)
-    {
-        for (HostKeyVerifier hkv : hostVerifiers) {
-            log.debug("Trying to verify host key with {}", hkv);
-            if (hkv.verify(socket.getInetAddress(), key))
-                return true;
-        }
-        return false;
+        writePacket(new Buffer(Message.SERVICE_REQUEST).putString(serviceName));
     }
     
 }

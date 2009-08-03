@@ -59,7 +59,7 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     
     public UserAuthProtocol(Transport trans)
     {
-        super(trans);
+        super("ssh-userauth", trans);
     }
     
     public synchronized void authenticate(String username, Service nextService, Iterable<AuthMethod> methods)
@@ -115,11 +115,6 @@ public class UserAuthProtocol extends AbstractService implements UserAuthService
     public String getBanner()
     {
         return banner;
-    }
-    
-    public String getName()
-    {
-        return NAME;
     }
     
     public String getNextServiceName()

@@ -21,11 +21,16 @@ package org.apache.commons.net.ssh.transport;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.security.PublicKey;
 
 import org.apache.commons.net.ssh.Config;
 import org.apache.commons.net.ssh.HostKeyVerifier;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.Service;
+import org.apache.commons.net.ssh.cipher.Cipher;
+import org.apache.commons.net.ssh.compression.Compression;
+import org.apache.commons.net.ssh.mac.MAC;
+import org.apache.commons.net.ssh.random.Random;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants;
 import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
@@ -35,7 +40,7 @@ import org.apache.commons.net.ssh.util.Constants.DisconnectReason;
  * 
  * @author <a href="mailto:shikhar@schmizz.net">Shikhar Bhushan</a>
  */
-public interface Transport
+public interface Transport extends PacketWriter
 {
     
     /**
@@ -71,7 +76,7 @@ public interface Transport
      */
     void disconnect(DisconnectReason reason, String msg);
     
-    void forcedRekey() throws TransportException;
+    String getClientID();
     
     /**
      * Returns the version string used by this client to identify itself to an SSH server, e.g.
@@ -88,9 +93,15 @@ public interface Transport
      */
     Config getConfig();
     
+    KeyExchanger getKeyExchanger();
+    
+    Random getPRNG();
+    
     InetAddress getRemoteHost();
     
     int getRemotePort();
+    
+    String getServerID();
     
     /**
      * Returns the version string as sent by the SSH server for identification purposes.
@@ -107,15 +118,6 @@ public interface Transport
      * @return the currently active service
      */
     Service getService();
-    
-    /**
-     * Returns the session identifier computed during key exchange.
-     * <p>
-     * If the session has not yet been initialized via {@link #open}, it will be {@code null}.
-     * 
-     * @return session identifier as a byte array
-     */
-    byte[] getSessionID();
     
     int getTimeout();
     
@@ -142,8 +144,6 @@ public interface Transport
      * @return {@code true} or {@code false} indicating whether the session is running
      */
     boolean isRunning();
-    
-    void join(int timeout) throws TransportException;
     
     /**
      * Request a SSH service represented by a {@link Service} instance.
@@ -172,6 +172,10 @@ public interface Transport
      */
     void setAuthenticated();
     
+    void setClientToServerAlgorithms(Cipher cipher, MAC mac, Compression comp);
+    
+    void setServerToClientAlgorithms(Cipher cipher, MAC mac, Compression comp);
+    
     /**
      * Sets the currently active service, to which handling of packets not understood by the
      * transport layer is delegated.
@@ -189,15 +193,8 @@ public interface Transport
     
     void setTimeout(int timeout);
     
-    /**
-     * Encodes and sends an SSH packet over the output stream for this session.
-     * 
-     * @param payload
-     *            the {@link Buffer} with the payload
-     * @throws IOException
-     *             if the packet could not be sent
-     * @return the sequence no. of the sent packet
-     */
-    long writePacket(Buffer payload) throws TransportException;
+    void verifyHost(PublicKey key) throws TransportException;
+    
+    void waitForClose(int timeout) throws TransportException;
     
 }

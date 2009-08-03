@@ -16,13 +16,20 @@ public abstract class AbstractService implements Service
     
     protected final Logger log = LoggerFactory.getLogger(getClass());
     
+    protected final String name;
     protected final Transport trans;
     protected int timeout;
     
-    public AbstractService(Transport trans)
+    public AbstractService(String name, Transport trans)
     {
+        this.name = name;
         this.trans = trans;
         timeout = trans.getTimeout();
+    }
+    
+    public String getName()
+    {
+        return name;
     }
     
     public int getTimeout()

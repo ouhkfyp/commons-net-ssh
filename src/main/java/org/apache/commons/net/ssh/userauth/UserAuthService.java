@@ -28,12 +28,6 @@ import org.apache.commons.net.ssh.transport.TransportException;
  */
 public interface UserAuthService
 {
-    
-    /**
-     * The assigned name for this service.
-     */
-    String NAME = "ssh-userauth";
-    
     void authenticate(String username, Service nextService, Iterable<AuthMethod> methods) throws UserAuthException,
             TransportException;
     

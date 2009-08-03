@@ -18,6 +18,7 @@
  */
 package org.apache.commons.net.ssh.userauth;
 
+import org.apache.commons.net.ssh.PacketHandler;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants.Message;
@@ -29,7 +30,7 @@ import org.apache.commons.net.ssh.util.Constants.Message;
  * @author shikhar
  * @see UserAuthService
  */
-public interface AuthMethod
+public interface AuthMethod extends PacketHandler
 {
     
     String getName();
