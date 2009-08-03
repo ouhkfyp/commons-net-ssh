@@ -433,6 +433,7 @@ public class SSHClient extends SocketClient
     {
         super._connectAction_();
         trans.init(_socket_);
+        trans.getKeyExchanger().startKex(true);
     }
     
 }

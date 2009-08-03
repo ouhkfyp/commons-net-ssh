@@ -36,7 +36,7 @@ public class X11
              * There are some security concerns arising from both of the above points, but then this
              * snippet is intended to serve as a simple example...
              */
-            sess.startX11Forwarding(false, "MIT-MAGIC-COOKIE-1", "552098d741d7b8c6bf6594e98bf0ff7e", 0,
+            sess.startX11Forwarding(false, "MIT-MAGIC-COOKIE-1", "b82b684083406053bb71bd9fc754502b", 0,
                                     new SocketForwardingConnectListener(new InetSocketAddress("localhost", 6000)));
             
             Command cmd = sess.exec("firefox");

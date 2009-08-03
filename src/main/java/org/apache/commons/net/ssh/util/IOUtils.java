@@ -21,7 +21,7 @@ package org.apache.commons.net.ssh.util;
 import java.io.Closeable;
 import java.io.IOException;
 
-import org.apache.commons.net.ssh.transport.Transport;
+import org.apache.commons.net.ssh.transport.PacketWriter;
 
 /**
  * TODO Add javadoc
@@ -41,10 +41,10 @@ public class IOUtils
             }
     }
     
-    public static long writeQuietly(Transport trans, Buffer payload)
+    public static long writeQuietly(PacketWriter pw, Buffer payload)
     {
         try {
-            return trans.writePacket(payload);
+            return pw.writePacket(payload);
         } catch (IOException ignored) {
             return -1;
         }

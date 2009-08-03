@@ -110,7 +110,12 @@ public class Future<V, Ex extends Throwable>
     
     public boolean hasWaiters()
     {
-        return lock.hasWaiters(cond);
+        lock.lock();
+        try {
+            return lock.hasWaiters(cond);
+        } finally {
+            lock.unlock();
+        }
     }
     
     public boolean isSet()

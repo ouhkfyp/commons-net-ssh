@@ -4,13 +4,14 @@ import java.io.Closeable;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import org.apache.commons.net.ssh.PacketHandler;
 import org.apache.commons.net.ssh.SSHException;
 import org.apache.commons.net.ssh.transport.Transport;
 import org.apache.commons.net.ssh.transport.TransportException;
 import org.apache.commons.net.ssh.util.Buffer;
 import org.apache.commons.net.ssh.util.Constants;
 
-public interface Channel extends Closeable
+public interface Channel extends Closeable, PacketHandler
 {
     
     interface Direct extends Channel

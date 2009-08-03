@@ -50,9 +50,9 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     protected int windowSize = 0x200000;
     protected int maxPacketSize = 0x8000;
     
-    public ConnectionProtocol(Transport session)
+    public ConnectionProtocol(Transport trans)
     {
-        super(session);
+        super("ssh-connection", trans);
     }
     
     public void attach(Channel chan)
@@ -93,11 +93,6 @@ public class ConnectionProtocol extends AbstractService implements ConnectionSer
     public int getMaxPacketSize()
     {
         return maxPacketSize;
-    }
-    
-    public String getName()
-    {
-        return NAME;
     }
     
     @Override

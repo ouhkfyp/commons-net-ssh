@@ -31,7 +31,7 @@ import org.apache.commons.net.ssh.util.Constants.Message;
  * @see UserAuthService
  * @see ConnectionService
  */
-public interface Service
+public interface Service extends PacketHandler
 {
     /**
      * Get the assigned name for this SSH service.
@@ -48,13 +48,13 @@ public interface Service
      * Meant to be invoked as a callback by the transport layer so it can deliver packets meant for
      * the active service.
      * 
-     * @param cmd
+     * @param msg
      *            the message identifier
      * @param buffer
      *            the buffer containing rest of the packet
      * @throws SSHException
      */
-    void handle(Message cmd, Buffer buffer) throws SSHException;
+    void handle(Message msg, Buffer buffer) throws SSHException;
     
     /**
      * Notifies this service of an error in the transport layer.

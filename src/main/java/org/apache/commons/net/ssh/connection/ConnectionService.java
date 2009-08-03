@@ -8,8 +8,6 @@ import org.apache.commons.net.ssh.util.Future;
 public interface ConnectionService
 {
     
-    String NAME = "ssh-connection";
-    
     public Future<Buffer, ConnectionException> sendGlobalRequest(String name, boolean wantReply, Buffer specifics)
             throws TransportException;
     
