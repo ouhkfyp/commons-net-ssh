@@ -51,8 +51,8 @@ public abstract class AbstractChannel implements Channel
     protected final ConnectionService conn;
     protected final int id;
     
-    protected final LocalWindow lwin = new LocalWindow(this);
-    protected final RemoteWindow rwin = new RemoteWindow(this);;
+    protected final Window lwin = new Window(this, true);
+    protected final Window rwin = new Window(this, false);
     
     protected Queue<Event<ConnectionException>> reqs = new LinkedList<Event<ConnectionException>>();
     

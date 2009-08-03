@@ -18,13 +18,16 @@
  */
 package org.apache.commons.net.ssh.connection;
 
+import org.apache.commons.net.ssh.transport.TransportException;
+import org.apache.commons.net.ssh.util.Buffer;
+import org.apache.commons.net.ssh.util.Constants.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * @author <a href="mailto:dev@mina.apache.org">Apache MINA SSHD Project</a>
  */
-public abstract class Window
+public class Window
 {
     
     protected final Logger log;
@@ -35,10 +38,20 @@ public abstract class Window
     protected int initSize;
     protected int maxPacketSize;
     
-    Window(Channel chan, boolean local)
+    public Window(Channel chan, boolean local)
     {
         this.chan = chan;
         log = LoggerFactory.getLogger("<< chan#" + chan.getID() + " / " + (local ? "local" : "remote") + " window >>");
+    }
+    
+    public synchronized void check(int max) throws TransportException
+    {
+        int threshold = Math.min(maxPacketSize * 8, max / 4);
+        int diff = max - size;
+        if (diff > maxPacketSize && (diff > threshold || size < threshold)) {
+            sendWindowAdjust(diff);
+            expand(diff);
+        }
     }
     
     public synchronized void consume(int dec)
@@ -71,16 +84,33 @@ public abstract class Window
         return size;
     }
     
+    public void init(int initialWinSize, int maxPacketSize)
+    {
+        this.size = this.initSize = initialWinSize;
+        this.maxPacketSize = maxPacketSize;
+    }
+    
+    public void sendWindowAdjust(int inc) throws TransportException
+    {
+        log.info("Sending SSH_MSG_CHANNEL_WINDOW_ADJUST to #{} for {} bytes", chan.getRecipient(), inc);
+        chan.getTransport().writePacket(new Buffer(Message.CHANNEL_WINDOW_ADJUST) //
+                                                                                 .putInt(chan.getRecipient()) //
+                                                                                 .putInt(inc));
+    }
+    
     @Override
     public String toString()
     {
         return "[ size=" + size + " | maxPacketSize=" + maxPacketSize + " ]";
     }
     
-    void init(int initialWinSize, int maxPacketSize)
+    public synchronized void waitAndConsume(int howMuch) throws InterruptedException
     {
-        this.size = this.initSize = initialWinSize;
-        this.maxPacketSize = maxPacketSize;
+        while (size < howMuch) {
+            log.debug("Waiting, need window space for {} bytes", howMuch);
+            wait();
+        }
+        consume(howMuch);
     }
     
 }
