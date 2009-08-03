@@ -33,7 +33,7 @@ public class ChannelOutputStream extends OutputStream
 {
     
     protected final Channel chan;
-    protected final RemoteWindow win;
+    protected final Window win;
     
     protected final byte[] b = new byte[1];
     
@@ -41,7 +41,7 @@ public class ChannelOutputStream extends OutputStream
     protected int bufferLength;
     protected boolean closed;
     
-    public ChannelOutputStream(Channel chan, RemoteWindow win)
+    public ChannelOutputStream(Channel chan, Window win)
     {
         this.chan = chan;
         this.win = win;
